@@ -1,0 +1,102 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://samples/fountain.gd" id="1_fount"]
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.18, 0.24, 0.3, 1)
+roughness = 0.4
+metallic = 0.2
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(14, 1, 14)
+
+[sub_resource type="StandardMaterial3D" id="WallMat"]
+albedo_color = Color(0.3, 0.34, 0.4, 1)
+roughness = 0.5
+
+[sub_resource type="CylinderMesh" id="SpoutMesh"]
+top_radius = 0.5
+bottom_radius = 0.8
+height = 3.0
+
+[sub_resource type="StandardMaterial3D" id="SpoutMat"]
+albedo_color = Color(0.4, 0.44, 0.5, 1)
+roughness = 0.5
+metallic = 0.4
+
+[sub_resource type="BoxMesh" id="M_Floor"]
+size = Vector3(14, 1, 14)
+
+[sub_resource type="BoxMesh" id="M_WallN"]
+size = Vector3(14.8, 2, 0.5)
+
+[sub_resource type="BoxMesh" id="M_WallS"]
+size = Vector3(14.8, 2, 0.5)
+
+[sub_resource type="BoxMesh" id="M_WallE"]
+size = Vector3(0.5, 2, 14)
+
+[sub_resource type="BoxMesh" id="M_WallW"]
+size = Vector3(0.5, 2, 14)
+
+[node name="Fountain" type="Node3D"]
+script = ExtResource("1_fount")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("M_Floor")
+material_override = SubResource("FloorMat")
+
+[node name="WallN" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -7)
+body_type = 0
+shape_type = 7
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallN"]
+mesh = SubResource("M_WallN")
+material_override = SubResource("WallMat")
+
+[node name="WallS" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 7)
+body_type = 0
+shape_type = 7
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallS"]
+mesh = SubResource("M_WallS")
+material_override = SubResource("WallMat")
+
+[node name="WallE" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 1, 0)
+body_type = 0
+shape_type = 7
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallE"]
+mesh = SubResource("M_WallE")
+material_override = SubResource("WallMat")
+
+[node name="WallW" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1, 0)
+body_type = 0
+shape_type = 7
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallW"]
+mesh = SubResource("M_WallW")
+material_override = SubResource("WallMat")
+
+[node name="Spout" type="MeshInstance3D" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+mesh = SubResource("SpoutMesh")
+material_override = SubResource("SpoutMat")
+

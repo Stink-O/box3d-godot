@@ -1,0 +1,219 @@
+[gd_scene load_steps=22 format=3]
+
+[ext_resource type="Script" path="res://samples/character.gd" id="1_char"]
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="BlockMat"]
+albedo_color = Color(0.4, 0.44, 0.5, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="RampMat"]
+albedo_color = Color(0.5, 0.42, 0.32, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="CharMat"]
+albedo_color = Color(0.9, 0.5, 0.2, 1)
+roughness = 0.4
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="CrateMat"]
+albedo_color = Color(0.72, 0.5, 0.24, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="BarrelMat"]
+albedo_color = Color(0.75, 0.16, 0.12, 1)
+roughness = 0.45
+metallic = 0.25
+
+[sub_resource type="StandardMaterial3D" id="BallMat"]
+albedo_color = Color(0.25, 0.65, 0.85, 1)
+roughness = 0.3
+metallic = 0.2
+
+[sub_resource type="BoxMesh" id="M_Floor"]
+size = Vector3(44, 1, 44)
+
+[sub_resource type="BoxMesh" id="M_Platform"]
+size = Vector3(9, 2.21085, 8)
+
+[sub_resource type="BoxMesh" id="M_WallL"]
+size = Vector3(0.4, 1.6, 8)
+
+[sub_resource type="BoxMesh" id="M_WallR"]
+size = Vector3(0.4, 1.6, 8)
+
+[sub_resource type="BoxMesh" id="RampMesh"]
+size = Vector3(6, 0.4, 8)
+
+[sub_resource type="BoxMesh" id="M_Crate1"]
+size = Vector3(0.8, 0.8, 0.8)
+
+[sub_resource type="BoxMesh" id="M_Crate2"]
+size = Vector3(0.8, 0.8, 0.8)
+
+[sub_resource type="BoxMesh" id="M_Crate3"]
+size = Vector3(0.8, 0.8, 0.8)
+
+[sub_resource type="CylinderMesh" id="M_Barrel1"]
+top_radius = 0.45
+bottom_radius = 0.45
+height = 1
+
+[sub_resource type="CylinderMesh" id="M_Barrel2"]
+top_radius = 0.45
+bottom_radius = 0.45
+height = 1
+
+[sub_resource type="SphereMesh" id="M_Ball1"]
+radius = 0.35
+height = 0.7
+
+[sub_resource type="SphereMesh" id="M_Ball2"]
+radius = 0.35
+height = 0.7
+
+[sub_resource type="CapsuleMesh" id="CharMesh"]
+radius = 0.4
+height = 1.8
+
+[node name="Character" type="Node3D"]
+script = ExtResource("1_char")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("M_Floor")
+material_override = SubResource("FloorMat")
+
+[node name="Platform" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.10542, -7.68895)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Platform"]
+mesh = SubResource("M_Platform")
+material_override = SubResource("BlockMat")
+
+[node name="WallL" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4, 0.8, 5)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallL"]
+mesh = SubResource("M_WallL")
+material_override = SubResource("BlockMat")
+
+[node name="WallR" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4, 0.8, 5)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallR"]
+mesh = SubResource("M_WallR")
+material_override = SubResource("BlockMat")
+
+[node name="Ramp" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0.96106, 0.27636, 0, -0.27636, 0.96106, 0, 0.91321, 0.1)
+body_type = 0
+box_size = Vector3(6, 0.4, 8)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ramp"]
+mesh = SubResource("RampMesh")
+material_override = SubResource("RampMat")
+
+[node name="Crate1" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.1, 0.4, 6.3)
+box_size = Vector3(0.8, 0.8, 0.8)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crate1"]
+mesh = SubResource("M_Crate1")
+material_override = SubResource("CrateMat")
+
+[node name="Crate2" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 6.6)
+box_size = Vector3(0.8, 0.8, 0.8)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crate2"]
+mesh = SubResource("M_Crate2")
+material_override = SubResource("CrateMat")
+
+[node name="Crate3" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1, 0.4, 6.3)
+box_size = Vector3(0.8, 0.8, 0.8)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crate3"]
+mesh = SubResource("M_Crate3")
+material_override = SubResource("CrateMat")
+
+[node name="Barrel1" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.3, 0.5, 7.8)
+shape_type = 3
+capsule_radius = 0.45
+capsule_height = 1
+friction = 0.5
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Barrel1"]
+mesh = SubResource("M_Barrel1")
+material_override = SubResource("BarrelMat")
+
+[node name="Barrel2" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.2, 2.71085, -9.18895)
+shape_type = 3
+capsule_radius = 0.45
+capsule_height = 1
+friction = 0.5
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Barrel2"]
+mesh = SubResource("M_Barrel2")
+material_override = SubResource("BarrelMat")
+
+[node name="Ball1" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 2.56085, -10.689)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.4
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball1"]
+mesh = SubResource("M_Ball1")
+material_override = SubResource("BallMat")
+
+[node name="Ball2" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0.35, 7.5)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.4
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball2"]
+mesh = SubResource("M_Ball2")
+material_override = SubResource("BallMat")
+
+[node name="Character" type="Box3DCharacterBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 9)
+radius = 0.4
+height = 1.8
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Character"]
+mesh = SubResource("CharMesh")
+material_override = SubResource("CharMat")
+
+[node name="Hint" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.6, 8.6)
+billboard = 1
+text = "WASD + Space: walk & jump (release right-mouse to steer)\nWalk into the crates to shove them around — F: shoot a ball at the barrels"
+font_size = 40
+outline_size = 12
+modulate = Color(1, 0.92, 0.75, 1)
+

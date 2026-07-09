@@ -1,0 +1,182 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://samples/body_types.gd" id="1_bt"]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(34, 1, 34)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="StaticMesh"]
+size = Vector3(2, 3, 2)
+
+[sub_resource type="StandardMaterial3D" id="StaticMat"]
+albedo_color = Color(0.45, 0.47, 0.52, 1)
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="PlatMesh"]
+size = Vector3(5, 0.4, 3)
+
+[sub_resource type="StandardMaterial3D" id="PlatMat"]
+albedo_color = Color(0.3, 0.6, 0.75, 1)
+roughness = 0.4
+metallic = 0.3
+
+[sub_resource type="BoxMesh" id="PistonMesh"]
+size = Vector3(1.6, 1, 1.6)
+
+[sub_resource type="StandardMaterial3D" id="PistonMat"]
+albedo_color = Color(0.75, 0.5, 0.3, 1)
+roughness = 0.5
+metallic = 0.3
+
+[sub_resource type="BoxMesh" id="CrateMesh"]
+size = Vector3(0.7, 0.7, 0.7)
+
+[sub_resource type="StandardMaterial3D" id="CrateMat"]
+albedo_color = Color(0.87, 0.55, 0.25, 1)
+roughness = 0.45
+
+[node name="BodyTypes" type="Node3D"]
+script = ExtResource("1_bt")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="StaticBlock" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9, 1.5, 0)
+body_type = 0
+box_size = Vector3(2, 3, 2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/StaticBlock"]
+mesh = SubResource("StaticMesh")
+material_override = SubResource("StaticMat")
+
+[node name="KinematicPlatform" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+body_type = 1
+box_size = Vector3(5, 0.4, 3)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/KinematicPlatform"]
+mesh = SubResource("PlatMesh")
+material_override = SubResource("PlatMat")
+
+[node name="Piston" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0.5, 0)
+body_type = 1
+box_size = Vector3(1.6, 1, 1.6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Piston"]
+mesh = SubResource("PistonMesh")
+material_override = SubResource("PistonMat")
+
+[node name="Crates" type="Node3D" parent="Box3DWorld"]
+
+[node name="Crate_0" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1.55, -0.4)
+box_size = Vector3(0.7, 0.7, 0.7)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_0"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="Crate_1" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 1.55, -0.4)
+box_size = Vector3(0.7, 0.7, 0.7)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_1"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="Crate_2" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 2.3, 0.4)
+box_size = Vector3(0.7, 0.7, 0.7)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_2"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="Crate_3" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 2.3, 0.4)
+box_size = Vector3(0.7, 0.7, 0.7)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_3"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="Crate_4" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 3.05, -0.4)
+box_size = Vector3(0.7, 0.7, 0.7)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_4"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="Crate_5" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 3.05, -0.4)
+box_size = Vector3(0.7, 0.7, 0.7)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_5"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="Crate_6" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 1.4, 0)
+box_size = Vector3(0.7, 0.7, 0.7)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_6"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="Crate_7" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2.15, 0)
+box_size = Vector3(0.7, 0.7, 0.7)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_7"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="Crate_8" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2.9, 0)
+box_size = Vector3(0.7, 0.7, 0.7)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_8"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="LblStatic" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9, 4.2, 0)
+billboard = 1
+text = "STATIC"
+font_size = 64
+outline_size = 18
+modulate = Color(0.7, 0.75, 0.85, 1)
+
+[node name="LblKinematic" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.4, 0)
+billboard = 1
+text = "KINEMATIC"
+font_size = 64
+outline_size = 18
+modulate = Color(0.5, 0.8, 1, 1)
+
+[node name="LblDynamic" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 4.6, 0)
+billboard = 1
+text = "DYNAMIC"
+font_size = 64
+outline_size = 18
+modulate = Color(1, 0.75, 0.4, 1)
+

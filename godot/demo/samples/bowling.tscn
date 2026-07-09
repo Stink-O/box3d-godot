@@ -1,0 +1,208 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://samples/bowling.gd" id="1_bowl"]
+
+[sub_resource type="StandardMaterial3D" id="LaneMat"]
+albedo_color = Color(0.5, 0.38, 0.22, 1)
+roughness = 0.35
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="LaneMesh"]
+size = Vector3(5.4, 1, 36)
+
+[sub_resource type="StandardMaterial3D" id="BumperMat"]
+albedo_color = Color(0.25, 0.27, 0.32, 1)
+roughness = 0.6
+
+[sub_resource type="CylinderMesh" id="PinMesh"]
+top_radius = 0.18
+bottom_radius = 0.18
+height = 1.3
+
+[sub_resource type="StandardMaterial3D" id="PinMat"]
+albedo_color = Color(0.95, 0.95, 0.97, 1)
+roughness = 0.4
+
+[sub_resource type="SphereMesh" id="BallMesh"]
+radius = 0.5
+height = 1.0
+
+[sub_resource type="StandardMaterial3D" id="BallMat"]
+albedo_color = Color(0.2, 0.25, 0.7, 1)
+roughness = 0.2
+metallic = 0.3
+
+[sub_resource type="BoxMesh" id="M_BumperL"]
+size = Vector3(0.4, 1, 34)
+
+[sub_resource type="BoxMesh" id="M_BumperR"]
+size = Vector3(0.4, 1, 34)
+
+[node name="Bowling" type="Node3D"]
+script = ExtResource("1_bowl")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Lane" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -2)
+body_type = 0
+shape_type = 7
+friction = 0.15
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Lane"]
+mesh = SubResource("LaneMesh")
+material_override = SubResource("LaneMat")
+
+[node name="BumperL" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.7, 0.5, -2)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/BumperL"]
+mesh = SubResource("M_BumperL")
+material_override = SubResource("BumperMat")
+
+[node name="BumperR" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.7, 0.5, -2)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/BumperR"]
+mesh = SubResource("M_BumperR")
+material_override = SubResource("BumperMat")
+
+[node name="Pins" type="Node3D" parent="Box3DWorld"]
+
+[node name="Pin_0" type="Box3DBody" parent="Box3DWorld/Pins"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.65, -9)
+shape_type = 3
+capsule_radius = 0.18
+capsule_height = 1.3
+density = 0.6
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pins/Pin_0"]
+mesh = SubResource("PinMesh")
+material_override = SubResource("PinMat")
+
+[node name="Pin_1" type="Box3DBody" parent="Box3DWorld/Pins"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.475, 0.65, -9.95)
+shape_type = 3
+capsule_radius = 0.18
+capsule_height = 1.3
+density = 0.6
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pins/Pin_1"]
+mesh = SubResource("PinMesh")
+material_override = SubResource("PinMat")
+
+[node name="Pin_2" type="Box3DBody" parent="Box3DWorld/Pins"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.475, 0.65, -9.95)
+shape_type = 3
+capsule_radius = 0.18
+capsule_height = 1.3
+density = 0.6
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pins/Pin_2"]
+mesh = SubResource("PinMesh")
+material_override = SubResource("PinMat")
+
+[node name="Pin_3" type="Box3DBody" parent="Box3DWorld/Pins"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.95, 0.65, -10.9)
+shape_type = 3
+capsule_radius = 0.18
+capsule_height = 1.3
+density = 0.6
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pins/Pin_3"]
+mesh = SubResource("PinMesh")
+material_override = SubResource("PinMat")
+
+[node name="Pin_4" type="Box3DBody" parent="Box3DWorld/Pins"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.65, -10.9)
+shape_type = 3
+capsule_radius = 0.18
+capsule_height = 1.3
+density = 0.6
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pins/Pin_4"]
+mesh = SubResource("PinMesh")
+material_override = SubResource("PinMat")
+
+[node name="Pin_5" type="Box3DBody" parent="Box3DWorld/Pins"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.95, 0.65, -10.9)
+shape_type = 3
+capsule_radius = 0.18
+capsule_height = 1.3
+density = 0.6
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pins/Pin_5"]
+mesh = SubResource("PinMesh")
+material_override = SubResource("PinMat")
+
+[node name="Pin_6" type="Box3DBody" parent="Box3DWorld/Pins"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.425, 0.65, -11.85)
+shape_type = 3
+capsule_radius = 0.18
+capsule_height = 1.3
+density = 0.6
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pins/Pin_6"]
+mesh = SubResource("PinMesh")
+material_override = SubResource("PinMat")
+
+[node name="Pin_7" type="Box3DBody" parent="Box3DWorld/Pins"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.475, 0.65, -11.85)
+shape_type = 3
+capsule_radius = 0.18
+capsule_height = 1.3
+density = 0.6
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pins/Pin_7"]
+mesh = SubResource("PinMesh")
+material_override = SubResource("PinMat")
+
+[node name="Pin_8" type="Box3DBody" parent="Box3DWorld/Pins"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.475, 0.65, -11.85)
+shape_type = 3
+capsule_radius = 0.18
+capsule_height = 1.3
+density = 0.6
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pins/Pin_8"]
+mesh = SubResource("PinMesh")
+material_override = SubResource("PinMat")
+
+[node name="Pin_9" type="Box3DBody" parent="Box3DWorld/Pins"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.425, 0.65, -11.85)
+shape_type = 3
+capsule_radius = 0.18
+capsule_height = 1.3
+density = 0.6
+friction = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pins/Pin_9"]
+mesh = SubResource("PinMesh")
+material_override = SubResource("PinMat")
+
+[node name="Ball" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 8)
+shape_type = 1
+sphere_radius = 0.5
+density = 6.0
+friction = 0.2
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+

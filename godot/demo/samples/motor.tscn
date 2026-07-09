@@ -1,0 +1,181 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://samples/motor.gd" id="1_motor"]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="CylinderMesh" id="DiscMesh"]
+top_radius = 3.5
+bottom_radius = 3.5
+height = 0.3
+
+[sub_resource type="StandardMaterial3D" id="DiscMat"]
+albedo_color = Color(0.35, 0.5, 0.7, 1)
+roughness = 0.5
+metallic = 0.2
+
+[sub_resource type="CylinderMesh" id="PostMesh"]
+top_radius = 0.3
+bottom_radius = 0.3
+height = 1.1
+
+[sub_resource type="StandardMaterial3D" id="PostMat"]
+albedo_color = Color(0.3, 0.32, 0.38, 1)
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="RiderMesh"]
+size = Vector3(0.8, 0.8, 0.8)
+
+[sub_resource type="StandardMaterial3D" id="RiderMat"]
+albedo_color = Color(0.87, 0.46, 0.2, 1)
+roughness = 0.4
+
+[sub_resource type="BoxMesh" id="BladeMesh"]
+size = Vector3(4, 0.4, 0.4)
+
+[sub_resource type="StandardMaterial3D" id="BladeMat"]
+albedo_color = Color(0.7, 0.35, 0.35, 1)
+roughness = 0.5
+
+[node name="Motor" type="Node3D"]
+script = ExtResource("1_motor")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="TurnPost" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.3
+capsule_height = 1.1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/TurnPost"]
+mesh = SubResource("PostMesh")
+material_override = SubResource("PostMat")
+
+[node name="Turntable" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
+shape_type = 3
+capsule_radius = 3.5
+capsule_height = 0.3
+density = 0.6
+friction = 0.9
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Turntable"]
+mesh = SubResource("DiscMesh")
+material_override = SubResource("DiscMat")
+
+[node name="TurntableJoint" type="Box3DHingeJoint" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1.25, 0)
+body_a = NodePath("../Turntable")
+motor_enabled = true
+motor_speed = 0.0
+max_motor_torque = 4000.0
+
+[node name="Riders" type="Node3D" parent="Box3DWorld"]
+
+[node name="Rider_0" type="Box3DBody" parent="Box3DWorld/Riders"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.8, 1.85, 0)
+box_size = Vector3(0.8, 0.8, 0.8)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Riders/Rider_0"]
+mesh = SubResource("RiderMesh")
+material_override = SubResource("RiderMat")
+
+[node name="Rider_1" type="Box3DBody" parent="Box3DWorld/Riders"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.273, 1.85, 1.273)
+box_size = Vector3(0.8, 0.8, 0.8)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Riders/Rider_1"]
+mesh = SubResource("RiderMesh")
+material_override = SubResource("RiderMat")
+
+[node name="Rider_2" type="Box3DBody" parent="Box3DWorld/Riders"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.102e-16, 1.85, 1.8)
+box_size = Vector3(0.8, 0.8, 0.8)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Riders/Rider_2"]
+mesh = SubResource("RiderMesh")
+material_override = SubResource("RiderMat")
+
+[node name="Rider_3" type="Box3DBody" parent="Box3DWorld/Riders"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.273, 1.85, 1.273)
+box_size = Vector3(0.8, 0.8, 0.8)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Riders/Rider_3"]
+mesh = SubResource("RiderMesh")
+material_override = SubResource("RiderMat")
+
+[node name="Rider_4" type="Box3DBody" parent="Box3DWorld/Riders"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.8, 1.85, 2.204e-16)
+box_size = Vector3(0.8, 0.8, 0.8)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Riders/Rider_4"]
+mesh = SubResource("RiderMesh")
+material_override = SubResource("RiderMat")
+
+[node name="Rider_5" type="Box3DBody" parent="Box3DWorld/Riders"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.273, 1.85, -1.273)
+box_size = Vector3(0.8, 0.8, 0.8)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Riders/Rider_5"]
+mesh = SubResource("RiderMesh")
+material_override = SubResource("RiderMat")
+
+[node name="Rider_6" type="Box3DBody" parent="Box3DWorld/Riders"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.307e-16, 1.85, -1.8)
+box_size = Vector3(0.8, 0.8, 0.8)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Riders/Rider_6"]
+mesh = SubResource("RiderMesh")
+material_override = SubResource("RiderMat")
+
+[node name="Rider_7" type="Box3DBody" parent="Box3DWorld/Riders"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.273, 1.85, -1.273)
+box_size = Vector3(0.8, 0.8, 0.8)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Riders/Rider_7"]
+mesh = SubResource("RiderMesh")
+material_override = SubResource("RiderMat")
+
+[node name="WindPost" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 1.8, 0)
+body_type = 0
+box_size = Vector3(0.4, 3.6, 0.4)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WindPost"]
+mesh = SubResource("PostMesh")
+material_override = SubResource("PostMat")
+
+[node name="Windmill" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 3.6, 1.2)
+box_size = Vector3(4, 0.4, 0.4)
+density = 0.8
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Windmill"]
+mesh = SubResource("BladeMesh")
+material_override = SubResource("BladeMat")
+
+[node name="WindmillJoint" type="Box3DHingeJoint" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 3.6, 1.2)
+body_a = NodePath("../Windmill")
+motor_enabled = true
+motor_speed = 0.0
+max_motor_torque = 800.0
+

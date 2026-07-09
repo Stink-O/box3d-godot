@@ -1,0 +1,68 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://samples/bullets.gd" id="1_bul"]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(20, 1, 26)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="WallMesh"]
+size = Vector3(6, 3.5, 0.15)
+
+[sub_resource type="StandardMaterial3D" id="WallMat"]
+albedo_color = Color(0.7, 0.72, 0.78, 1)
+roughness = 0.5
+
+[sub_resource type="BoxMesh" id="BackMesh"]
+size = Vector3(16, 4, 0.6)
+
+[sub_resource type="StandardMaterial3D" id="BackMat"]
+albedo_color = Color(0.32, 0.34, 0.4, 1)
+roughness = 0.7
+
+[node name="Bullets" type="Node3D"]
+script = ExtResource("1_bul")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+continuous_collision = true
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="Wall" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, 0)
+body_type = 0
+box_size = Vector3(6, 3.5, 0.15)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Wall"]
+mesh = SubResource("WallMesh")
+material_override = SubResource("WallMat")
+
+[node name="Backstop" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -10)
+body_type = 0
+box_size = Vector3(16, 4, 0.6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Backstop"]
+mesh = SubResource("BackMesh")
+material_override = SubResource("BackMat")
+
+[node name="Status" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.2, 0)
+billboard = 1
+text = "CCD: ON — bullets stop at the wall
+(press C to toggle, B to fire)"
+font_size = 48
+outline_size = 15
+modulate = Color(1, 0.92, 0.6, 1)

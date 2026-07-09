@@ -1,0 +1,230 @@
+[gd_scene load_steps=19 format=3]
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="WoodMat"]
+albedo_color = Color(0.6, 0.42, 0.26, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="RedMat"]
+albedo_color = Color(0.82, 0.3, 0.28, 1)
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="MetalMat"]
+albedo_color = Color(0.55, 0.6, 0.7, 1)
+roughness = 0.35
+metallic = 0.5
+
+[sub_resource type="BoxMesh" id="Msh_0"]
+size = Vector3(30, 1, 30)
+
+[sub_resource type="BoxMesh" id="Msh_1"]
+size = Vector3(0.25, 1, 0.25)
+
+[sub_resource type="BoxMesh" id="Msh_2"]
+size = Vector3(0.25, 1, 0.25)
+
+[sub_resource type="BoxMesh" id="Msh_3"]
+size = Vector3(0.25, 1, 0.25)
+
+[sub_resource type="BoxMesh" id="Msh_4"]
+size = Vector3(0.25, 1, 0.25)
+
+[sub_resource type="BoxMesh" id="Msh_5"]
+size = Vector3(2.2, 0.25, 2.2)
+
+[sub_resource type="BoxMesh" id="Msh_6"]
+size = Vector3(2.2, 0.45, 0.45)
+
+[sub_resource type="BoxMesh" id="Msh_7"]
+size = Vector3(0.45, 2.2, 0.45)
+
+[sub_resource type="CapsuleMesh" id="Msh_8"]
+radius = 0.16
+height = 2
+
+[sub_resource type="SphereMesh" id="Msh_9"]
+radius = 0.45
+height = 0.9
+
+[sub_resource type="SphereMesh" id="Msh_10"]
+radius = 0.45
+height = 0.9
+
+[sub_resource type="CapsuleMesh" id="Msh_11"]
+radius = 0.13
+height = 1.7
+
+[sub_resource type="CapsuleMesh" id="Msh_12"]
+radius = 0.13
+height = 1.7
+
+[sub_resource type="CapsuleMesh" id="Msh_13"]
+radius = 0.13
+height = 1.7
+
+[node name="Compound" type="Node3D"]
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("Msh_0")
+material_override = SubResource("FloorMat")
+
+[node name="Furniture" type="Node3D" parent="Box3DWorld"]
+
+[node name="Table" type="Box3DBody" parent="Box3DWorld/Furniture"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 0)
+
+[node name="S0" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Table"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.85, 0.5, -0.85)
+shape_type = 0
+box_size = Vector3(0.25, 1.0, 0.25)
+
+[node name="M0" type="MeshInstance3D" parent="Box3DWorld/Furniture/Table"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.85, 0.5, -0.85)
+mesh = SubResource("Msh_1")
+material_override = SubResource("WoodMat")
+
+[node name="S1" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Table"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.85, 0.5, -0.85)
+shape_type = 0
+box_size = Vector3(0.25, 1.0, 0.25)
+
+[node name="M1" type="MeshInstance3D" parent="Box3DWorld/Furniture/Table"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.85, 0.5, -0.85)
+mesh = SubResource("Msh_2")
+material_override = SubResource("WoodMat")
+
+[node name="S2" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Table"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.85, 0.5, 0.85)
+shape_type = 0
+box_size = Vector3(0.25, 1.0, 0.25)
+
+[node name="M2" type="MeshInstance3D" parent="Box3DWorld/Furniture/Table"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.85, 0.5, 0.85)
+mesh = SubResource("Msh_3")
+material_override = SubResource("WoodMat")
+
+[node name="S3" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Table"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.85, 0.5, 0.85)
+shape_type = 0
+box_size = Vector3(0.25, 1.0, 0.25)
+
+[node name="M3" type="MeshInstance3D" parent="Box3DWorld/Furniture/Table"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.85, 0.5, 0.85)
+mesh = SubResource("Msh_4")
+material_override = SubResource("WoodMat")
+
+[node name="S4" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Table"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.12, 0)
+shape_type = 0
+box_size = Vector3(2.2, 0.25, 2.2)
+
+[node name="M4" type="MeshInstance3D" parent="Box3DWorld/Furniture/Table"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.12, 0)
+mesh = SubResource("Msh_5")
+material_override = SubResource("WoodMat")
+
+[node name="Cross" type="Box3DBody" parent="Box3DWorld/Furniture"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0)
+
+[node name="S0" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Cross"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+shape_type = 0
+box_size = Vector3(2.2, 0.45, 0.45)
+
+[node name="M0" type="MeshInstance3D" parent="Box3DWorld/Furniture/Cross"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+mesh = SubResource("Msh_6")
+material_override = SubResource("RedMat")
+
+[node name="S1" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Cross"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+shape_type = 0
+box_size = Vector3(0.45, 2.2, 0.45)
+
+[node name="M1" type="MeshInstance3D" parent="Box3DWorld/Furniture/Cross"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+mesh = SubResource("Msh_7")
+material_override = SubResource("RedMat")
+
+[node name="Dumbbell" type="Box3DBody" parent="Box3DWorld/Furniture"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0)
+
+[node name="S0" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Dumbbell"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0.5, 0)
+shape_type = 2
+capsule_radius = 0.16
+capsule_height = 2.0
+
+[node name="M0" type="MeshInstance3D" parent="Box3DWorld/Furniture/Dumbbell"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("Msh_8")
+material_override = SubResource("MetalMat")
+
+[node name="S1" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Dumbbell"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.1, 0.5, 0)
+shape_type = 1
+sphere_radius = 0.45
+
+[node name="M1" type="MeshInstance3D" parent="Box3DWorld/Furniture/Dumbbell"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.1, 0.5, 0)
+mesh = SubResource("Msh_9")
+material_override = SubResource("MetalMat")
+
+[node name="S2" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Dumbbell"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1, 0.5, 0)
+shape_type = 1
+sphere_radius = 0.45
+
+[node name="M2" type="MeshInstance3D" parent="Box3DWorld/Furniture/Dumbbell"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1, 0.5, 0)
+mesh = SubResource("Msh_10")
+material_override = SubResource("MetalMat")
+
+[node name="Jack" type="Box3DBody" parent="Box3DWorld/Furniture"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 0)
+
+[node name="S0" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Jack"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0.85, 0)
+shape_type = 2
+capsule_radius = 0.13
+capsule_height = 1.7
+
+[node name="M0" type="MeshInstance3D" parent="Box3DWorld/Furniture/Jack"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0.85, 0)
+mesh = SubResource("Msh_11")
+material_override = SubResource("MetalMat")
+
+[node name="S1" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Jack"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+shape_type = 2
+capsule_radius = 0.13
+capsule_height = 1.7
+
+[node name="M1" type="MeshInstance3D" parent="Box3DWorld/Furniture/Jack"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+mesh = SubResource("Msh_12")
+material_override = SubResource("MetalMat")
+
+[node name="S2" type="Box3DCollisionShape" parent="Box3DWorld/Furniture/Jack"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.85, 0)
+shape_type = 2
+capsule_radius = 0.13
+capsule_height = 1.7
+
+[node name="M2" type="MeshInstance3D" parent="Box3DWorld/Furniture/Jack"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.85, 0)
+mesh = SubResource("Msh_13")
+material_override = SubResource("RedMat")
+

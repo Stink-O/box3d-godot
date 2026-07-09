@@ -1,0 +1,114 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://samples/car.gd" id="1_car"]
+
+[sub_resource type="BoxMesh" id="ChassisMesh"]
+size = Vector3(1.8, 0.5, 4)
+
+[sub_resource type="StandardMaterial3D" id="ChassisMat"]
+albedo_color = Color(0.78, 0.18, 0.16, 1)
+roughness = 0.35
+metallic = 0.25
+
+[sub_resource type="CylinderMesh" id="WheelMesh"]
+top_radius = 0.42
+bottom_radius = 0.42
+height = 0.32
+
+[sub_resource type="StandardMaterial3D" id="WheelMat"]
+albedo_color = Color(0.08, 0.08, 0.09, 1)
+roughness = 0.9
+
+[node name="Car" type="Node3D"]
+script = ExtResource("1_car")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+substep_count = 8
+
+[node name="Chassis" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.83, 0)
+box_size = Vector3(1.8, 0.5, 4)
+density = 6.0
+friction = 0.4
+linear_damping = 0.4
+angular_damping = 4.0
+lock_angular_x = true
+lock_angular_z = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Chassis"]
+mesh = SubResource("ChassisMesh")
+material_override = SubResource("ChassisMat")
+
+[node name="FrontLeftWheel" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, -0.95, 0.48, -1.5)
+shape_type = 3
+capsule_radius = 0.42
+capsule_height = 0.32
+cylinder_sides = 32
+density = 1.5
+friction = 0.2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/FrontLeftWheel"]
+mesh = SubResource("WheelMesh")
+material_override = SubResource("WheelMat")
+
+[node name="FrontRightWheel" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, 0.95, 0.48, -1.5)
+shape_type = 3
+capsule_radius = 0.42
+capsule_height = 0.32
+cylinder_sides = 32
+density = 1.5
+friction = 0.2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/FrontRightWheel"]
+mesh = SubResource("WheelMesh")
+material_override = SubResource("WheelMat")
+
+[node name="RearLeftWheel" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, -0.95, 0.48, 1.5)
+shape_type = 3
+capsule_radius = 0.42
+capsule_height = 0.32
+cylinder_sides = 32
+density = 1.5
+friction = 0.2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/RearLeftWheel"]
+mesh = SubResource("WheelMesh")
+material_override = SubResource("WheelMat")
+
+[node name="RearRightWheel" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, 0.95, 0.48, 1.5)
+shape_type = 3
+capsule_radius = 0.42
+capsule_height = 0.32
+cylinder_sides = 32
+density = 1.5
+friction = 0.2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/RearRightWheel"]
+mesh = SubResource("WheelMesh")
+material_override = SubResource("WheelMat")
+
+[node name="FrontLeftJoint" type="Box3DHingeJoint" parent="Box3DWorld"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.95, 0.48, -1.5)
+body_a = NodePath("../FrontLeftWheel")
+body_b = NodePath("../Chassis")
+
+[node name="FrontRightJoint" type="Box3DHingeJoint" parent="Box3DWorld"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0.95, 0.48, -1.5)
+body_a = NodePath("../FrontRightWheel")
+body_b = NodePath("../Chassis")
+
+[node name="RearLeftJoint" type="Box3DHingeJoint" parent="Box3DWorld"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.95, 0.48, 1.5)
+body_a = NodePath("../RearLeftWheel")
+body_b = NodePath("../Chassis")
+
+[node name="RearRightJoint" type="Box3DHingeJoint" parent="Box3DWorld"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0.95, 0.48, 1.5)
+body_a = NodePath("../RearRightWheel")
+body_b = NodePath("../Chassis")
+

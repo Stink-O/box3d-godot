@@ -1,0 +1,676 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://common/cube.tscn" id="1_cube"]
+
+[sub_resource type="BoxMesh" id="FloorMesh_1"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat_1"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[node name="CubePile" type="Node3D"]
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh_1")
+material_override = SubResource("FloorMat_1")
+
+[node name="CubeStack" type="Node3D" parent="Box3DWorld"]
+
+[node name="Cube_0" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 0.55, -2.55)
+
+[node name="Cube_1" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 0.55, -1.53)
+
+[node name="Cube_2" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 0.55, -0.51)
+
+[node name="Cube_3" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 0.55, 0.51)
+
+[node name="Cube_4" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 0.55, 1.53)
+
+[node name="Cube_5" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 0.55, 2.55)
+
+[node name="Cube_6" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 0.55, -2.55)
+
+[node name="Cube_7" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 0.55, -1.53)
+
+[node name="Cube_8" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 0.55, -0.51)
+
+[node name="Cube_9" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 0.55, 0.51)
+
+[node name="Cube_10" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 0.55, 1.53)
+
+[node name="Cube_11" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 0.55, 2.55)
+
+[node name="Cube_12" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 0.55, -2.55)
+
+[node name="Cube_13" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 0.55, -1.53)
+
+[node name="Cube_14" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 0.55, -0.51)
+
+[node name="Cube_15" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 0.55, 0.51)
+
+[node name="Cube_16" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 0.55, 1.53)
+
+[node name="Cube_17" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 0.55, 2.55)
+
+[node name="Cube_18" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 0.55, -2.55)
+
+[node name="Cube_19" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 0.55, -1.53)
+
+[node name="Cube_20" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 0.55, -0.51)
+
+[node name="Cube_21" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 0.55, 0.51)
+
+[node name="Cube_22" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 0.55, 1.53)
+
+[node name="Cube_23" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 0.55, 2.55)
+
+[node name="Cube_24" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 0.55, -2.55)
+
+[node name="Cube_25" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 0.55, -1.53)
+
+[node name="Cube_26" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 0.55, -0.51)
+
+[node name="Cube_27" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 0.55, 0.51)
+
+[node name="Cube_28" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 0.55, 1.53)
+
+[node name="Cube_29" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 0.55, 2.55)
+
+[node name="Cube_30" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 0.55, -2.55)
+
+[node name="Cube_31" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 0.55, -1.53)
+
+[node name="Cube_32" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 0.55, -0.51)
+
+[node name="Cube_33" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 0.55, 0.51)
+
+[node name="Cube_34" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 0.55, 1.53)
+
+[node name="Cube_35" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 0.55, 2.55)
+
+[node name="Cube_36" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 1.57, -2.55)
+
+[node name="Cube_37" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 1.57, -1.53)
+
+[node name="Cube_38" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 1.57, -0.51)
+
+[node name="Cube_39" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 1.57, 0.51)
+
+[node name="Cube_40" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 1.57, 1.53)
+
+[node name="Cube_41" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 1.57, 2.55)
+
+[node name="Cube_42" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 1.57, -2.55)
+
+[node name="Cube_43" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 1.57, -1.53)
+
+[node name="Cube_44" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 1.57, -0.51)
+
+[node name="Cube_45" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 1.57, 0.51)
+
+[node name="Cube_46" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 1.57, 1.53)
+
+[node name="Cube_47" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 1.57, 2.55)
+
+[node name="Cube_48" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 1.57, -2.55)
+
+[node name="Cube_49" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 1.57, -1.53)
+
+[node name="Cube_50" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 1.57, -0.51)
+
+[node name="Cube_51" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 1.57, 0.51)
+
+[node name="Cube_52" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 1.57, 1.53)
+
+[node name="Cube_53" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 1.57, 2.55)
+
+[node name="Cube_54" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 1.57, -2.55)
+
+[node name="Cube_55" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 1.57, -1.53)
+
+[node name="Cube_56" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 1.57, -0.51)
+
+[node name="Cube_57" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 1.57, 0.51)
+
+[node name="Cube_58" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 1.57, 1.53)
+
+[node name="Cube_59" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 1.57, 2.55)
+
+[node name="Cube_60" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 1.57, -2.55)
+
+[node name="Cube_61" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 1.57, -1.53)
+
+[node name="Cube_62" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 1.57, -0.51)
+
+[node name="Cube_63" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 1.57, 0.51)
+
+[node name="Cube_64" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 1.57, 1.53)
+
+[node name="Cube_65" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 1.57, 2.55)
+
+[node name="Cube_66" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 1.57, -2.55)
+
+[node name="Cube_67" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 1.57, -1.53)
+
+[node name="Cube_68" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 1.57, -0.51)
+
+[node name="Cube_69" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 1.57, 0.51)
+
+[node name="Cube_70" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 1.57, 1.53)
+
+[node name="Cube_71" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 1.57, 2.55)
+
+[node name="Cube_72" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 2.59, -2.55)
+
+[node name="Cube_73" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 2.59, -1.53)
+
+[node name="Cube_74" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 2.59, -0.51)
+
+[node name="Cube_75" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 2.59, 0.51)
+
+[node name="Cube_76" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 2.59, 1.53)
+
+[node name="Cube_77" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 2.59, 2.55)
+
+[node name="Cube_78" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 2.59, -2.55)
+
+[node name="Cube_79" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 2.59, -1.53)
+
+[node name="Cube_80" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 2.59, -0.51)
+
+[node name="Cube_81" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 2.59, 0.51)
+
+[node name="Cube_82" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 2.59, 1.53)
+
+[node name="Cube_83" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 2.59, 2.55)
+
+[node name="Cube_84" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 2.59, -2.55)
+
+[node name="Cube_85" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 2.59, -1.53)
+
+[node name="Cube_86" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 2.59, -0.51)
+
+[node name="Cube_87" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 2.59, 0.51)
+
+[node name="Cube_88" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 2.59, 1.53)
+
+[node name="Cube_89" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 2.59, 2.55)
+
+[node name="Cube_90" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 2.59, -2.55)
+
+[node name="Cube_91" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 2.59, -1.53)
+
+[node name="Cube_92" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 2.59, -0.51)
+
+[node name="Cube_93" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 2.59, 0.51)
+
+[node name="Cube_94" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 2.59, 1.53)
+
+[node name="Cube_95" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 2.59, 2.55)
+
+[node name="Cube_96" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 2.59, -2.55)
+
+[node name="Cube_97" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 2.59, -1.53)
+
+[node name="Cube_98" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 2.59, -0.51)
+
+[node name="Cube_99" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 2.59, 0.51)
+
+[node name="Cube_100" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 2.59, 1.53)
+
+[node name="Cube_101" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 2.59, 2.55)
+
+[node name="Cube_102" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 2.59, -2.55)
+
+[node name="Cube_103" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 2.59, -1.53)
+
+[node name="Cube_104" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 2.59, -0.51)
+
+[node name="Cube_105" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 2.59, 0.51)
+
+[node name="Cube_106" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 2.59, 1.53)
+
+[node name="Cube_107" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 2.59, 2.55)
+
+[node name="Cube_108" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 3.61, -2.55)
+
+[node name="Cube_109" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 3.61, -1.53)
+
+[node name="Cube_110" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 3.61, -0.51)
+
+[node name="Cube_111" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 3.61, 0.51)
+
+[node name="Cube_112" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 3.61, 1.53)
+
+[node name="Cube_113" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 3.61, 2.55)
+
+[node name="Cube_114" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 3.61, -2.55)
+
+[node name="Cube_115" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 3.61, -1.53)
+
+[node name="Cube_116" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 3.61, -0.51)
+
+[node name="Cube_117" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 3.61, 0.51)
+
+[node name="Cube_118" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 3.61, 1.53)
+
+[node name="Cube_119" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 3.61, 2.55)
+
+[node name="Cube_120" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 3.61, -2.55)
+
+[node name="Cube_121" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 3.61, -1.53)
+
+[node name="Cube_122" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 3.61, -0.51)
+
+[node name="Cube_123" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 3.61, 0.51)
+
+[node name="Cube_124" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 3.61, 1.53)
+
+[node name="Cube_125" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 3.61, 2.55)
+
+[node name="Cube_126" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 3.61, -2.55)
+
+[node name="Cube_127" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 3.61, -1.53)
+
+[node name="Cube_128" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 3.61, -0.51)
+
+[node name="Cube_129" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 3.61, 0.51)
+
+[node name="Cube_130" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 3.61, 1.53)
+
+[node name="Cube_131" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 3.61, 2.55)
+
+[node name="Cube_132" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 3.61, -2.55)
+
+[node name="Cube_133" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 3.61, -1.53)
+
+[node name="Cube_134" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 3.61, -0.51)
+
+[node name="Cube_135" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 3.61, 0.51)
+
+[node name="Cube_136" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 3.61, 1.53)
+
+[node name="Cube_137" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 3.61, 2.55)
+
+[node name="Cube_138" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 3.61, -2.55)
+
+[node name="Cube_139" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 3.61, -1.53)
+
+[node name="Cube_140" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 3.61, -0.51)
+
+[node name="Cube_141" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 3.61, 0.51)
+
+[node name="Cube_142" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 3.61, 1.53)
+
+[node name="Cube_143" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 3.61, 2.55)
+
+[node name="Cube_144" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 4.63, -2.55)
+
+[node name="Cube_145" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 4.63, -1.53)
+
+[node name="Cube_146" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 4.63, -0.51)
+
+[node name="Cube_147" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 4.63, 0.51)
+
+[node name="Cube_148" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 4.63, 1.53)
+
+[node name="Cube_149" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 4.63, 2.55)
+
+[node name="Cube_150" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 4.63, -2.55)
+
+[node name="Cube_151" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 4.63, -1.53)
+
+[node name="Cube_152" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 4.63, -0.51)
+
+[node name="Cube_153" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 4.63, 0.51)
+
+[node name="Cube_154" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 4.63, 1.53)
+
+[node name="Cube_155" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 4.63, 2.55)
+
+[node name="Cube_156" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 4.63, -2.55)
+
+[node name="Cube_157" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 4.63, -1.53)
+
+[node name="Cube_158" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 4.63, -0.51)
+
+[node name="Cube_159" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 4.63, 0.51)
+
+[node name="Cube_160" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 4.63, 1.53)
+
+[node name="Cube_161" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 4.63, 2.55)
+
+[node name="Cube_162" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 4.63, -2.55)
+
+[node name="Cube_163" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 4.63, -1.53)
+
+[node name="Cube_164" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 4.63, -0.51)
+
+[node name="Cube_165" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 4.63, 0.51)
+
+[node name="Cube_166" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 4.63, 1.53)
+
+[node name="Cube_167" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 4.63, 2.55)
+
+[node name="Cube_168" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 4.63, -2.55)
+
+[node name="Cube_169" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 4.63, -1.53)
+
+[node name="Cube_170" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 4.63, -0.51)
+
+[node name="Cube_171" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 4.63, 0.51)
+
+[node name="Cube_172" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 4.63, 1.53)
+
+[node name="Cube_173" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 4.63, 2.55)
+
+[node name="Cube_174" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 4.63, -2.55)
+
+[node name="Cube_175" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 4.63, -1.53)
+
+[node name="Cube_176" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 4.63, -0.51)
+
+[node name="Cube_177" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 4.63, 0.51)
+
+[node name="Cube_178" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 4.63, 1.53)
+
+[node name="Cube_179" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 4.63, 2.55)
+
+[node name="Cube_180" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 5.65, -2.55)
+
+[node name="Cube_181" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 5.65, -1.53)
+
+[node name="Cube_182" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 5.65, -0.51)
+
+[node name="Cube_183" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 5.65, 0.51)
+
+[node name="Cube_184" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 5.65, 1.53)
+
+[node name="Cube_185" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 5.65, 2.55)
+
+[node name="Cube_186" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 5.65, -2.55)
+
+[node name="Cube_187" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 5.65, -1.53)
+
+[node name="Cube_188" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 5.65, -0.51)
+
+[node name="Cube_189" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 5.65, 0.51)
+
+[node name="Cube_190" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 5.65, 1.53)
+
+[node name="Cube_191" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.53, 5.65, 2.55)
+
+[node name="Cube_192" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 5.65, -2.55)
+
+[node name="Cube_193" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 5.65, -1.53)
+
+[node name="Cube_194" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 5.65, -0.51)
+
+[node name="Cube_195" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 5.65, 0.51)
+
+[node name="Cube_196" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 5.65, 1.53)
+
+[node name="Cube_197" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.51, 5.65, 2.55)
+
+[node name="Cube_198" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 5.65, -2.55)
+
+[node name="Cube_199" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 5.65, -1.53)
+
+[node name="Cube_200" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 5.65, -0.51)
+
+[node name="Cube_201" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 5.65, 0.51)
+
+[node name="Cube_202" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 5.65, 1.53)
+
+[node name="Cube_203" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.51, 5.65, 2.55)
+
+[node name="Cube_204" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 5.65, -2.55)
+
+[node name="Cube_205" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 5.65, -1.53)
+
+[node name="Cube_206" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 5.65, -0.51)
+
+[node name="Cube_207" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 5.65, 0.51)
+
+[node name="Cube_208" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 5.65, 1.53)
+
+[node name="Cube_209" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.53, 5.65, 2.55)
+
+[node name="Cube_210" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 5.65, -2.55)
+
+[node name="Cube_211" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 5.65, -1.53)
+
+[node name="Cube_212" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 5.65, -0.51)
+
+[node name="Cube_213" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 5.65, 0.51)
+
+[node name="Cube_214" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 5.65, 1.53)
+
+[node name="Cube_215" parent="Box3DWorld/CubeStack" instance=ExtResource("1_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 5.65, 2.55)
+

@@ -1,0 +1,413 @@
+[gd_scene load_steps=6 format=3]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(20, 1, 20)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="BlockMesh"]
+size = Vector3(1.5, 0.5, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="BlockMat"]
+albedo_color = Color(0.82, 0.62, 0.34, 1)
+roughness = 0.6
+
+[node name="Tower" type="Node3D"]
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+substep_count = 8
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+friction = 0.8
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="Blocks" type="Node3D" parent="Box3DWorld"]
+
+[node name="Blk_0" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, -0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_0"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_1" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_1"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_2" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_2"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_3" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -0.51, 0.77, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_3"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_4" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 0.77, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_4"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_5" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0.51, 0.77, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_5"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_6" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.29, -0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_6"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_7" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.29, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_7"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_8" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.29, 0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_8"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_9" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -0.51, 1.81, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_9"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_10" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 1.81, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_10"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_11" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0.51, 1.81, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_11"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_12" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.33, -0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_12"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_13" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.33, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_13"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_14" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.33, 0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_14"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_15" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -0.51, 2.85, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_15"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_16" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 2.85, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_16"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_17" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0.51, 2.85, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_17"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_18" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.37, -0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_18"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_19" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.37, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_19"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_20" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.37, 0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_20"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_21" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -0.51, 3.89, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_21"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_22" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 3.89, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_22"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_23" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0.51, 3.89, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_23"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_24" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.41, -0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_24"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_25" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.41, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_25"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_26" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.41, 0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_26"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_27" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -0.51, 4.93, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_27"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_28" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 4.93, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_28"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_29" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0.51, 4.93, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_29"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_30" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.45, -0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_30"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_31" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.45, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_31"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_32" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.45, 0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_32"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_33" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -0.51, 5.97, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_33"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_34" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 5.97, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_34"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_35" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0.51, 5.97, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_35"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_36" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.49, -0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_36"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_37" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.49, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_37"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_38" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.49, 0.51)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_38"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_39" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -0.51, 7.01, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_39"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_40" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 7.01, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_40"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+
+[node name="Blk_41" type="Box3DBody" parent="Box3DWorld/Blocks"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0.51, 7.01, 0)
+box_size = Vector3(1.5, 0.5, 0.5)
+friction = 0.7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Blocks/Blk_41"]
+mesh = SubResource("BlockMesh")
+material_override = SubResource("BlockMat")
+

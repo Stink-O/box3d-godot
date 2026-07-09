@@ -1,0 +1,196 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://samples/raycast.gd" id="1_ray"]
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="FloorPlate"]
+size = Vector3(30, 1, 30)
+
+[sub_resource type="BoxMesh" id="TargetMesh"]
+size = Vector3(1, 2, 1)
+
+[sub_resource type="StandardMaterial3D" id="TargetMat"]
+albedo_color = Color(0.55, 0.6, 0.7, 1)
+roughness = 0.5
+
+[sub_resource type="CylinderMesh" id="PostMesh"]
+top_radius = 0.25
+bottom_radius = 0.25
+height = 1.6
+
+[sub_resource type="StandardMaterial3D" id="PostMat"]
+albedo_color = Color(0.3, 0.32, 0.38, 1)
+roughness = 0.6
+metallic = 0.3
+
+[sub_resource type="CylinderMesh" id="BeamMesh"]
+top_radius = 0.045
+bottom_radius = 0.045
+height = 1.0
+
+[sub_resource type="StandardMaterial3D" id="BeamMat"]
+albedo_color = Color(1, 0.25, 0.15, 1)
+emission_enabled = true
+emission = Color(1, 0.25, 0.15, 1)
+emission_energy_multiplier = 3.0
+shading_mode = 0
+
+[sub_resource type="SphereMesh" id="MarkerMesh"]
+radius = 0.2
+height = 0.4
+
+[sub_resource type="StandardMaterial3D" id="MarkerMat"]
+albedo_color = Color(1, 0.9, 0.3, 1)
+emission_enabled = true
+emission = Color(1, 0.9, 0.3, 1)
+emission_energy_multiplier = 4.0
+shading_mode = 0
+
+[node name="RayCast" type="Node3D"]
+script = ExtResource("1_ray")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorPlate")
+material_override = SubResource("FloorMat")
+
+[node name="Emitter" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Emitter"]
+mesh = SubResource("PostMesh")
+material_override = SubResource("PostMat")
+
+[node name="Targets" type="Node3D" parent="Box3DWorld"]
+
+[node name="Target_0" type="Box3DBody" parent="Box3DWorld/Targets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 1, 0)
+box_size = Vector3(1, 2, 1)
+density = 3.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Targets/Target_0"]
+mesh = SubResource("TargetMesh")
+material_override = SubResource("TargetMat")
+
+[node name="Target_1" type="Box3DBody" parent="Box3DWorld/Targets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.062, 1, 3.5)
+box_size = Vector3(1, 2, 1)
+density = 3.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Targets/Target_1"]
+mesh = SubResource("TargetMesh")
+material_override = SubResource("TargetMat")
+
+[node name="Target_2" type="Box3DBody" parent="Box3DWorld/Targets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 1, 6.062)
+box_size = Vector3(1, 2, 1)
+density = 3.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Targets/Target_2"]
+mesh = SubResource("TargetMesh")
+material_override = SubResource("TargetMat")
+
+[node name="Target_3" type="Box3DBody" parent="Box3DWorld/Targets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.286e-16, 1, 7)
+box_size = Vector3(1, 2, 1)
+density = 3.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Targets/Target_3"]
+mesh = SubResource("TargetMesh")
+material_override = SubResource("TargetMat")
+
+[node name="Target_4" type="Box3DBody" parent="Box3DWorld/Targets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 1, 6.062)
+box_size = Vector3(1, 2, 1)
+density = 3.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Targets/Target_4"]
+mesh = SubResource("TargetMesh")
+material_override = SubResource("TargetMat")
+
+[node name="Target_5" type="Box3DBody" parent="Box3DWorld/Targets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.062, 1, 3.5)
+box_size = Vector3(1, 2, 1)
+density = 3.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Targets/Target_5"]
+mesh = SubResource("TargetMesh")
+material_override = SubResource("TargetMat")
+
+[node name="Target_6" type="Box3DBody" parent="Box3DWorld/Targets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1, 8.573e-16)
+box_size = Vector3(1, 2, 1)
+density = 3.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Targets/Target_6"]
+mesh = SubResource("TargetMesh")
+material_override = SubResource("TargetMat")
+
+[node name="Target_7" type="Box3DBody" parent="Box3DWorld/Targets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.062, 1, -3.5)
+box_size = Vector3(1, 2, 1)
+density = 3.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Targets/Target_7"]
+mesh = SubResource("TargetMesh")
+material_override = SubResource("TargetMat")
+
+[node name="Target_8" type="Box3DBody" parent="Box3DWorld/Targets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 1, -6.062)
+box_size = Vector3(1, 2, 1)
+density = 3.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Targets/Target_8"]
+mesh = SubResource("TargetMesh")
+material_override = SubResource("TargetMat")
+
+[node name="Target_9" type="Box3DBody" parent="Box3DWorld/Targets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.286e-15, 1, -7)
+box_size = Vector3(1, 2, 1)
+density = 3.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Targets/Target_9"]
+mesh = SubResource("TargetMesh")
+material_override = SubResource("TargetMat")
+
+[node name="Target_10" type="Box3DBody" parent="Box3DWorld/Targets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 1, -6.062)
+box_size = Vector3(1, 2, 1)
+density = 3.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Targets/Target_10"]
+mesh = SubResource("TargetMesh")
+material_override = SubResource("TargetMat")
+
+[node name="Target_11" type="Box3DBody" parent="Box3DWorld/Targets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.062, 1, -3.5)
+box_size = Vector3(1, 2, 1)
+density = 3.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Targets/Target_11"]
+mesh = SubResource("TargetMesh")
+material_override = SubResource("TargetMat")
+
+[node name="Beam" type="MeshInstance3D" parent="."]
+mesh = SubResource("BeamMesh")
+material_override = SubResource("BeamMat")
+
+[node name="HitMarker" type="MeshInstance3D" parent="."]
+mesh = SubResource("MarkerMesh")
+material_override = SubResource("MarkerMat")
+

@@ -1,0 +1,1043 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://samples/contacts.gd" id="1_con"]
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="WallMat"]
+albedo_color = Color(0.32, 0.34, 0.4, 1)
+roughness = 0.7
+
+[sub_resource type="CylinderMesh" id="PegMesh"]
+top_radius = 0.25
+bottom_radius = 0.25
+height = 1.6
+
+[sub_resource type="StandardMaterial3D" id="PegMat"]
+albedo_color = Color(0.55, 0.6, 0.7, 1)
+roughness = 0.4
+metallic = 0.2
+
+[sub_resource type="SphereMesh" id="BallMesh"]
+radius = 0.35
+height = 0.7
+
+[sub_resource type="StandardMaterial3D" id="BallMat"]
+albedo_color = Color(0.87, 0.35, 0.2, 1)
+roughness = 0.35
+
+[sub_resource type="BoxMesh" id="M_Floor"]
+size = Vector3(20, 1, 20)
+
+[sub_resource type="BoxMesh" id="M_WallN"]
+size = Vector3(14.5, 2, 0.5)
+
+[sub_resource type="BoxMesh" id="M_WallS"]
+size = Vector3(14.5, 2, 0.5)
+
+[sub_resource type="BoxMesh" id="M_WallE"]
+size = Vector3(0.5, 2, 14)
+
+[sub_resource type="BoxMesh" id="M_WallW"]
+size = Vector3(0.5, 2, 14)
+
+[node name="Contacts" type="Node3D"]
+script = ExtResource("1_con")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("M_Floor")
+material_override = SubResource("FloorMat")
+
+[node name="WallN" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -7)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallN"]
+mesh = SubResource("M_WallN")
+material_override = SubResource("WallMat")
+
+[node name="WallS" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 7)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallS"]
+mesh = SubResource("M_WallS")
+material_override = SubResource("WallMat")
+
+[node name="WallE" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 1, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallE"]
+mesh = SubResource("M_WallE")
+material_override = SubResource("WallMat")
+
+[node name="WallW" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallW"]
+mesh = SubResource("M_WallW")
+material_override = SubResource("WallMat")
+
+[node name="Pegs" type="Node3D" parent="Box3DWorld"]
+
+[node name="Peg_0" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.375, 0.8, -4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_0"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_1" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.125, 0.8, -4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_1"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_2" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.875, 0.8, -4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_2"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_3" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.625, 0.8, -4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_3"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_4" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.625, 0.8, -4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_4"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_5" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.875, 0.8, -4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_5"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_6" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.125, 0.8, -4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_6"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_7" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.375, 0.8, -4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_7"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_8" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0.8, -3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_8"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_9" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0.8, -3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_9"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_10" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, 0.8, -3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_10"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_11" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, -3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_11"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_12" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.25, 0.8, -3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_12"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_13" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0.8, -3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_13"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_14" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 0.8, -3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_14"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_15" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.8, -3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_15"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_16" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.375, 0.8, -1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_16"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_17" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.125, 0.8, -1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_17"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_18" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.875, 0.8, -1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_18"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_19" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.625, 0.8, -1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_19"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_20" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.625, 0.8, -1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_20"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_21" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.875, 0.8, -1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_21"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_22" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.125, 0.8, -1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_22"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_23" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.375, 0.8, -1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_23"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_24" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0.8, -0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_24"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_25" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0.8, -0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_25"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_26" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, 0.8, -0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_26"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_27" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, -0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_27"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_28" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.25, 0.8, -0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_28"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_29" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0.8, -0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_29"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_30" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 0.8, -0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_30"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_31" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.8, -0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_31"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_32" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.375, 0.8, 0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_32"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_33" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.125, 0.8, 0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_33"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_34" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.875, 0.8, 0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_34"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_35" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.625, 0.8, 0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_35"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_36" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.625, 0.8, 0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_36"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_37" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.875, 0.8, 0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_37"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_38" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.125, 0.8, 0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_38"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_39" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.375, 0.8, 0.625)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_39"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_40" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0.8, 1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_40"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_41" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0.8, 1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_41"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_42" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, 0.8, 1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_42"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_43" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_43"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_44" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.25, 0.8, 1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_44"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_45" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0.8, 1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_45"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_46" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 0.8, 1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_46"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_47" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.8, 1.875)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_47"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_48" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.375, 0.8, 3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_48"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_49" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.125, 0.8, 3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_49"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_50" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.875, 0.8, 3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_50"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_51" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.625, 0.8, 3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_51"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_52" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.625, 0.8, 3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_52"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_53" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.875, 0.8, 3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_53"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_54" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.125, 0.8, 3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_54"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_55" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.375, 0.8, 3.125)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_55"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_56" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0.8, 4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_56"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_57" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0.8, 4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_57"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_58" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, 0.8, 4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_58"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_59" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_59"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_60" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.25, 0.8, 4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_60"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_61" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0.8, 4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_61"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_62" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 0.8, 4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_62"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Peg_63" type="Box3DBody" parent="Box3DWorld/Pegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.8, 4.375)
+body_type = 0
+shape_type = 3
+capsule_radius = 0.25
+capsule_height = 1.6
+restitution = 0.55
+contact_monitor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Pegs/Peg_63"]
+mesh = SubResource("PegMesh")
+material_override = SubResource("PegMat")
+
+[node name="Balls" type="Node3D" parent="Box3DWorld"]
+
+[node name="Ball_0" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 9, -2)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.65
+density = 2.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_0"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_1" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 10, 1.5)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.65
+density = 2.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_1"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_2" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 11, 3)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.65
+density = 2.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_2"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_3" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 12, -3)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.65
+density = 2.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_3"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_4" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 9.5, -0.5)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.65
+density = 2.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_4"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_5" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 13, 2)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.65
+density = 2.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_5"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_6" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 14, -1.2)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.65
+density = 2.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_6"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_7" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 10.5, 0.8)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.65
+density = 2.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_7"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_8" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6, 13.5, 2.6)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.65
+density = 2.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_8"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_9" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6, 12.5, -2.8)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.65
+density = 2.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_9"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+

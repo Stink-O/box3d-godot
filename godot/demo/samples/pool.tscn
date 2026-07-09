@@ -1,0 +1,359 @@
+[gd_scene load_steps=19 format=3]
+
+[ext_resource type="Script" path="res://samples/pool.gd" id="1_pool"]
+
+[sub_resource type="StandardMaterial3D" id="FeltMat"]
+albedo_color = Color(0.1, 0.4, 0.22, 1)
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="FeltMesh"]
+size = Vector3(13, 1, 26)
+
+[sub_resource type="StandardMaterial3D" id="RailMat"]
+albedo_color = Color(0.4, 0.26, 0.15, 1)
+roughness = 0.5
+
+[sub_resource type="SphereMesh" id="BallMesh"]
+radius = 0.35
+height = 0.7
+
+[sub_resource type="StandardMaterial3D" id="CueMat"]
+albedo_color = Color(0.95, 0.95, 0.95, 1)
+roughness = 0.2
+
+[sub_resource type="StandardMaterial3D" id="Ball0"]
+albedo_color = Color(0.9, 0.75, 0.1, 1)
+roughness = 0.25
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="Ball1"]
+albedo_color = Color(0.1, 0.2, 0.7, 1)
+roughness = 0.25
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="Ball2"]
+albedo_color = Color(0.8, 0.15, 0.1, 1)
+roughness = 0.25
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="Ball3"]
+albedo_color = Color(0.45, 0.1, 0.5, 1)
+roughness = 0.25
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="Ball4"]
+albedo_color = Color(0.9, 0.45, 0.1, 1)
+roughness = 0.25
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="Ball5"]
+albedo_color = Color(0.1, 0.45, 0.2, 1)
+roughness = 0.25
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="Ball6"]
+albedo_color = Color(0.5, 0.1, 0.15, 1)
+roughness = 0.25
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="Ball7"]
+albedo_color = Color(0.1, 0.1, 0.12, 1)
+roughness = 0.25
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="M_RailN"]
+size = Vector3(14, 0.7, 0.5)
+
+[sub_resource type="BoxMesh" id="M_RailS"]
+size = Vector3(14, 0.7, 0.5)
+
+[sub_resource type="BoxMesh" id="M_RailE"]
+size = Vector3(0.5, 0.7, 26)
+
+[sub_resource type="BoxMesh" id="M_RailW"]
+size = Vector3(0.5, 0.7, 26)
+
+[node name="Pool" type="Node3D"]
+script = ExtResource("1_pool")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Table" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+friction = 0.25
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Table"]
+mesh = SubResource("FeltMesh")
+material_override = SubResource("FeltMat")
+
+[node name="RailN" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, -13)
+body_type = 0
+shape_type = 7
+restitution = 0.85
+friction = 0.2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/RailN"]
+mesh = SubResource("M_RailN")
+material_override = SubResource("RailMat")
+
+[node name="RailS" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 13)
+body_type = 0
+shape_type = 7
+restitution = 0.85
+friction = 0.2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/RailS"]
+mesh = SubResource("M_RailS")
+material_override = SubResource("RailMat")
+
+[node name="RailE" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0.35, 0)
+body_type = 0
+shape_type = 7
+restitution = 0.85
+friction = 0.2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/RailE"]
+mesh = SubResource("M_RailE")
+material_override = SubResource("RailMat")
+
+[node name="RailW" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.5, 0.35, 0)
+body_type = 0
+shape_type = 7
+restitution = 0.85
+friction = 0.2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/RailW"]
+mesh = SubResource("M_RailW")
+material_override = SubResource("RailMat")
+
+[node name="Rack_0" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, -5)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_0"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Rack_1" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.355, 0.35, -5.609)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_1"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Rack_2" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.355, 0.35, -5.609)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_2"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Rack_3" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.71, 0.35, -6.218)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_3"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Rack_4" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, -6.218)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_4"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Rack_5" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.71, 0.35, -6.218)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_5"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Rack_6" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.065, 0.35, -6.827)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_6"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball6")
+
+[node name="Rack_7" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.355, 0.35, -6.827)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_7"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball7")
+
+[node name="Rack_8" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.355, 0.35, -6.827)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_8"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Rack_9" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.065, 0.35, -6.827)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_9"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Rack_10" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.42, 0.35, -7.436)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_10"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Rack_11" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.71, 0.35, -7.436)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_11"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Rack_12" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, -7.436)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_12"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Rack_13" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.71, 0.35, -7.436)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_13"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Rack_14" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.42, 0.35, -7.436)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.22
+angular_damping = 0.22
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Rack_14"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball6")
+
+[node name="Cue" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 8)
+shape_type = 1
+sphere_radius = 0.35
+restitution = 0.92
+friction = 0.08
+linear_damping = 0.3
+angular_damping = 0.3
+continuous = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Cue"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("CueMat")
+

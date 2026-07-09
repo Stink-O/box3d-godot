@@ -1,0 +1,91 @@
+[gd_scene load_steps=5 format=3]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(30, 1, 30)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="SphereMesh" id="Ball"]
+radius = 0.5
+height = 1.0
+
+[sub_resource type="StandardMaterial3D" id="DynMat"]
+albedo_color = Color(0.87, 0.46, 0.19, 1)
+roughness = 0.4
+
+[node name="Restitution" type="Node3D"]
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+box_size = Vector3(30, 1, 30)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="Ball_0" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 6, 0)
+shape_type = 1
+sphere_radius = 0.5
+restitution = 0.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball_0"]
+mesh = SubResource("Ball")
+material_override = SubResource("DynMat")
+
+[node name="Ball_1" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 6, 0)
+shape_type = 1
+sphere_radius = 0.5
+restitution = 0.2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball_1"]
+mesh = SubResource("Ball")
+material_override = SubResource("DynMat")
+
+[node name="Ball_2" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 6, 0)
+shape_type = 1
+sphere_radius = 0.5
+restitution = 0.4
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball_2"]
+mesh = SubResource("Ball")
+material_override = SubResource("DynMat")
+
+[node name="Ball_3" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 6, 0)
+shape_type = 1
+sphere_radius = 0.5
+restitution = 0.6
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball_3"]
+mesh = SubResource("Ball")
+material_override = SubResource("DynMat")
+
+[node name="Ball_4" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 6, 0)
+shape_type = 1
+sphere_radius = 0.5
+restitution = 0.8
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball_4"]
+mesh = SubResource("Ball")
+material_override = SubResource("DynMat")
+
+[node name="Ball_5" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 6, 0)
+shape_type = 1
+sphere_radius = 0.5
+restitution = 0.95
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball_5"]
+mesh = SubResource("Ball")
+material_override = SubResource("DynMat")

@@ -1,0 +1,183 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://samples/cradle.gd" id="1_cradle"]
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(24, 1, 16)
+
+[sub_resource type="SphereMesh" id="BallMesh"]
+radius = 0.5
+height = 1
+
+[sub_resource type="StandardMaterial3D" id="BallMat"]
+albedo_color = Color(0.75, 0.78, 0.85, 1)
+roughness = 0.25
+metallic = 0.7
+
+[sub_resource type="BoxMesh" id="PostMesh"]
+size = Vector3(0.3, 5.2, 0.3)
+
+[sub_resource type="BoxMesh" id="BarMesh"]
+size = Vector3(10.4963, 0.3, 0.3)
+
+[sub_resource type="StandardMaterial3D" id="FrameMat"]
+albedo_color = Color(0.32, 0.24, 0.18, 1)
+roughness = 0.6
+
+[node name="Cradle" type="Node3D"]
+script = ExtResource("1_cradle")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+substep_count = 8
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="PostL" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.09813, 2.6, 0)
+body_type = 0
+box_size = Vector3(0.3, 5.2, 0.3)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/PostL"]
+mesh = SubResource("PostMesh")
+material_override = SubResource("FrameMat")
+
+[node name="PostR" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.09813, 2.6, 0)
+body_type = 0
+box_size = Vector3(0.3, 5.2, 0.3)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/PostR"]
+mesh = SubResource("PostMesh")
+material_override = SubResource("FrameMat")
+
+[node name="TopBar" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.15, 0)
+body_type = 0
+box_size = Vector3(10.4963, 0.3, 0.3)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/TopBar"]
+mesh = SubResource("BarMesh")
+material_override = SubResource("FrameMat")
+
+[node name="Balls" type="Node3D" parent="Box3DWorld"]
+
+[node name="Ball_0" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 2, 0)
+shape_type = 1
+sphere_radius = 0.5
+restitution = 0.99
+friction = 0.15
+linear_damping = 0.0
+lock_linear_z = true
+lock_angular_x = true
+lock_angular_y = true
+lock_angular_z = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_0"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_1" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 2, 0)
+shape_type = 1
+sphere_radius = 0.5
+restitution = 0.99
+friction = 0.15
+linear_damping = 0.0
+lock_linear_z = true
+lock_angular_x = true
+lock_angular_y = true
+lock_angular_z = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_1"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_2" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+shape_type = 1
+sphere_radius = 0.5
+restitution = 0.99
+friction = 0.15
+linear_damping = 0.0
+lock_linear_z = true
+lock_angular_x = true
+lock_angular_y = true
+lock_angular_z = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_2"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_3" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 2, 0)
+shape_type = 1
+sphere_radius = 0.5
+restitution = 0.99
+friction = 0.15
+linear_damping = 0.0
+lock_linear_z = true
+lock_angular_x = true
+lock_angular_y = true
+lock_angular_z = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_3"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball_4" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.2981, 3.0716, 0)
+shape_type = 1
+sphere_radius = 0.5
+restitution = 0.99
+friction = 0.15
+linear_damping = 0.0
+lock_linear_z = true
+lock_angular_x = true
+lock_angular_y = true
+lock_angular_z = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_4"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Strings" type="Node3D" parent="Box3DWorld"]
+
+[node name="String_0" type="Box3DDistanceJoint" parent="Box3DWorld/Strings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 5, 0)
+body_a = NodePath("../../Balls/Ball_0")
+length = 3
+
+[node name="String_1" type="Box3DDistanceJoint" parent="Box3DWorld/Strings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 5, 0)
+body_a = NodePath("../../Balls/Ball_1")
+length = 3
+
+[node name="String_2" type="Box3DDistanceJoint" parent="Box3DWorld/Strings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+body_a = NodePath("../../Balls/Ball_2")
+length = 3
+
+[node name="String_3" type="Box3DDistanceJoint" parent="Box3DWorld/Strings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 5, 0)
+body_a = NodePath("../../Balls/Ball_3")
+length = 3
+
+[node name="String_4" type="Box3DDistanceJoint" parent="Box3DWorld/Strings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 5, 0)
+body_a = NodePath("../../Balls/Ball_4")
+length = 3
+

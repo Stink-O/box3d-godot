@@ -1,0 +1,495 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://samples/explosion.gd" id="1_expl"]
+[ext_resource type="PackedScene" path="res://common/cube.tscn" id="2_cube"]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="SphereMesh" id="BombMesh"]
+radius = 0.6
+height = 1.2
+
+[sub_resource type="StandardMaterial3D" id="BombMat"]
+albedo_color = Color(0.9, 0.15, 0.1, 1)
+emission_enabled = true
+emission = Color(0.9, 0.15, 0.1, 1)
+emission_energy_multiplier = 2.5
+
+[node name="Explosion" type="Node3D"]
+script = ExtResource("1_expl")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="Bomb" type="MeshInstance3D" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+mesh = SubResource("BombMesh")
+material_override = SubResource("BombMat")
+
+[node name="Blocks" type="Node3D" parent="Box3DWorld"]
+
+[node name="B_0" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 0.55, -2.04)
+
+[node name="B_1" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 0.55, -1.02)
+
+[node name="B_2" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 0.55, 0)
+
+[node name="B_3" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 0.55, 1.02)
+
+[node name="B_4" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 0.55, 2.04)
+
+[node name="B_5" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, -2.04)
+
+[node name="B_6" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, -1.02)
+
+[node name="B_7" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, 0)
+
+[node name="B_8" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, 1.02)
+
+[node name="B_9" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, 2.04)
+
+[node name="B_10" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, -2.04)
+
+[node name="B_11" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, -1.02)
+
+[node name="B_12" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+
+[node name="B_13" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 1.02)
+
+[node name="B_14" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 2.04)
+
+[node name="B_15" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 0.55, -2.04)
+
+[node name="B_16" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 0.55, -1.02)
+
+[node name="B_17" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 0.55, 0)
+
+[node name="B_18" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 0.55, 1.02)
+
+[node name="B_19" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 0.55, 2.04)
+
+[node name="B_20" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 0.55, -2.04)
+
+[node name="B_21" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 0.55, -1.02)
+
+[node name="B_22" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 0.55, 0)
+
+[node name="B_23" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 0.55, 1.02)
+
+[node name="B_24" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 0.55, 2.04)
+
+[node name="B_25" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 1.57, -2.04)
+
+[node name="B_26" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 1.57, -1.02)
+
+[node name="B_27" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 1.57, 0)
+
+[node name="B_28" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 1.57, 1.02)
+
+[node name="B_29" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 1.57, 2.04)
+
+[node name="B_30" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 1.57, -2.04)
+
+[node name="B_31" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 1.57, -1.02)
+
+[node name="B_32" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 1.57, 0)
+
+[node name="B_33" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 1.57, 1.02)
+
+[node name="B_34" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 1.57, 2.04)
+
+[node name="B_35" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.57, -2.04)
+
+[node name="B_36" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.57, -1.02)
+
+[node name="B_37" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.57, 0)
+
+[node name="B_38" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.57, 1.02)
+
+[node name="B_39" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.57, 2.04)
+
+[node name="B_40" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.57, -2.04)
+
+[node name="B_41" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.57, -1.02)
+
+[node name="B_42" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.57, 0)
+
+[node name="B_43" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.57, 1.02)
+
+[node name="B_44" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.57, 2.04)
+
+[node name="B_45" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 1.57, -2.04)
+
+[node name="B_46" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 1.57, -1.02)
+
+[node name="B_47" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 1.57, 0)
+
+[node name="B_48" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 1.57, 1.02)
+
+[node name="B_49" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 1.57, 2.04)
+
+[node name="B_50" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 2.59, -2.04)
+
+[node name="B_51" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 2.59, -1.02)
+
+[node name="B_52" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 2.59, 0)
+
+[node name="B_53" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 2.59, 1.02)
+
+[node name="B_54" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 2.59, 2.04)
+
+[node name="B_55" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.59, -2.04)
+
+[node name="B_56" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.59, -1.02)
+
+[node name="B_57" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.59, 0)
+
+[node name="B_58" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.59, 1.02)
+
+[node name="B_59" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.59, 2.04)
+
+[node name="B_60" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.59, -2.04)
+
+[node name="B_61" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.59, -1.02)
+
+[node name="B_62" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.59, 0)
+
+[node name="B_63" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.59, 1.02)
+
+[node name="B_64" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.59, 2.04)
+
+[node name="B_65" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 2.59, -2.04)
+
+[node name="B_66" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 2.59, -1.02)
+
+[node name="B_67" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 2.59, 0)
+
+[node name="B_68" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 2.59, 1.02)
+
+[node name="B_69" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 2.59, 2.04)
+
+[node name="B_70" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 2.59, -2.04)
+
+[node name="B_71" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 2.59, -1.02)
+
+[node name="B_72" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 2.59, 0)
+
+[node name="B_73" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 2.59, 1.02)
+
+[node name="B_74" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 2.59, 2.04)
+
+[node name="B_75" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 3.61, -2.04)
+
+[node name="B_76" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 3.61, -1.02)
+
+[node name="B_77" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 3.61, 0)
+
+[node name="B_78" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 3.61, 1.02)
+
+[node name="B_79" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 3.61, 2.04)
+
+[node name="B_80" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 3.61, -2.04)
+
+[node name="B_81" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 3.61, -1.02)
+
+[node name="B_82" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 3.61, 0)
+
+[node name="B_83" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 3.61, 1.02)
+
+[node name="B_84" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 3.61, 2.04)
+
+[node name="B_85" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.61, -2.04)
+
+[node name="B_86" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.61, -1.02)
+
+[node name="B_87" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.61, 0)
+
+[node name="B_88" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.61, 1.02)
+
+[node name="B_89" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.61, 2.04)
+
+[node name="B_90" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 3.61, -2.04)
+
+[node name="B_91" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 3.61, -1.02)
+
+[node name="B_92" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 3.61, 0)
+
+[node name="B_93" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 3.61, 1.02)
+
+[node name="B_94" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 3.61, 2.04)
+
+[node name="B_95" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 3.61, -2.04)
+
+[node name="B_96" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 3.61, -1.02)
+
+[node name="B_97" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 3.61, 0)
+
+[node name="B_98" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 3.61, 1.02)
+
+[node name="B_99" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 3.61, 2.04)
+
+[node name="B_100" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 4.63, -2.04)
+
+[node name="B_101" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 4.63, -1.02)
+
+[node name="B_102" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 4.63, 0)
+
+[node name="B_103" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 4.63, 1.02)
+
+[node name="B_104" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 4.63, 2.04)
+
+[node name="B_105" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 4.63, -2.04)
+
+[node name="B_106" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 4.63, -1.02)
+
+[node name="B_107" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 4.63, 0)
+
+[node name="B_108" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 4.63, 1.02)
+
+[node name="B_109" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 4.63, 2.04)
+
+[node name="B_110" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.63, -2.04)
+
+[node name="B_111" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.63, -1.02)
+
+[node name="B_112" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.63, 0)
+
+[node name="B_113" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.63, 1.02)
+
+[node name="B_114" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.63, 2.04)
+
+[node name="B_115" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 4.63, -2.04)
+
+[node name="B_116" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 4.63, -1.02)
+
+[node name="B_117" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 4.63, 0)
+
+[node name="B_118" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 4.63, 1.02)
+
+[node name="B_119" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 4.63, 2.04)
+
+[node name="B_120" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 4.63, -2.04)
+
+[node name="B_121" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 4.63, -1.02)
+
+[node name="B_122" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 4.63, 0)
+
+[node name="B_123" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 4.63, 1.02)
+
+[node name="B_124" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 4.63, 2.04)
+
+[node name="B_125" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 5.65, -2.04)
+
+[node name="B_126" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 5.65, -1.02)
+
+[node name="B_127" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 5.65, 0)
+
+[node name="B_128" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 5.65, 1.02)
+
+[node name="B_129" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.04, 5.65, 2.04)
+
+[node name="B_130" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 5.65, -2.04)
+
+[node name="B_131" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 5.65, -1.02)
+
+[node name="B_132" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 5.65, 0)
+
+[node name="B_133" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 5.65, 1.02)
+
+[node name="B_134" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 5.65, 2.04)
+
+[node name="B_135" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.65, -2.04)
+
+[node name="B_136" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.65, -1.02)
+
+[node name="B_137" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.65, 0)
+
+[node name="B_138" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.65, 1.02)
+
+[node name="B_139" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.65, 2.04)
+
+[node name="B_140" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 5.65, -2.04)
+
+[node name="B_141" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 5.65, -1.02)
+
+[node name="B_142" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 5.65, 0)
+
+[node name="B_143" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 5.65, 1.02)
+
+[node name="B_144" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 5.65, 2.04)
+
+[node name="B_145" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 5.65, -2.04)
+
+[node name="B_146" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 5.65, -1.02)
+
+[node name="B_147" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 5.65, 0)
+
+[node name="B_148" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 5.65, 1.02)
+
+[node name="B_149" parent="Box3DWorld/Blocks" instance=ExtResource("2_cube")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04, 5.65, 2.04)
+

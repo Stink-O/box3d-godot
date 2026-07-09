@@ -1,0 +1,2791 @@
+[gd_scene load_steps=15 format=3]
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="WallMat"]
+albedo_color = Color(0.3, 0.32, 0.38, 1)
+roughness = 0.5
+metallic = 0.2
+
+[sub_resource type="SphereMesh" id="BallMesh"]
+radius = 0.42
+height = 0.84
+
+[sub_resource type="StandardMaterial3D" id="Ball0"]
+albedo_color = Color(0.9, 0.3, 0.25, 1)
+roughness = 0.3
+metallic = 0.05
+
+[sub_resource type="StandardMaterial3D" id="Ball1"]
+albedo_color = Color(0.95, 0.7, 0.2, 1)
+roughness = 0.3
+metallic = 0.05
+
+[sub_resource type="StandardMaterial3D" id="Ball2"]
+albedo_color = Color(0.3, 0.75, 0.4, 1)
+roughness = 0.3
+metallic = 0.05
+
+[sub_resource type="StandardMaterial3D" id="Ball3"]
+albedo_color = Color(0.25, 0.55, 0.9, 1)
+roughness = 0.3
+metallic = 0.05
+
+[sub_resource type="StandardMaterial3D" id="Ball4"]
+albedo_color = Color(0.6, 0.35, 0.8, 1)
+roughness = 0.3
+metallic = 0.05
+
+[sub_resource type="StandardMaterial3D" id="Ball5"]
+albedo_color = Color(0.95, 0.55, 0.75, 1)
+roughness = 0.3
+metallic = 0.05
+
+[sub_resource type="BoxMesh" id="M_Floor"]
+size = Vector3(10.4, 1, 10.4)
+
+[sub_resource type="BoxMesh" id="M_WallN"]
+size = Vector3(10.4, 4, 0.5)
+
+[sub_resource type="BoxMesh" id="M_WallS"]
+size = Vector3(10.4, 4, 0.5)
+
+[sub_resource type="BoxMesh" id="M_WallE"]
+size = Vector3(0.5, 4, 9.2)
+
+[sub_resource type="BoxMesh" id="M_WallW"]
+size = Vector3(0.5, 4, 9.2)
+
+[node name="BallPit" type="Node3D"]
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+friction = 0.4
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("M_Floor")
+material_override = SubResource("FloorMat")
+
+[node name="WallN" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -4.85)
+body_type = 0
+shape_type = 7
+friction = 0.4
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallN"]
+mesh = SubResource("M_WallN")
+material_override = SubResource("WallMat")
+
+[node name="WallS" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4.85)
+body_type = 0
+shape_type = 7
+friction = 0.4
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallS"]
+mesh = SubResource("M_WallS")
+material_override = SubResource("WallMat")
+
+[node name="WallE" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.85, 2, 0)
+body_type = 0
+shape_type = 7
+friction = 0.4
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallE"]
+mesh = SubResource("M_WallE")
+material_override = SubResource("WallMat")
+
+[node name="WallW" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.85, 2, 0)
+body_type = 0
+shape_type = 7
+friction = 0.4
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallW"]
+mesh = SubResource("M_WallW")
+material_override = SubResource("WallMat")
+
+[node name="Balls" type="Node3D" parent="Box3DWorld"]
+
+[node name="Ball_0" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 0.55, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_0"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_1" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 0.55, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_1"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_2" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 0.55, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_2"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_3" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 0.55, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_3"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_4" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 0.55, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_4"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_5" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 0.55, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_5"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_6" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 0.55, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_6"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_7" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 0.55, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_7"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_8" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 0.55, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_8"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_9" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 0.55, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_9"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_10" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 0.55, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_10"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_11" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 0.55, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_11"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_12" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 0.55, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_12"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_13" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 0.55, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_13"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_14" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 0.55, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_14"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_15" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 0.55, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_15"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_16" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 0.55, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_16"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_17" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 0.55, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_17"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_18" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 0.55, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_18"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_19" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 0.55, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_19"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_20" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 0.55, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_20"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_21" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 0.55, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_21"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_22" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 0.55, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_22"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_23" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 0.55, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_23"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_24" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 0.55, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_24"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_25" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 0.55, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_25"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_26" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 0.55, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_26"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_27" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_27"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_28" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_28"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_29" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_29"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_30" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_30"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_31" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_31"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_32" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_32"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_33" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_33"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_34" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_34"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_35" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.55, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_35"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_36" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.55, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_36"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_37" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.55, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_37"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_38" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.55, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_38"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_39" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.55, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_39"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_40" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.55, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_40"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_41" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.55, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_41"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_42" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.55, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_42"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_43" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.55, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_43"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_44" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.55, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_44"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_45" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 0.55, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_45"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_46" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 0.55, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_46"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_47" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 0.55, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_47"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_48" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 0.55, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_48"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_49" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 0.55, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_49"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_50" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 0.55, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_50"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_51" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 0.55, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_51"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_52" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 0.55, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_52"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_53" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 0.55, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_53"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_54" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 0.55, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_54"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_55" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 0.55, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_55"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_56" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 0.55, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_56"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_57" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 0.55, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_57"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_58" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 0.55, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_58"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_59" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 0.55, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_59"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_60" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 0.55, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_60"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_61" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 0.55, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_61"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_62" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 0.55, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_62"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_63" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 0.55, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_63"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_64" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 0.55, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_64"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_65" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 0.55, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_65"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_66" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 0.55, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_66"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_67" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 0.55, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_67"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_68" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 0.55, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_68"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_69" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 0.55, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_69"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_70" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 0.55, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_70"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_71" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 0.55, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_71"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_72" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 0.55, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_72"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_73" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 0.55, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_73"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_74" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 0.55, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_74"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_75" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 0.55, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_75"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_76" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 0.55, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_76"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_77" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 0.55, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_77"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_78" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 0.55, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_78"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_79" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 0.55, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_79"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_80" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 0.55, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_80"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_81" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.48, 1.45, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_81"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_82" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.48, 1.45, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_82"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_83" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.48, 1.45, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_83"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_84" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.48, 1.45, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_84"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_85" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.48, 1.45, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_85"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_86" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.48, 1.45, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_86"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_87" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.48, 1.45, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_87"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_88" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.48, 1.45, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_88"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_89" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.48, 1.45, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_89"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_90" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.58, 1.45, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_90"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_91" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.58, 1.45, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_91"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_92" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.58, 1.45, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_92"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_93" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.58, 1.45, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_93"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_94" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.58, 1.45, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_94"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_95" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.58, 1.45, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_95"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_96" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.58, 1.45, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_96"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_97" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.58, 1.45, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_97"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_98" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.58, 1.45, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_98"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_99" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.68, 1.45, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_99"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_100" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.68, 1.45, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_100"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_101" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.68, 1.45, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_101"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_102" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.68, 1.45, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_102"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_103" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.68, 1.45, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_103"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_104" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.68, 1.45, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_104"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_105" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.68, 1.45, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_105"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_106" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.68, 1.45, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_106"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_107" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.68, 1.45, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_107"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_108" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.78, 1.45, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_108"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_109" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.78, 1.45, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_109"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_110" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.78, 1.45, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_110"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_111" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.78, 1.45, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_111"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_112" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.78, 1.45, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_112"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_113" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.78, 1.45, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_113"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_114" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.78, 1.45, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_114"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_115" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.78, 1.45, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_115"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_116" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.78, 1.45, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_116"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_117" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 1.45, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_117"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_118" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 1.45, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_118"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_119" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 1.45, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_119"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_120" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 1.45, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_120"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_121" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 1.45, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_121"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_122" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 1.45, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_122"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_123" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 1.45, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_123"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_124" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 1.45, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_124"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_125" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 1.45, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_125"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_126" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.45, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_126"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_127" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.45, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_127"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_128" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.45, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_128"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_129" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.45, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_129"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_130" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.45, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_130"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_131" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.45, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_131"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_132" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.45, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_132"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_133" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.45, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_133"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_134" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 1.45, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_134"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_135" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.92, 1.45, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_135"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_136" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.92, 1.45, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_136"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_137" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.92, 1.45, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_137"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_138" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.92, 1.45, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_138"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_139" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.92, 1.45, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_139"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_140" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.92, 1.45, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_140"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_141" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.92, 1.45, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_141"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_142" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.92, 1.45, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_142"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_143" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.92, 1.45, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_143"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_144" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.82, 1.45, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_144"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_145" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.82, 1.45, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_145"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_146" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.82, 1.45, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_146"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_147" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.82, 1.45, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_147"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_148" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.82, 1.45, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_148"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_149" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.82, 1.45, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_149"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_150" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.82, 1.45, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_150"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_151" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.82, 1.45, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_151"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_152" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.82, 1.45, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_152"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_153" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.72, 1.45, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_153"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_154" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.72, 1.45, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_154"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_155" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.72, 1.45, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_155"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_156" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.72, 1.45, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_156"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_157" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.72, 1.45, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_157"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_158" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.72, 1.45, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_158"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_159" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.72, 1.45, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_159"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_160" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.72, 1.45, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_160"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_161" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.72, 1.45, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_161"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_162" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 2.35, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_162"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_163" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 2.35, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_163"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_164" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 2.35, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_164"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_165" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 2.35, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_165"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_166" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 2.35, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_166"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_167" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 2.35, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_167"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_168" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 2.35, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_168"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_169" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 2.35, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_169"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_170" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.72, 2.35, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_170"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_171" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 2.35, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_171"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_172" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 2.35, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_172"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_173" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 2.35, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_173"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_174" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 2.35, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_174"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_175" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 2.35, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_175"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_176" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 2.35, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_176"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_177" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 2.35, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_177"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_178" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 2.35, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_178"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_179" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.82, 2.35, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_179"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_180" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 2.35, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_180"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_181" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 2.35, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_181"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_182" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 2.35, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_182"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_183" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 2.35, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_183"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_184" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 2.35, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_184"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_185" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 2.35, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_185"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_186" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 2.35, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_186"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_187" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 2.35, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_187"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_188" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.92, 2.35, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_188"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_189" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.35, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_189"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_190" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.35, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_190"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_191" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.35, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_191"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_192" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.35, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_192"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_193" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.35, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_193"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_194" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.35, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_194"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_195" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.35, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_195"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_196" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.35, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_196"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_197" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 2.35, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_197"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_198" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 2.35, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_198"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_199" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 2.35, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_199"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_200" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 2.35, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_200"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_201" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 2.35, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_201"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_202" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 2.35, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_202"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_203" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 2.35, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_203"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_204" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 2.35, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_204"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_205" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 2.35, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_205"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_206" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 2.35, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_206"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_207" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 2.35, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_207"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_208" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 2.35, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_208"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_209" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 2.35, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_209"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_210" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 2.35, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_210"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_211" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 2.35, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_211"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_212" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 2.35, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_212"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_213" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 2.35, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_213"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_214" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 2.35, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_214"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_215" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 2.35, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_215"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_216" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 2.35, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_216"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_217" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 2.35, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_217"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_218" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 2.35, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_218"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_219" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 2.35, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_219"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_220" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 2.35, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_220"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_221" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 2.35, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_221"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_222" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 2.35, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_222"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_223" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 2.35, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_223"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_224" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.68, 2.35, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_224"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_225" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 2.35, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_225"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_226" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 2.35, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_226"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_227" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 2.35, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_227"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_228" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 2.35, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_228"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_229" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 2.35, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_229"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_230" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 2.35, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_230"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_231" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 2.35, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_231"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_232" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 2.35, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_232"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_233" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.58, 2.35, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_233"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_234" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 2.35, -3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_234"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_235" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 2.35, -2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_235"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_236" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 2.35, -1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_236"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+
+[node name="Ball_237" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 2.35, -0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_237"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball3")
+
+[node name="Ball_238" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 2.35, 0)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_238"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball4")
+
+[node name="Ball_239" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 2.35, 0.9)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_239"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball5")
+
+[node name="Ball_240" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 2.35, 1.8)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_240"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball0")
+
+[node name="Ball_241" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 2.35, 2.7)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_241"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball1")
+
+[node name="Ball_242" type="Box3DBody" parent="Box3DWorld/Balls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.48, 2.35, 3.6)
+shape_type = 1
+sphere_radius = 0.42
+restitution = 0.25
+friction = 0.35
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Balls/Ball_242"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("Ball2")
+

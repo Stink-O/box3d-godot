@@ -1,0 +1,223 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://main.gd" id="1_main"]
+[ext_resource type="Environment" path="res://common/sky_environment.tres" id="2_env"]
+[ext_resource type="Script" path="res://common/fly_camera.gd" id="3_cam"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("2_env")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.76822, 0, -0.64018, -0.52199, 0.57893, -0.62639, 0.37062, 0.81537, 0.44475, 5, 11, 6)
+light_color = Color(1, 0.965, 0.91, 1)
+light_energy = 1.15
+light_angular_distance = 1.5
+shadow_enabled = true
+shadow_blur = 2.25
+shadow_bias = 0.03
+
+[node name="FillLight3D" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-38, 148, 0)
+light_color = Color(0.72, 0.8, 0.95, 1)
+light_energy = 0.3
+shadow_enabled = false
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, 18)
+script = ExtResource("3_cam")
+
+[node name="SampleHost" type="Node3D" parent="."]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Bar" type="HBoxContainer" parent="UI"]
+anchor_right = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -430.0
+offset_bottom = 44.0
+theme_override_constants/separation = 14
+
+[node name="Menu" type="MenuButton" parent="UI/Bar"]
+text = "☰  Samples"
+flat = false
+
+[node name="ShotMode" type="OptionButton" parent="UI/Bar"]
+
+[node name="Activate" type="Button" parent="UI/Bar"]
+visible = false
+text = "💥  Activate"
+
+[node name="Info" type="Label" parent="UI/Bar"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+
+[node name="SettingsToggle" type="Button" parent="UI"]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -410.0
+offset_top = 12.0
+offset_right = -280.0
+offset_bottom = 44.0
+toggle_mode = true
+text = "⚙  Settings"
+
+[node name="DebugToggle" type="CheckButton" parent="UI"]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -268.0
+offset_top = 12.0
+offset_right = -128.0
+offset_bottom = 44.0
+text = "Debug"
+
+[node name="Reset" type="Button" parent="UI"]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -116.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = 44.0
+text = "⟲  Reset"
+
+[node name="ChargeBar" type="ProgressBar" parent="UI"]
+anchor_left = 0.5
+anchor_right = 0.5
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = -160.0
+offset_right = 160.0
+offset_top = -64.0
+offset_bottom = -40.0
+value = 0.0
+show_percentage = false
+visible = false
+
+[node name="Sidebar" type="PanelContainer" parent="UI"]
+anchor_left = 1.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -320.0
+offset_top = 56.0
+offset_right = -12.0
+offset_bottom = -12.0
+visible = false
+
+[node name="Margin" type="MarginContainer" parent="UI/Sidebar"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="UI/Sidebar/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Solver"
+
+[node name="SubstepRow" type="HBoxContainer" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+
+[node name="SubstepLabel" type="Label" parent="UI/Sidebar/Margin/VBox/SubstepRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Substeps"
+
+[node name="SubstepSpin" type="SpinBox" parent="UI/Sidebar/Margin/VBox/SubstepRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(100, 0)
+min_value = 1.0
+max_value = 16.0
+step = 1.0
+value = 4.0
+
+[node name="WorkerRow" type="HBoxContainer" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+
+[node name="WorkerLabel" type="Label" parent="UI/Sidebar/Margin/VBox/WorkerRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Worker Count"
+
+[node name="WorkerSpin" type="SpinBox" parent="UI/Sidebar/Margin/VBox/WorkerRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(100, 0)
+min_value = 1.0
+max_value = 16.0
+step = 1.0
+value = 1.0
+
+[node name="MaxSpeedRow" type="HBoxContainer" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+
+[node name="MaxSpeedLabel" type="Label" parent="UI/Sidebar/Margin/VBox/MaxSpeedRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Max Linear Speed"
+
+[node name="MaxSpeedSpin" type="SpinBox" parent="UI/Sidebar/Margin/VBox/MaxSpeedRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(100, 0)
+min_value = 0.0
+max_value = 1000.0
+step = 0.5
+allow_greater = true
+value = 0.0
+
+[node name="GravityRow" type="HBoxContainer" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+
+[node name="GravityLabel" type="Label" parent="UI/Sidebar/Margin/VBox/GravityRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Gravity Y"
+
+[node name="GravitySpin" type="SpinBox" parent="UI/Sidebar/Margin/VBox/GravityRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(100, 0)
+min_value = -50.0
+max_value = 50.0
+step = 0.1
+value = -9.8
+
+[node name="ContinuousCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+button_pressed = true
+text = "Continuous Collision (CCD)"
+
+[node name="DebugDrawCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+text = "Debug Draw"
+
+[node name="ContactHertzRow" type="HBoxContainer" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+visible = false
+
+[node name="ContactHertzLabel" type="Label" parent="UI/Sidebar/Margin/VBox/ContactHertzRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Contact Hertz"
+
+[node name="ContactHertzSpin" type="SpinBox" parent="UI/Sidebar/Margin/VBox/ContactHertzRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(100, 0)
+min_value = 0.0
+max_value = 120.0
+step = 1.0
+value = 30.0
+
+[node name="ReadoutSep" type="HSeparator" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+
+[node name="Readout" type="Label" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+text = "Physics Steps: 0\nBodies: 0"

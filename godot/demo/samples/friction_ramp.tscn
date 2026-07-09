@@ -1,0 +1,106 @@
+[gd_scene format=3 uid="uid://bjmyskebcudab"]
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+metallic = 0.1
+roughness = 0.55
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(70, 1, 40)
+
+[sub_resource type="StandardMaterial3D" id="RampMat"]
+albedo_color = Color(0.28, 0.3, 0.34, 1)
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="RampMesh"]
+size = Vector3(24, 1, 16)
+
+[sub_resource type="StandardMaterial3D" id="Mat0"]
+albedo_color = Color(0.85, 0.24, 0.2, 1)
+roughness = 0.4
+
+[sub_resource type="BoxMesh" id="BoxMesh"]
+size = Vector3(1.2, 1.2, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="Mat1"]
+albedo_color = Color(0.9, 0.5, 0.2, 1)
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="Mat2"]
+albedo_color = Color(0.9, 0.82, 0.24, 1)
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="Mat3"]
+albedo_color = Color(0.55, 0.8, 0.3, 1)
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="Mat4"]
+albedo_color = Color(0.28, 0.75, 0.4, 1)
+roughness = 0.4
+
+[node name="FrictionRamp" type="Node3D" unique_id=796087842]
+
+[node name="Box3DWorld" type="Box3DWorld" parent="." unique_id=672183510]
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld" unique_id=1690527343]
+body_type = 0
+box_size = Vector3(70, 1, 40)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor" unique_id=624723986]
+material_override = SubResource("FloorMat")
+mesh = SubResource("FloorMesh")
+
+[node name="Ramp" type="Box3DBody" parent="Box3DWorld" unique_id=1657518968]
+body_type = 0
+box_size = Vector3(24, 1, 16)
+friction = 0.9
+transform = Transform3D(0.95534, 0.29552, 0, -0.29552, 0.95534, 0, 0, 0, 1, 0, 5, -10.129819)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ramp" unique_id=872312196]
+material_override = SubResource("RampMat")
+mesh = SubResource("RampMesh")
+
+[node name="Box_0" type="Box3DBody" parent="Box3DWorld" unique_id=2121371718]
+box_size = Vector3(1.2, 1.2, 1.2)
+friction = 0.0
+transform = Transform3D(0.95534, 0.29552, 0, -0.29552, 0.95534, 0, 0, 0, 1, -8.620677, 13.31355, -16.129818)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Box_0" unique_id=1976178887]
+material_override = SubResource("Mat0")
+mesh = SubResource("BoxMesh")
+
+[node name="Box_1" type="Box3DBody" parent="Box3DWorld" unique_id=1598812235]
+box_size = Vector3(1.2, 1.2, 1.2)
+friction = 0.1
+transform = Transform3D(0.95534, 0.29552, 0, -0.29552, 0.95534, 0, 0, 0, 1, -8.620677, 13.31355, -13.129819)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Box_1" unique_id=1465075312]
+material_override = SubResource("Mat1")
+mesh = SubResource("BoxMesh")
+
+[node name="Box_2" type="Box3DBody" parent="Box3DWorld" unique_id=1653661546]
+box_size = Vector3(1.2, 1.2, 1.2)
+friction = 0.3
+transform = Transform3D(0.95534, 0.29552, 0, -0.29552, 0.95534, 0, 0, 0, 1, -8.620677, 13.31355, -10.129819)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Box_2" unique_id=1104417117]
+material_override = SubResource("Mat2")
+mesh = SubResource("BoxMesh")
+
+[node name="Box_3" type="Box3DBody" parent="Box3DWorld" unique_id=1880930945]
+box_size = Vector3(1.2, 1.2, 1.2)
+transform = Transform3D(0.95534, 0.29552, 0, -0.29552, 0.95534, 0, 0, 0, 1, -8.620677, 13.31355, -7.129819)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Box_3" unique_id=405832743]
+material_override = SubResource("Mat3")
+mesh = SubResource("BoxMesh")
+
+[node name="Box_4" type="Box3DBody" parent="Box3DWorld" unique_id=46050179]
+box_size = Vector3(1.2, 1.2, 1.2)
+friction = 1.5
+transform = Transform3D(0.95534, 0.29552, 0, -0.29552, 0.95534, 0, 0, 0, 1, -8.620677, 13.31355, -4.129819)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Box_4" unique_id=1603976681]
+material_override = SubResource("Mat4")
+mesh = SubResource("BoxMesh")

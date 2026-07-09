@@ -1,0 +1,327 @@
+[gd_scene load_steps=18 format=3]
+
+[ext_resource type="Script" path="res://samples/ragdoll.gd" id="1_rag"]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="SkinMat"]
+albedo_color = Color(0.9, 0.76, 0.62, 1)
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="ShirtMat"]
+albedo_color = Color(0.28, 0.72, 0.68, 1)
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="PantMat"]
+albedo_color = Color(0.25, 0.5, 0.85, 1)
+roughness = 0.5
+
+[sub_resource type="CapsuleMesh" id="Mesh_thigh_l"]
+radius = 0.09
+height = 0.62
+
+[sub_resource type="CapsuleMesh" id="Mesh_thigh_r"]
+radius = 0.09
+height = 0.62
+
+[sub_resource type="CapsuleMesh" id="Mesh_shin_l"]
+radius = 0.072
+height = 0.564
+
+[sub_resource type="CapsuleMesh" id="Mesh_shin_r"]
+radius = 0.072
+height = 0.564
+
+[sub_resource type="CapsuleMesh" id="Mesh_upper_arm_l"]
+radius = 0.06
+height = 0.51
+
+[sub_resource type="CapsuleMesh" id="Mesh_upper_arm_r"]
+radius = 0.06
+height = 0.51
+
+[sub_resource type="CapsuleMesh" id="Mesh_lower_arm_l"]
+radius = 0.052
+height = 0.474
+
+[sub_resource type="CapsuleMesh" id="Mesh_lower_arm_r"]
+radius = 0.052
+height = 0.474
+
+[sub_resource type="BoxMesh" id="Mesh_pelvis"]
+size = Vector3(0.3, 0.26, 0.2)
+
+[sub_resource type="BoxMesh" id="Mesh_chest"]
+size = Vector3(0.34, 0.56, 0.22)
+
+[sub_resource type="SphereMesh" id="Mesh_head"]
+radius = 0.15
+height = 0.3
+
+[node name="Ragdoll" type="Node3D"]
+script = ExtResource("1_rag")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+substep_count = 8
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+shape_type = 7
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="Body" type="Node3D" parent="Box3DWorld"]
+
+[node name="thigh_l" type="Box3DBody" parent="Box3DWorld/Body"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, -0.1, 0.782609, -0.0957656)
+shape_type = 2
+capsule_radius = 0.09
+capsule_height = 0.62
+density = 3.0
+friction = 0.5
+collision_layer = 1
+collision_mask = 1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Body/thigh_l"]
+mesh = SubResource("Mesh_thigh_l")
+material_override = SubResource("PantMat")
+
+[node name="thigh_r" type="Box3DBody" parent="Box3DWorld/Body"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0.1, 0.782609, -0.0957656)
+shape_type = 2
+capsule_radius = 0.09
+capsule_height = 0.62
+density = 3.0
+friction = 0.5
+collision_layer = 1
+collision_mask = 1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Body/thigh_r"]
+mesh = SubResource("Mesh_thigh_r")
+material_override = SubResource("PantMat")
+
+[node name="shin_l" type="Box3DBody" parent="Box3DWorld/Body"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, -0.1, 0.397335, -0.235994)
+shape_type = 2
+capsule_radius = 0.072
+capsule_height = 0.564
+density = 3.0
+friction = 0.5
+collision_layer = 1
+collision_mask = 1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Body/shin_l"]
+mesh = SubResource("Mesh_shin_l")
+material_override = SubResource("PantMat")
+
+[node name="shin_r" type="Box3DBody" parent="Box3DWorld/Body"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0.1, 0.397335, -0.235994)
+shape_type = 2
+capsule_radius = 0.072
+capsule_height = 0.564
+density = 3.0
+friction = 0.5
+collision_layer = 1
+collision_mask = 1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Body/shin_r"]
+mesh = SubResource("Mesh_shin_r")
+material_override = SubResource("PantMat")
+
+[node name="upper_arm_l" type="Box3DBody" parent="Box3DWorld/Body"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, -0.23, 1.40751, 0.131678)
+shape_type = 2
+capsule_radius = 0.06
+capsule_height = 0.51
+density = 3.0
+friction = 0.5
+collision_layer = 1
+collision_mask = 1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Body/upper_arm_l"]
+mesh = SubResource("Mesh_upper_arm_l")
+material_override = SubResource("ShirtMat")
+
+[node name="upper_arm_r" type="Box3DBody" parent="Box3DWorld/Body"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0.23, 1.40751, 0.131678)
+shape_type = 2
+capsule_radius = 0.06
+capsule_height = 0.51
+density = 3.0
+friction = 0.5
+collision_layer = 1
+collision_mask = 1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Body/upper_arm_r"]
+mesh = SubResource("Mesh_upper_arm_r")
+material_override = SubResource("ShirtMat")
+
+[node name="lower_arm_l" type="Box3DBody" parent="Box3DWorld/Body"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, -0.23, 1.06922, 0.0085505)
+shape_type = 2
+capsule_radius = 0.052
+capsule_height = 0.474
+density = 3.0
+friction = 0.5
+collision_layer = 1
+collision_mask = 1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Body/lower_arm_l"]
+mesh = SubResource("Mesh_lower_arm_l")
+material_override = SubResource("SkinMat")
+
+[node name="lower_arm_r" type="Box3DBody" parent="Box3DWorld/Body"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0.23, 1.06922, 0.0085505)
+shape_type = 2
+capsule_radius = 0.052
+capsule_height = 0.474
+density = 3.0
+friction = 0.5
+collision_layer = 1
+collision_mask = 1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Body/lower_arm_r"]
+mesh = SubResource("Mesh_lower_arm_r")
+material_override = SubResource("SkinMat")
+
+[node name="pelvis" type="Box3DBody" parent="Box3DWorld/Body"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0, 1.04572, 0)
+box_size = Vector3(0.3, 0.26, 0.2)
+density = 3.0
+friction = 0.5
+collision_layer = 1
+collision_mask = 1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Body/pelvis"]
+mesh = SubResource("Mesh_pelvis")
+material_override = SubResource("PantMat")
+
+[node name="chest" type="Box3DBody" parent="Box3DWorld/Body"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0, 1.4216, 0.136808)
+box_size = Vector3(0.34, 0.56, 0.22)
+density = 3.0
+friction = 0.5
+collision_layer = 1
+collision_mask = 1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Body/chest"]
+mesh = SubResource("Mesh_chest")
+material_override = SubResource("ShirtMat")
+
+[node name="head" type="Box3DBody" parent="Box3DWorld/Body"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0, 1.78808, 0.270196)
+shape_type = 1
+sphere_radius = 0.15
+density = 3.0
+friction = 0.5
+collision_layer = 1
+collision_mask = 1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Body/head"]
+mesh = SubResource("Mesh_head")
+material_override = SubResource("SkinMat")
+
+[node name="Joints" type="Node3D" parent="Box3DWorld"]
+
+[node name="J_waist" type="Box3DBallJoint" parent="Box3DWorld/Joints"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0, 1.16788, 0.0444626)
+body_a = NodePath("../../Body/pelvis")
+body_b = NodePath("../../Body/chest")
+cone_limit_enabled = true
+cone_angle = 0.5236
+twist_limit_enabled = true
+twist_lower = -0.69813
+twist_upper = 0.69813
+
+[node name="J_neck" type="Box3DBallJoint" parent="Box3DWorld/Joints"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0, 1.67532, 0.229153)
+body_a = NodePath("../../Body/chest")
+body_b = NodePath("../../Body/head")
+cone_limit_enabled = true
+cone_angle = 0.69813
+twist_limit_enabled = true
+twist_lower = -0.7854
+twist_upper = 0.7854
+
+[node name="J_shoulder_l" type="Box3DBallJoint" parent="Box3DWorld/Joints"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, -0.23, 1.59075, 0.198372)
+body_a = NodePath("../../Body/chest")
+body_b = NodePath("../../Body/upper_arm_l")
+cone_limit_enabled = true
+cone_angle = 1.4835
+twist_limit_enabled = true
+twist_lower = -1.0472
+twist_upper = 1.0472
+
+[node name="J_shoulder_r" type="Box3DBallJoint" parent="Box3DWorld/Joints"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0.23, 1.59075, 0.198372)
+body_a = NodePath("../../Body/chest")
+body_b = NodePath("../../Body/upper_arm_r")
+cone_limit_enabled = true
+cone_angle = 1.4835
+twist_limit_enabled = true
+twist_lower = -1.0472
+twist_upper = 1.0472
+
+[node name="J_hip_l" type="Box3DBallJoint" parent="Box3DWorld/Joints"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, -0.1, 0.979945, -0.0239414)
+body_a = NodePath("../../Body/pelvis")
+body_b = NodePath("../../Body/thigh_l")
+cone_limit_enabled = true
+cone_angle = 1.2217
+twist_limit_enabled = true
+twist_lower = -0.69813
+twist_upper = 0.69813
+
+[node name="J_hip_r" type="Box3DBallJoint" parent="Box3DWorld/Joints"]
+transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0.1, 0.979945, -0.0239414)
+body_a = NodePath("../../Body/pelvis")
+body_b = NodePath("../../Body/thigh_r")
+cone_limit_enabled = true
+cone_angle = 1.2217
+twist_limit_enabled = true
+twist_lower = -0.69813
+twist_upper = 0.69813
+
+[node name="J_elbow_l" type="Box3DHingeJoint" parent="Box3DWorld/Joints"]
+transform = Transform3D(0, 0.34202, -0.939693, 0, 0.939693, 0.34202, 1, 0, 0, -0.23, 1.23366, 0.068404)
+body_a = NodePath("../../Body/upper_arm_l")
+body_b = NodePath("../../Body/lower_arm_l")
+limit_enabled = true
+lower_limit = -2.4
+upper_limit = 2.4
+
+[node name="J_elbow_r" type="Box3DHingeJoint" parent="Box3DWorld/Joints"]
+transform = Transform3D(0, 0.34202, -0.939693, 0, 0.939693, 0.34202, 1, 0, 0, 0.23, 1.23366, 0.068404)
+body_a = NodePath("../../Body/upper_arm_r")
+body_b = NodePath("../../Body/lower_arm_r")
+limit_enabled = true
+lower_limit = -2.4
+upper_limit = 2.4
+
+[node name="J_knee_l" type="Box3DHingeJoint" parent="Box3DWorld/Joints"]
+transform = Transform3D(0, 0.34202, -0.939693, 0, 0.939693, 0.34202, 1, 0, 0, -0.1, 0.585274, -0.16759)
+body_a = NodePath("../../Body/thigh_l")
+body_b = NodePath("../../Body/shin_l")
+limit_enabled = true
+lower_limit = -2.4
+upper_limit = 2.4
+
+[node name="J_knee_r" type="Box3DHingeJoint" parent="Box3DWorld/Joints"]
+transform = Transform3D(0, 0.34202, -0.939693, 0, 0.939693, 0.34202, 1, 0, 0, 0.1, 0.585274, -0.16759)
+body_a = NodePath("../../Body/thigh_r")
+body_b = NodePath("../../Body/shin_r")
+limit_enabled = true
+lower_limit = -2.4
+upper_limit = 2.4
+

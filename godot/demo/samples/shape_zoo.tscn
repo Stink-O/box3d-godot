@@ -1,0 +1,109 @@
+[gd_scene load_steps=10 format=3]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(30, 1, 30)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="BoxMesh_1"]
+size = Vector3(1.2, 1.2, 1.2)
+
+[sub_resource type="SphereMesh" id="SphereMesh_1"]
+radius = 0.7
+height = 1.4
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_1"]
+radius = 0.5
+height = 2.0
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_1"]
+top_radius = 0.6
+bottom_radius = 0.6
+height = 1.4
+
+[sub_resource type="CylinderMesh" id="ConeMesh_1"]
+top_radius = 0.0
+bottom_radius = 0.7
+height = 1.6
+
+[sub_resource type="PrismMesh" id="PrismMesh_1"]
+size = Vector3(1.3, 1.4, 1.3)
+
+[sub_resource type="StandardMaterial3D" id="DynMat"]
+albedo_color = Color(0.87, 0.46, 0.19, 1)
+roughness = 0.4
+
+[node name="ShapeZoo" type="Node3D"]
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+box_size = Vector3(30, 1, 30)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="Box" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 4, 0)
+box_size = Vector3(1.2, 1.2, 1.2)
+restitution = 0.1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Box"]
+mesh = SubResource("BoxMesh_1")
+material_override = SubResource("DynMat")
+
+[node name="Sphere" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 4, 0)
+shape_type = 1
+sphere_radius = 0.7
+restitution = 0.3
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Sphere"]
+mesh = SubResource("SphereMesh_1")
+material_override = SubResource("DynMat")
+
+[node name="Capsule" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 4, 0)
+shape_type = 2
+capsule_radius = 0.5
+capsule_height = 2.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Capsule"]
+mesh = SubResource("CapsuleMesh_1")
+material_override = SubResource("DynMat")
+
+[node name="Cylinder" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 4, 0)
+shape_type = 3
+capsule_radius = 0.6
+capsule_height = 1.4
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Cylinder"]
+mesh = SubResource("CylinderMesh_1")
+material_override = SubResource("DynMat")
+
+[node name="Cone" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 4, 0)
+shape_type = 4
+capsule_radius = 0.7
+capsule_height = 1.6
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Cone"]
+mesh = SubResource("ConeMesh_1")
+material_override = SubResource("DynMat")
+
+[node name="Hull" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 4, 0)
+shape_type = 5
+collision_mesh = SubResource("PrismMesh_1")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Hull"]
+mesh = SubResource("PrismMesh_1")
+material_override = SubResource("DynMat")
