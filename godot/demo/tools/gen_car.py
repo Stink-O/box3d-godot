@@ -42,8 +42,10 @@ S('[sub_resource type="StandardMaterial3D" id="ChassisMat"]\n'
 S('[sub_resource type="SphereMesh" id="WheelMesh"]\nradius = %g\nheight = %g' % (WHEEL_R, WHEEL_R * 2))
 S('[sub_resource type="StandardMaterial3D" id="WheelMat"]\n'
   'albedo_color = Color(0.09, 0.09, 0.1, 1)\nroughness = 0.85')
+# The terrain mesh carries per-vertex colors (height + slope, baked by
+# gen_car_terrain.gd); the material just lets them through.
 S('[sub_resource type="StandardMaterial3D" id="TerrainMat"]\n'
-  'albedo_color = Color(0.28, 0.4, 0.24, 1)\nroughness = 0.95')
+  'vertex_color_use_as_albedo = true\nroughness = 1.0')
 
 B('[node name="Car" type="Node3D"]')
 B('script = ExtResource("1_car")')

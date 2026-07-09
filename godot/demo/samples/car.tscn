@@ -21,8 +21,8 @@ albedo_color = Color(0.09, 0.09, 0.1, 1)
 roughness = 0.85
 
 [sub_resource type="StandardMaterial3D" id="TerrainMat"]
-albedo_color = Color(0.28, 0.4, 0.24, 1)
-roughness = 0.95
+vertex_color_use_as_albedo = true
+roughness = 1.0
 
 [node name="Car" type="Node3D"]
 script = ExtResource("1_car")
