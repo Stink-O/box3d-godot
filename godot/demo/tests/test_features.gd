@@ -6,11 +6,15 @@ extends Node3D
 
 var _all_ok := true
 var _sensor_hit := false
+var _contact_entered: Node = null
+var _contact_exited := false
 
 
 func _ready() -> void:
 	await _test_collision_filter()
 	await _test_sensor()
+	await _test_contact_events()
+	await _test_distance_joint()
 	await _test_shapes()
 	await _test_hull()
 	await _test_mesh()
@@ -104,6 +108,80 @@ func _test_sensor() -> void:
 
 	_check("sensor fires area_entered", _sensor_hit)
 	_check("body passes through sensor (no collision)", faller.position.y < -2.0)
+
+	world.free()
+
+
+func _on_contact_entered(other: Box3DBody) -> void:
+	_contact_entered = other
+
+
+func _on_contact_exited(_other: Box3DBody) -> void:
+	_contact_exited = true
+
+
+func _test_contact_events() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+
+	var floor := Box3DBody.new()
+	floor.body_type = Box3DBody.STATIC
+	floor.box_size = Vector3(20, 1, 20)
+	floor.position = Vector3(0, -0.5, 0)
+	world.add_child(floor)
+
+	# A monitored box dropped onto the floor: body_entered must fire with the
+	# floor as the other body (the non-sensor signal path, unlike _test_sensor).
+	var box := Box3DBody.new()
+	box.contact_monitor = true
+	box.position = Vector3(0, 2, 0)
+	box.body_entered.connect(_on_contact_entered)
+	box.body_exited.connect(_on_contact_exited)
+	world.add_child(box)
+
+	for i in range(90):
+		await get_tree().physics_frame
+	_check("contact_monitor: body_entered fires with the touched body",
+		_contact_entered == floor)
+
+	# Yank it off the floor: losing the contact must fire body_exited.
+	box.teleport(Transform3D(Basis(), Vector3(0, 6, 0)))
+	for i in range(30):
+		await get_tree().physics_frame
+	_check("contact_monitor: body_exited fires when contact breaks", _contact_exited)
+
+	world.free()
+
+
+func _test_distance_joint() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+
+	var bob := Box3DBody.new()
+	bob.name = "Bob"
+	bob.shape_type = Box3DBody.SPHERE
+	bob.sphere_radius = 0.3
+	bob.position = Vector3(0, 3, 0)
+	world.add_child(bob)
+
+	# Rigid rod (spring disabled, the Newton's Cradle configuration) anchored to
+	# the world at (0, 5, 0), length 2 = the initial anchor->body separation.
+	var joint := Box3DDistanceJoint.new()
+	joint.position = Vector3(0, 5, 0)
+	joint.length = 2.0
+	world.add_child(joint)
+	joint.body_a = NodePath("../Bob")
+
+	# Two frames: body created, then the deferred joint.
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	bob.apply_central_impulse(Vector3(1.5, 0, 0))  # set it swinging
+	var max_err := 0.0
+	for i in range(90):
+		await get_tree().physics_frame
+		max_err = maxf(max_err, absf(bob.position.distance_to(Vector3(0, 5, 0)) - 2.0))
+	_check("distance joint holds a swinging body at its length (max err %.3f)" % max_err,
+		max_err < 0.1)
 
 	world.free()
 
