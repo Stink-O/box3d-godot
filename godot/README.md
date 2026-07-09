@@ -305,9 +305,13 @@ Samples so far (more are added by the `/demo` loop):
   toward the target angle — with a soft `Box3DParallelJoint` holding the body
   upright. Nothing pushes the chassis; all motion comes from wheel traction.
   Drive with the **arrow keys** (Up/Down throttle, Left/Right steer — W A S D
-  works too while you're not flying the camera) over rolling sine-wave terrain,
-  a triangle-mesh stand-in for upstream's wave height field
-  (`tools/gen_car_terrain.gd` bakes it). A floating readout shows your speed.
+  works too while you're not flying the camera) over 240 m of rolling
+  two-scale sine terrain — long swells plus short ripples, vertex-tinted by
+  height and slope so the relief reads clearly (a triangle-mesh stand-in for
+  upstream's wave height field; `tools/gen_car_terrain.gd` bakes it). A
+  floating readout shows your speed, and the top bar's **🎥 Third Person**
+  toggle swaps the free camera for a chase rig behind the car — toggling it
+  off returns the camera exactly where you left it.
 
 **Controls:** hold **right mouse** to fly (**W A S D** + **Q/E**, **Shift** to
 boost); **left-click and drag** (when not flying) to grab a body *at the point
@@ -318,7 +322,9 @@ flying (it's a CCD "bullet", so it won't tunnel through walls). The top bar's
 **Shot** selector switches F between a plain ball and a **bomb** — a thrown bomb
 blinks faster and faster over a 3-second fuse, then detonates with the same
 `ExplosionFX`. The **Activate** button (shown for samples that define an
-`activate()` action, e.g. Explosion) fires that action. The **Reset** button
+`activate()` action, e.g. Explosion) fires that action; a sample can likewise
+put a labelled toggle in the top bar by defining `set_toggled(on)` (and
+optionally `get_toggle_label()`) — the Car's **Third Person** camera uses it. The **Reset** button
 rebuilds the current sample; the **Debug** toggle overlays every body's collider
 wireframe (`Box3DWorld.debug_draw`) and stays on as you switch samples; and
 **⚙ Settings** (or **Tab**) opens a right-hand panel that live-edits the current

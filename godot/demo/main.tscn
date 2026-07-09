@@ -51,6 +51,10 @@ flat = false
 visible = false
 text = "💥  Activate"
 
+[node name="SampleToggle" type="CheckButton" parent="UI/Bar"]
+visible = false
+text = "Third Person"
+
 [node name="Info" type="Label" parent="UI/Bar"]
 size_flags_horizontal = 3
 size_flags_vertical = 1

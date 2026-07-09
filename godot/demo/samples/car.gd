@@ -17,7 +17,10 @@ extends Node3D
 ## Drive with the ARROW KEYS (or W A S D while not flying the camera):
 ## Up/Down = throttle, Left/Right = steer. The car crests the swells, leans
 ## on its suspension, and can be flipped if you fly off a crest badly — the
-## upright spring will wrestle it back.
+## upright spring will wrestle it back. The top bar's "Third Person" toggle
+## (the shell's reusable sample toggle) puts the shared camera on a chase
+## rig behind the car; toggling it off returns to the free camera exactly
+## where you left it.
 
 const SPIN_SPEED := 30.0     # rad/s wheel-spin target at full throttle (upstream's)
 const MAX_STEER := 0.25 * PI # target steering angle at full lock (upstream's)
@@ -30,6 +33,22 @@ const MAX_STEER := 0.25 * PI # target steering angle at full lock (upstream's)
 @onready var _front: Array = [$Box3DWorld/FrontLeftJoint, $Box3DWorld/FrontRightJoint]
 @onready var _rear: Array = [$Box3DWorld/RearLeftJoint, $Box3DWorld/RearRightJoint]
 @onready var _speedo: Label3D = $Speedo
+
+
+# --- Shell toggle: third-person chase camera (see main.gd's SampleToggle) ---
+
+func get_toggle_label() -> String:
+	return "🎥 Third Person"
+
+
+func set_toggled(on: bool) -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or not cam.has_method("set_follow"):
+		return
+	if on:
+		cam.set_follow(_chassis, Vector3(-8.0, 3.2, 0.0), 1.2)
+	else:
+		cam.clear_follow()
 
 
 func _physics_process(_delta: float) -> void:

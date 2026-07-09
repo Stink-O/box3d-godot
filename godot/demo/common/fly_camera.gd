@@ -36,6 +36,15 @@ var _charging := false
 var _charge := 0.0
 var _charge_bar: ProgressBar = null
 
+## Third-person follow (samples opt in through the shell's toggle button).
+## While following, the camera trails `_follow` and fly/look input is
+## suspended; grabbing and shooting still work.
+var _follow: Node3D = null
+var _follow_anchor := Vector3(-8.0, 3.2, 0.0)  ## chase offset in the target's yaw frame
+var _follow_look_height := 1.2
+var _follow_saved_pose := Transform3D()
+@export var follow_smoothing := 6.0  ## 1/s position chase rate (higher = snappier)
+
 const BOMB_SCENE := preload("res://common/bomb.tscn")
 const Despawn = preload("res://common/despawn.gd")
 var _bomb_mode := false  ## when true, F fires a fused Bomb instead of a ball
@@ -55,6 +64,7 @@ func _ready() -> void:
 func set_world(world: Box3DWorld) -> void:
 	_world = world
 	_grabbed = null
+	_follow = null  # the new sample owns the framing; nothing to restore
 	_reset_pose()
 
 
@@ -63,6 +73,27 @@ func set_world(world: Box3DWorld) -> void:
 func set_world_keep_view(world: Box3DWorld) -> void:
 	_world = world
 	_grabbed = null
+	_follow = null
+
+
+# Chase `target` third-person: hover at `local_anchor` in the target's
+# yaw-only frame (x = along its nose, y = height, z = sideways) and look at
+# it. The current free-camera pose is saved; clear_follow() restores it.
+func set_follow(target: Node3D, local_anchor := Vector3(-8.0, 3.2, 0.0), look_height := 1.2) -> void:
+	if _follow == null and target != null:
+		_follow_saved_pose = global_transform
+	_follow = target
+	_follow_anchor = local_anchor
+	_follow_look_height = look_height
+
+
+# Stop following and put the camera back where it was when the follow began.
+func clear_follow() -> void:
+	if _follow != null:
+		global_transform = _follow_saved_pose
+		_yaw = rotation.y
+		_pitch = rotation.x
+	_follow = null
 
 
 # Frame the view from `home`, looking at `look_at`. Samples opt into custom
@@ -97,7 +128,10 @@ func _reset_pose() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_RIGHT:
-			_set_flying(event.pressed)
+			# The follow cam owns the view; don't enter fly mode (this also
+			# keeps the mouse free, so W A S D keeps driving the sample).
+			if _follow == null:
+				_set_flying(event.pressed)
 		elif event.button_index == MOUSE_BUTTON_LEFT and not _flying:
 			if event.pressed:
 				_try_grab()
@@ -125,6 +159,11 @@ func _set_flying(active: bool) -> void:
 
 func _process(delta: float) -> void:
 	_update_charge(delta)
+	if _follow != null:
+		if is_instance_valid(_follow):
+			_update_follow(delta)
+			return
+		_follow = null  # target freed (reset/switch): stay put, follow ends
 	if not _flying:
 		return
 	var dir := Vector3.ZERO
@@ -139,6 +178,35 @@ func _process(delta: float) -> void:
 		if Input.is_key_pressed(KEY_SHIFT):
 			speed *= boost_multiplier
 		position += dir.normalized() * speed * delta
+
+
+func _update_follow(delta: float) -> void:
+	# Chase in the target's YAW-ONLY frame -- its local X (the Car's nose)
+	# flattened to the ground plane -- so terrain pitch/roll doesn't bob the
+	# camera around.
+	var fwd: Vector3 = _follow.global_transform.basis.x
+	fwd.y = 0.0
+	if fwd.length_squared() < 0.001:
+		fwd = -global_transform.basis.z  # degenerate (nose straight up): hold heading
+		fwd.y = 0.0
+	fwd = fwd.normalized()
+	var side := Vector3.UP.cross(fwd)
+	var target_pos: Vector3 = _follow.global_position
+	var desired := target_pos + fwd * _follow_anchor.x \
+			+ Vector3.UP * _follow_anchor.y + side * _follow_anchor.z
+
+	# Don't sink the chase anchor into a hill (or a wall): cast from just above
+	# the target and pull the camera in front of whatever the ray hits.
+	if _world != null:
+		var from := target_pos + Vector3.UP * _follow_look_height
+		var hit := _world.raycast(from, desired)
+		if hit.get("hit", false):
+			desired = (hit["position"] as Vector3).lerp(from, 0.1)
+
+	position = position.lerp(desired, 1.0 - exp(-follow_smoothing * delta))
+	look_at(target_pos + Vector3.UP * _follow_look_height, Vector3.UP)
+	_yaw = rotation.y
+	_pitch = rotation.x
 
 
 func _update_charge(delta: float) -> void:

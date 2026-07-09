@@ -62,6 +62,7 @@ const SAMPLES := {
 @onready var _menu: MenuButton = $UI/Bar/Menu
 @onready var _shot_mode: OptionButton = $UI/Bar/ShotMode
 @onready var _activate: Button = $UI/Bar/Activate
+@onready var _sample_toggle: CheckButton = $UI/Bar/SampleToggle
 @onready var _info: Label = $UI/Bar/Info
 @onready var _reset: Button = $UI/Reset
 @onready var _debug_toggle: CheckButton = $UI/DebugToggle
@@ -114,6 +115,11 @@ func _ready() -> void:
 	_activate.focus_mode = Control.FOCUS_NONE
 	_activate.pressed.connect(_on_activate)
 
+	# Reusable sample toggle: shown for samples that define set_toggled(on),
+	# labelled by their get_toggle_label() (the Car's third-person camera).
+	_sample_toggle.focus_mode = Control.FOCUS_NONE
+	_sample_toggle.toggled.connect(_on_sample_toggle)
+
 	_camera.set_charge_bar(_charge_bar)
 
 	_sidebar.visible = false
@@ -158,6 +164,11 @@ func _on_activate() -> void:
 	# Reusable: fire the current sample's activate() action, if it has one.
 	if _current != null and _current.has_method("activate"):
 		_current.activate()
+
+
+func _on_sample_toggle(pressed: bool) -> void:
+	if _current != null and _current.has_method("set_toggled"):
+		_current.set_toggled(pressed)
 
 
 func _on_debug_toggled(pressed: bool) -> void:
@@ -345,4 +356,11 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	_refresh_sidebar_from_world(world)
 	# Show the Activate button only for samples that expose an activate() action.
 	_activate.visible = _current != null and _current.has_method("activate")
+	# Same idea for the sample toggle (set_toggled + get_toggle_label). A fresh
+	# load always starts un-toggled.
+	var has_toggle: bool = _current != null and _current.has_method("set_toggled")
+	_sample_toggle.visible = has_toggle
+	_sample_toggle.set_pressed_no_signal(false)
+	if has_toggle and _current.has_method("get_toggle_label"):
+		_sample_toggle.text = _current.get_toggle_label()
 	_info.text = "%s      Right-click: fly (WASD / Q E, Shift boost)   ·   Left-drag: grab   ·   Hold F: charge shot" % sample_name
