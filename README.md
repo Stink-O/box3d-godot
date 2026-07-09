@@ -1,8 +1,8 @@
 # Box3D for Godot
 
 A **[Godot 4](https://godotengine.org) GDExtension** that embeds
-**[Box3D](https://github.com/erincatto/box3d)** — Erin Catto's 3D rigid-body
-physics engine — and exposes it as ready-to-use nodes: `Box3DWorld`,
+**[Box3D](https://github.com/erincatto/box3d)** Erin Catto's 3D rigid-body
+physics engine and exposes it as ready-to-use nodes: `Box3DWorld`,
 `Box3DBody`, the joints, and a character controller.
 
 This is a fork of **[erincatto/box3d](https://github.com/erincatto/box3d)**. The
@@ -10,19 +10,33 @@ upstream engine sources are unchanged; everything Godot-specific lives in
 **[`godot/`](godot/)**. The original Box3D README is preserved [below](#box3d).
 
 > ⚠️ **Very early / experimental.** Box3D itself is v0.1.0 and this binding is
-> young — expect rough edges, missing pieces, and API churn. It's not
+> young expect rough edges, missing pieces, and API churn. It's not
 > production-ready; it's a starting point to build on.
 
 ### What's here
 
 - Targets **Godot 4.7**. One-command build (`scons`) compiles Box3D from source
-  into the extension — no prebuilt engine binary required.
+  into the extension no prebuilt engine binary required.
 - Covers worlds; static/kinematic/dynamic bodies; box/sphere/capsule/cylinder/
   cone/convex-hull/triangle-mesh colliders; the full joint set (hinge, slider,
   distance, ball, fixed, motor); contact & sensor events; ray/shape/overlap
   queries; a character controller; continuous collision; and live solver tuning.
-- Ships a **sample browser** demo (~28 samples — stacks, ragdoll, a drivable
+- Ships a **sample browser** demo (~28 samples stacks, ragdoll, a drivable
   car, joints, queries, and toys).
+
+
+
+https://github.com/user-attachments/assets/ce0d9806-9d35-4d24-9457-4ab83e761230
+
+
+
+https://github.com/user-attachments/assets/b3b04613-ed57-417e-822d-665f057b7d5c
+
+
+
+https://github.com/user-attachments/assets/33752918-c3a2-4899-821c-bf13d9adce11
+
+
 
 **→ Get started:** see **[`godot/README.md`](godot/README.md)**.
 
