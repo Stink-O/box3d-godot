@@ -55,6 +55,8 @@ func _place_rod(mi: MeshInstance3D, a: Vector3, b: Vector3) -> void:
 		x = y.cross(Vector3.RIGHT)
 	x = x.normalized()
 	var z := x.cross(y)
-	# CylinderMesh runs along local Y; scale Y to the rod length.
-	var basis := Basis(x, y, z).scaled(Vector3(1.0, length, 1.0))
+	# CylinderMesh runs along local Y; stretch the y COLUMN to the rod length.
+	# (Basis.scaled() scales rows -- global axes -- which is only correct while
+	# the rod hangs vertical; a swinging rod would shear and shrink.)
+	var basis := Basis(x, y * length, z)
 	mi.global_transform = Transform3D(basis, (a + b) * 0.5)

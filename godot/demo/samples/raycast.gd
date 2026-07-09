@@ -67,4 +67,7 @@ func _stretch_beam(a: Vector3, b: Vector3) -> void:
 	var ref := Vector3.UP if absf(y.y) < 0.99 else Vector3.FORWARD
 	var x := ref.cross(y).normalized()
 	var z := x.cross(y)
-	_beam.transform = Transform3D(Basis(x, y, z).scaled(Vector3(1, length, 1)), (a + b) * 0.5)
+	# Stretch the y COLUMN (the mesh's local height axis): Basis.scaled() scales
+	# rows (global axes), which for this horizontal beam would leave its length
+	# at 1 and smear its cross-section vertically instead.
+	_beam.transform = Transform3D(Basis(x, y * length, z), (a + b) * 0.5)
