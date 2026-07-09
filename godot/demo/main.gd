@@ -1,6 +1,6 @@
 extends Node3D
 
-## Box3D sample browser. A responsive sidebar lists samples by category; picking
+## Box3D sample browser. A dropdown menu lists samples by category; picking
 ## one instances its scene into SampleHost and points the shared camera at its
 ## world. Add new samples to SAMPLES and drop the scene in samples/.
 

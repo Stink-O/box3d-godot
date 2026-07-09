@@ -291,10 +291,13 @@ Samples so far (more are added by the `/demo` loop):
 - **Bullets (CCD)** — a firing range that shoots fast bullets at a thin wall.
   Press **C** to toggle the world's `continuous_collision`: on, the wall catches
   them; off, they tunnel straight through to the backstop. (**B** fires a volley.)
-- **Car** — a boxy chassis on four cylinder wheels, each pinned to the chassis by
-  a motorized `Box3DHingeJoint` about its axle; drive it with the **arrow keys**
-  (Up/Down throttle, Left/Right skid-steer) over a flat ground dotted with gentle
-  noise-placed speed bumps. Arrows so driving never fights the camera's WASD.
+- **Car** — a boxy chassis on four free-rolling cylinder wheels, each pinned to
+  the chassis by a `Box3DHingeJoint` about its axle; drive it with the **arrow
+  keys** (Up/Down throttle, Left/Right steer — W A S D works too while you're
+  not flying the camera) over a flat ground dotted with gentle noise-placed
+  speed bumps. The drive is arcade — the script steers the chassis directly and
+  the wheels spin from ground contact — so it stays controllable without
+  depending on wheel-motor traction.
 
 **Controls:** hold **right mouse** to fly (**W A S D** + **Q/E**, **Shift** to
 boost); **left-click and drag** (when not flying) to grab a body *at the point
@@ -315,7 +318,7 @@ sample can frame its own opening view by exporting `camera_home` /
 
 Headless checks: `res://tests/test_samples.tscn -- --selftest` loads and steps
 every sample; `res://tests/test_features.tscn -- --selftest` exercises the
-binding (34 assertions); `res://tests/test_shoot.tscn -- --selftest` loads the
+binding feature-by-feature; `res://tests/test_shoot.tscn -- --selftest` loads the
 shell and verifies the menu + ball shooting.
 
 ## Building
