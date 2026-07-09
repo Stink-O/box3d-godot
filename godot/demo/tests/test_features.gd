@@ -24,6 +24,7 @@ func _ready() -> void:
 	await _test_queries()
 	await _test_ball_limits()
 	await _test_debug_draw()
+	await _test_debug_draw_compound()
 	await _test_compound()
 	await _test_motor()
 	await _test_worker_count()
@@ -479,6 +480,37 @@ func _test_debug_draw() -> void:
 	var mi = world.get_node_or_null("Box3DDebugDraw")
 	var ok: bool = mi != null and mi.mesh != null and mi.mesh.get_surface_count() > 0
 	_check("debug draw produces line geometry", ok)
+
+	world.free()
+
+
+func _test_debug_draw_compound() -> void:
+	var world := Box3DWorld.new()
+	world.debug_draw = true
+	add_child(world)
+
+	# A compound body: its only real collider is a child sphere out at x=3. The
+	# overlay must outline THAT (not the body's own ignored shape_type at the
+	# origin), so the drawn lines have to reach out to the sphere.
+	var body := Box3DBody.new()
+	body.body_type = Box3DBody.STATIC
+	var cs := Box3DCollisionShape.new()
+	cs.shape_type = Box3DCollisionShape.SPHERE
+	cs.sphere_radius = 0.5
+	cs.position = Vector3(3, 0, 0)
+	body.add_child(cs)
+	world.add_child(body)
+
+	for i in range(5):
+		await get_tree().physics_frame
+
+	var mi = world.get_node_or_null("Box3DDebugDraw")
+	var max_x := -1e9
+	if mi != null and mi.mesh != null and mi.mesh.get_surface_count() > 0:
+		for v in mi.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]:
+			max_x = maxf(max_x, v.x)
+	_check("debug draw outlines a compound body's child shape (max x %.2f)" % max_x,
+		absf(max_x - 3.5) < 0.1)
 
 	world.free()
 

@@ -4,6 +4,7 @@
 #include "box3d_world.h"
 
 #include "box3d_body.h"
+#include "box3d_collision_shape.h"
 #include "box3d_conversions.h"
 
 #include <godot_cpp/classes/engine.hpp>
@@ -491,6 +492,38 @@ void Box3DWorld::update_debug_draw() {
 	const Color col(0.25f, 1.0f, 0.4f);
 	for (Box3DBody *body : bodies) {
 		if (body == nullptr || !body->is_body_valid()) {
+			continue;
+		}
+		// Compound bodies: outline each Box3DCollisionShape child. The physics
+		// ignores the body's own shape_type when child shapes exist, so drawing
+		// it would show a collider that isn't there.
+		bool has_child_shapes = false;
+		for (int i = 0; i < body->get_child_count(); ++i) {
+			Box3DCollisionShape *cs = Object::cast_to<Box3DCollisionShape>(body->get_child(i));
+			if (cs == nullptr) {
+				continue;
+			}
+			has_child_shapes = true;
+			Transform3D cxf = cs->get_global_transform();
+			switch (cs->get_shape_type()) {
+				case Box3DCollisionShape::SPHERE:
+					draw_ball(&buffer, cxf.origin, (float)cs->get_sphere_radius(), col);
+					break;
+				case Box3DCollisionShape::CAPSULE: {
+					float cr2 = (float)cs->get_capsule_radius();
+					float ring = (float)cs->get_capsule_height() * 0.5f - cr2;
+					if (ring < 0.0f) {
+						ring = 0.0f;
+					}
+					draw_barrel(buffer, cxf, cr2, ring, col, true);
+				} break;
+				case Box3DCollisionShape::BOX:
+				default:
+					draw_box(buffer, cxf, cs->get_box_size() * 0.5, col);
+					break;
+			}
+		}
+		if (has_child_shapes) {
 			continue;
 		}
 		Transform3D xf = body->get_global_transform();
