@@ -32,6 +32,10 @@ protected:
 	// The joint frame expressed in a body's local space.
 	b3Transform local_frame(const Transform3D &p_body, const Transform3D &p_joint) const;
 	void rebuild_if_alive();
+	// Wake both connected bodies. box3d's motor-target setters only store the
+	// value, so a sleeping body would ignore a new drive command; every setter
+	// that changes a drive target calls this.
+	void wake_bodies();
 
 	// Subclasses fill in their specific joint def and create it.
 	virtual b3JointId create_specific(b3WorldId p_world, b3BodyId p_a, b3BodyId p_b,
@@ -201,6 +205,101 @@ public:
 	double get_linear_hertz() const;
 	void set_angular_hertz(double p_v);
 	double get_angular_hertz() const;
+};
+
+// Wheel joint: body_a is the chassis, body_b the wheel. The wheel travels on a
+// suspension spring along the node's local Y (the green gizmo arrow), spins
+// about the node's local Z (the axle), and can optionally steer about the
+// suspension axis. This is box3d's vehicle joint — see the Car sample, which
+// mirrors upstream's "Driving" sample.
+class Box3DWheelJoint : public Box3DJoint {
+	GDCLASS(Box3DWheelJoint, Box3DJoint)
+
+	bool suspension_enabled = true;
+	double suspension_hertz = 1.0;
+	double suspension_damping = 0.7;
+	bool suspension_limit_enabled = false;
+	double lower_suspension_limit = 0.0; // meters
+	double upper_suspension_limit = 0.0; // meters
+	bool spin_motor_enabled = false;
+	double spin_motor_speed = 0.0; // radians / second
+	double max_spin_torque = 0.0;
+	bool steering_enabled = false;
+	double steering_hertz = 1.0;
+	double steering_damping = 0.7;
+	double target_steering_angle = 0.0; // radians
+	double max_steering_torque = 0.0;
+	bool steering_limit_enabled = false;
+	double lower_steering_limit = 0.0; // radians
+	double upper_steering_limit = 0.0; // radians
+
+protected:
+	static void _bind_methods();
+	b3JointId create_specific(b3WorldId p_world, b3BodyId p_a, b3BodyId p_b,
+			const Transform3D &p_xf_a, const Transform3D &p_xf_b, const Transform3D &p_joint) override;
+
+public:
+	void set_suspension_enabled(bool p_v);
+	bool get_suspension_enabled() const;
+	void set_suspension_hertz(double p_v);
+	double get_suspension_hertz() const;
+	void set_suspension_damping(double p_v);
+	double get_suspension_damping() const;
+	void set_suspension_limit_enabled(bool p_v);
+	bool get_suspension_limit_enabled() const;
+	void set_lower_suspension_limit(double p_v);
+	double get_lower_suspension_limit() const;
+	void set_upper_suspension_limit(double p_v);
+	double get_upper_suspension_limit() const;
+	void set_spin_motor_enabled(bool p_v);
+	bool get_spin_motor_enabled() const;
+	void set_spin_motor_speed(double p_v);
+	double get_spin_motor_speed() const;
+	void set_max_spin_torque(double p_v);
+	double get_max_spin_torque() const;
+	void set_steering_enabled(bool p_v);
+	bool get_steering_enabled() const;
+	void set_steering_hertz(double p_v);
+	double get_steering_hertz() const;
+	void set_steering_damping(double p_v);
+	double get_steering_damping() const;
+	void set_target_steering_angle(double p_v);
+	double get_target_steering_angle() const;
+	void set_max_steering_torque(double p_v);
+	double get_max_steering_torque() const;
+	void set_steering_limit_enabled(bool p_v);
+	bool get_steering_limit_enabled() const;
+	void set_lower_steering_limit(double p_v);
+	double get_lower_steering_limit() const;
+	void set_upper_steering_limit(double p_v);
+	double get_upper_steering_limit() const;
+	// Live readouts from the simulation (0 when the joint isn't created yet).
+	double get_spin_speed() const;
+	double get_steering_angle() const;
+};
+
+// Parallel joint: a spring that keeps the two bodies' copies of the node's
+// local Z axis parallel. Point the node's Z up and leave body_b empty to keep
+// body_a upright (it can still yaw); soften with hertz/damping/max_torque.
+class Box3DParallelJoint : public Box3DJoint {
+	GDCLASS(Box3DParallelJoint, Box3DJoint)
+
+	double spring_hertz = 1.0;
+	double spring_damping = 1.0;
+	double max_torque = 0.0; // 0 = unlimited
+
+protected:
+	static void _bind_methods();
+	b3JointId create_specific(b3WorldId p_world, b3BodyId p_a, b3BodyId p_b,
+			const Transform3D &p_xf_a, const Transform3D &p_xf_b, const Transform3D &p_joint) override;
+
+public:
+	void set_spring_hertz(double p_v);
+	double get_spring_hertz() const;
+	void set_spring_damping(double p_v);
+	double get_spring_damping() const;
+	void set_max_torque(double p_v);
+	double get_max_torque() const;
 };
 
 // Motor joint: drives the relative linear/angular velocity between two bodies

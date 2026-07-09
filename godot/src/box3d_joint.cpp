@@ -90,6 +90,19 @@ void Box3DJoint::create_joint() {
 	}
 
 	joint_id = create_specific(world_id, id_a, id_b, xf_a, xf_b, joint_xf);
+
+	// Joints are created deferred, so the connected bodies may have already
+	// collided — jointed bodies legitimately overlap (e.g. wheels inside a
+	// chassis). b3CreateJoint does NOT remove a pre-existing contact between
+	// the pair, and with collide_connected off that stale deep contact keeps
+	// shoving the bodies apart and fights the joint forever (a wheel pinned
+	// into its chassis can't even spin). The live toggle is the one box3d API
+	// that purges those contacts, and it early-outs unless the value changes,
+	// so bounce it through true -> false.
+	if (b3Joint_IsValid(joint_id) && !collide_connected) {
+		b3Joint_SetCollideConnected(joint_id, true);
+		b3Joint_SetCollideConnected(joint_id, false);
+	}
 }
 
 void Box3DJoint::destroy_joint() {
@@ -107,6 +120,12 @@ void Box3DJoint::rebuild_if_alive() {
 	if (b3Joint_IsValid(joint_id)) {
 		destroy_joint();
 		create_joint();
+	}
+}
+
+void Box3DJoint::wake_bodies() {
+	if (b3Joint_IsValid(joint_id)) {
+		b3Joint_WakeBodies(joint_id);
 	}
 }
 
@@ -153,6 +172,7 @@ bool Box3DJoint::get_collide_connected() const {
 }
 
 void Box3DJoint::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("is_joint_valid"), &Box3DJoint::is_joint_valid);
 	ClassDB::bind_method(D_METHOD("set_body_a", "path"), &Box3DJoint::set_body_a);
 	ClassDB::bind_method(D_METHOD("get_body_a"), &Box3DJoint::get_body_a);
 	ClassDB::bind_method(D_METHOD("set_body_b", "path"), &Box3DJoint::set_body_b);
@@ -202,9 +222,13 @@ void Box3DHingeJoint::set_motor_enabled(bool p_v) {
 bool Box3DHingeJoint::get_motor_enabled() const { return motor_enabled; }
 
 void Box3DHingeJoint::set_motor_speed(double p_v) {
+	bool changed = p_v != motor_speed;
 	motor_speed = p_v;
 	if (b3Joint_IsValid(joint_id)) {
 		b3RevoluteJoint_SetMotorSpeed(joint_id, (float)p_v);
+		if (changed) {
+			wake_bodies();
+		}
 	}
 }
 double Box3DHingeJoint::get_motor_speed() const { return motor_speed; }
@@ -271,9 +295,13 @@ void Box3DSliderJoint::set_motor_enabled(bool p_v) {
 bool Box3DSliderJoint::get_motor_enabled() const { return motor_enabled; }
 
 void Box3DSliderJoint::set_motor_speed(double p_v) {
+	bool changed = p_v != motor_speed;
 	motor_speed = p_v;
 	if (b3Joint_IsValid(joint_id)) {
 		b3PrismaticJoint_SetMotorSpeed(joint_id, (float)p_v);
+		if (changed) {
+			wake_bodies();
+		}
 	}
 }
 double Box3DSliderJoint::get_motor_speed() const { return motor_speed; }
@@ -460,6 +488,322 @@ void Box3DFixedJoint::_bind_methods() {
 }
 
 // ---------------------------------------------------------------------------
+// Box3DWheelJoint
+// ---------------------------------------------------------------------------
+
+b3JointId Box3DWheelJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3BodyId p_b,
+		const Transform3D &p_xf_a, const Transform3D &p_xf_b, const Transform3D &p_joint) {
+	b3WheelJointDef def = b3DefaultWheelJointDef();
+	def.base.bodyIdA = p_a;
+	def.base.bodyIdB = p_b;
+	// box3d's wheel joint suspends/steers along frame A's local X and spins the
+	// wheel about frame B's local Z. This node exposes Y as the suspension axis
+	// and Z as the axle, so frame A gets the node basis with (X,Y) rotated to
+	// put b3's X on the node's Y; frame B takes the node basis directly (its Z
+	// is already the axle). Same relative frames as upstream's Driving sample.
+	Transform3D frame_a = p_joint;
+	frame_a.basis = p_joint.basis * Basis(Vector3(0, 1, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1));
+	def.base.localFrameA = local_frame(p_xf_a, frame_a);
+	def.base.localFrameB = local_frame(p_xf_b, p_joint);
+	def.base.collideConnected = collide_connected;
+	def.enableSuspensionSpring = suspension_enabled;
+	def.suspensionHertz = (float)suspension_hertz;
+	def.suspensionDampingRatio = (float)suspension_damping;
+	def.enableSuspensionLimit = suspension_limit_enabled;
+	def.lowerSuspensionLimit = (float)lower_suspension_limit;
+	def.upperSuspensionLimit = (float)upper_suspension_limit;
+	def.enableSpinMotor = spin_motor_enabled;
+	def.spinSpeed = (float)spin_motor_speed;
+	def.maxSpinTorque = (float)max_spin_torque;
+	def.enableSteering = steering_enabled;
+	def.steeringHertz = (float)steering_hertz;
+	def.steeringDampingRatio = (float)steering_damping;
+	def.targetSteeringAngle = (float)target_steering_angle;
+	def.maxSteeringTorque = (float)max_steering_torque;
+	def.enableSteeringLimit = steering_limit_enabled;
+	def.lowerSteeringLimit = (float)lower_steering_limit;
+	def.upperSteeringLimit = (float)upper_steering_limit;
+	return b3CreateWheelJoint(p_world, &def);
+}
+
+void Box3DWheelJoint::set_suspension_enabled(bool p_v) {
+	suspension_enabled = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_EnableSuspension(joint_id, p_v);
+	}
+}
+bool Box3DWheelJoint::get_suspension_enabled() const { return suspension_enabled; }
+
+void Box3DWheelJoint::set_suspension_hertz(double p_v) {
+	suspension_hertz = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_SetSuspensionHertz(joint_id, (float)p_v);
+	}
+}
+double Box3DWheelJoint::get_suspension_hertz() const { return suspension_hertz; }
+
+void Box3DWheelJoint::set_suspension_damping(double p_v) {
+	suspension_damping = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_SetSuspensionDampingRatio(joint_id, (float)p_v);
+	}
+}
+double Box3DWheelJoint::get_suspension_damping() const { return suspension_damping; }
+
+void Box3DWheelJoint::set_suspension_limit_enabled(bool p_v) {
+	suspension_limit_enabled = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_EnableSuspensionLimit(joint_id, p_v);
+	}
+}
+bool Box3DWheelJoint::get_suspension_limit_enabled() const { return suspension_limit_enabled; }
+
+void Box3DWheelJoint::set_lower_suspension_limit(double p_v) {
+	lower_suspension_limit = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_SetSuspensionLimits(joint_id, (float)lower_suspension_limit, (float)upper_suspension_limit);
+	}
+}
+double Box3DWheelJoint::get_lower_suspension_limit() const { return lower_suspension_limit; }
+
+void Box3DWheelJoint::set_upper_suspension_limit(double p_v) {
+	upper_suspension_limit = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_SetSuspensionLimits(joint_id, (float)lower_suspension_limit, (float)upper_suspension_limit);
+	}
+}
+double Box3DWheelJoint::get_upper_suspension_limit() const { return upper_suspension_limit; }
+
+void Box3DWheelJoint::set_spin_motor_enabled(bool p_v) {
+	spin_motor_enabled = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_EnableSpinMotor(joint_id, p_v);
+	}
+}
+bool Box3DWheelJoint::get_spin_motor_enabled() const {
+	return b3Joint_IsValid(joint_id) ? b3WheelJoint_IsSpinMotorEnabled(joint_id) : spin_motor_enabled;
+}
+
+void Box3DWheelJoint::set_spin_motor_speed(double p_v) {
+	bool changed = p_v != spin_motor_speed;
+	spin_motor_speed = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_SetSpinMotorSpeed(joint_id, (float)p_v);
+		if (changed) {
+			wake_bodies();
+		}
+	}
+}
+double Box3DWheelJoint::get_spin_motor_speed() const {
+	return b3Joint_IsValid(joint_id) ? b3WheelJoint_GetSpinMotorSpeed(joint_id) : spin_motor_speed;
+}
+
+void Box3DWheelJoint::set_max_spin_torque(double p_v) {
+	max_spin_torque = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_SetMaxSpinTorque(joint_id, (float)p_v);
+	}
+}
+double Box3DWheelJoint::get_max_spin_torque() const {
+	return b3Joint_IsValid(joint_id) ? b3WheelJoint_GetMaxSpinTorque(joint_id) : max_spin_torque;
+}
+
+void Box3DWheelJoint::set_steering_enabled(bool p_v) {
+	steering_enabled = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_EnableSteering(joint_id, p_v);
+	}
+}
+bool Box3DWheelJoint::get_steering_enabled() const { return steering_enabled; }
+
+void Box3DWheelJoint::set_steering_hertz(double p_v) {
+	steering_hertz = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_SetSteeringHertz(joint_id, (float)p_v);
+	}
+}
+double Box3DWheelJoint::get_steering_hertz() const { return steering_hertz; }
+
+void Box3DWheelJoint::set_steering_damping(double p_v) {
+	steering_damping = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_SetSteeringDampingRatio(joint_id, (float)p_v);
+	}
+}
+double Box3DWheelJoint::get_steering_damping() const { return steering_damping; }
+
+void Box3DWheelJoint::set_target_steering_angle(double p_v) {
+	bool changed = p_v != target_steering_angle;
+	target_steering_angle = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_SetTargetSteeringAngle(joint_id, (float)p_v);
+		if (changed) {
+			wake_bodies();
+		}
+	}
+}
+double Box3DWheelJoint::get_target_steering_angle() const { return target_steering_angle; }
+
+void Box3DWheelJoint::set_max_steering_torque(double p_v) {
+	max_steering_torque = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_SetMaxSteeringTorque(joint_id, (float)p_v);
+	}
+}
+double Box3DWheelJoint::get_max_steering_torque() const { return max_steering_torque; }
+
+void Box3DWheelJoint::set_steering_limit_enabled(bool p_v) {
+	steering_limit_enabled = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_EnableSteeringLimit(joint_id, p_v);
+	}
+}
+bool Box3DWheelJoint::get_steering_limit_enabled() const { return steering_limit_enabled; }
+
+void Box3DWheelJoint::set_lower_steering_limit(double p_v) {
+	lower_steering_limit = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_SetSteeringLimits(joint_id, (float)lower_steering_limit, (float)upper_steering_limit);
+	}
+}
+double Box3DWheelJoint::get_lower_steering_limit() const { return lower_steering_limit; }
+
+void Box3DWheelJoint::set_upper_steering_limit(double p_v) {
+	upper_steering_limit = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3WheelJoint_SetSteeringLimits(joint_id, (float)lower_steering_limit, (float)upper_steering_limit);
+	}
+}
+double Box3DWheelJoint::get_upper_steering_limit() const { return upper_steering_limit; }
+
+double Box3DWheelJoint::get_spin_speed() const {
+	return b3Joint_IsValid(joint_id) ? b3WheelJoint_GetSpinSpeed(joint_id) : 0.0;
+}
+
+double Box3DWheelJoint::get_steering_angle() const {
+	return b3Joint_IsValid(joint_id) ? b3WheelJoint_GetSteeringAngle(joint_id) : 0.0;
+}
+
+void Box3DWheelJoint::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_suspension_enabled", "enabled"), &Box3DWheelJoint::set_suspension_enabled);
+	ClassDB::bind_method(D_METHOD("get_suspension_enabled"), &Box3DWheelJoint::get_suspension_enabled);
+	ClassDB::bind_method(D_METHOD("set_suspension_hertz", "hertz"), &Box3DWheelJoint::set_suspension_hertz);
+	ClassDB::bind_method(D_METHOD("get_suspension_hertz"), &Box3DWheelJoint::get_suspension_hertz);
+	ClassDB::bind_method(D_METHOD("set_suspension_damping", "ratio"), &Box3DWheelJoint::set_suspension_damping);
+	ClassDB::bind_method(D_METHOD("get_suspension_damping"), &Box3DWheelJoint::get_suspension_damping);
+	ClassDB::bind_method(D_METHOD("set_suspension_limit_enabled", "enabled"), &Box3DWheelJoint::set_suspension_limit_enabled);
+	ClassDB::bind_method(D_METHOD("get_suspension_limit_enabled"), &Box3DWheelJoint::get_suspension_limit_enabled);
+	ClassDB::bind_method(D_METHOD("set_lower_suspension_limit", "meters"), &Box3DWheelJoint::set_lower_suspension_limit);
+	ClassDB::bind_method(D_METHOD("get_lower_suspension_limit"), &Box3DWheelJoint::get_lower_suspension_limit);
+	ClassDB::bind_method(D_METHOD("set_upper_suspension_limit", "meters"), &Box3DWheelJoint::set_upper_suspension_limit);
+	ClassDB::bind_method(D_METHOD("get_upper_suspension_limit"), &Box3DWheelJoint::get_upper_suspension_limit);
+	ClassDB::bind_method(D_METHOD("set_spin_motor_enabled", "enabled"), &Box3DWheelJoint::set_spin_motor_enabled);
+	ClassDB::bind_method(D_METHOD("get_spin_motor_enabled"), &Box3DWheelJoint::get_spin_motor_enabled);
+	ClassDB::bind_method(D_METHOD("set_spin_motor_speed", "radians_per_sec"), &Box3DWheelJoint::set_spin_motor_speed);
+	ClassDB::bind_method(D_METHOD("get_spin_motor_speed"), &Box3DWheelJoint::get_spin_motor_speed);
+	ClassDB::bind_method(D_METHOD("set_max_spin_torque", "torque"), &Box3DWheelJoint::set_max_spin_torque);
+	ClassDB::bind_method(D_METHOD("get_max_spin_torque"), &Box3DWheelJoint::get_max_spin_torque);
+	ClassDB::bind_method(D_METHOD("set_steering_enabled", "enabled"), &Box3DWheelJoint::set_steering_enabled);
+	ClassDB::bind_method(D_METHOD("get_steering_enabled"), &Box3DWheelJoint::get_steering_enabled);
+	ClassDB::bind_method(D_METHOD("set_steering_hertz", "hertz"), &Box3DWheelJoint::set_steering_hertz);
+	ClassDB::bind_method(D_METHOD("get_steering_hertz"), &Box3DWheelJoint::get_steering_hertz);
+	ClassDB::bind_method(D_METHOD("set_steering_damping", "ratio"), &Box3DWheelJoint::set_steering_damping);
+	ClassDB::bind_method(D_METHOD("get_steering_damping"), &Box3DWheelJoint::get_steering_damping);
+	ClassDB::bind_method(D_METHOD("set_target_steering_angle", "radians"), &Box3DWheelJoint::set_target_steering_angle);
+	ClassDB::bind_method(D_METHOD("get_target_steering_angle"), &Box3DWheelJoint::get_target_steering_angle);
+	ClassDB::bind_method(D_METHOD("set_max_steering_torque", "torque"), &Box3DWheelJoint::set_max_steering_torque);
+	ClassDB::bind_method(D_METHOD("get_max_steering_torque"), &Box3DWheelJoint::get_max_steering_torque);
+	ClassDB::bind_method(D_METHOD("set_steering_limit_enabled", "enabled"), &Box3DWheelJoint::set_steering_limit_enabled);
+	ClassDB::bind_method(D_METHOD("get_steering_limit_enabled"), &Box3DWheelJoint::get_steering_limit_enabled);
+	ClassDB::bind_method(D_METHOD("set_lower_steering_limit", "radians"), &Box3DWheelJoint::set_lower_steering_limit);
+	ClassDB::bind_method(D_METHOD("get_lower_steering_limit"), &Box3DWheelJoint::get_lower_steering_limit);
+	ClassDB::bind_method(D_METHOD("set_upper_steering_limit", "radians"), &Box3DWheelJoint::set_upper_steering_limit);
+	ClassDB::bind_method(D_METHOD("get_upper_steering_limit"), &Box3DWheelJoint::get_upper_steering_limit);
+	ClassDB::bind_method(D_METHOD("get_spin_speed"), &Box3DWheelJoint::get_spin_speed);
+	ClassDB::bind_method(D_METHOD("get_steering_angle"), &Box3DWheelJoint::get_steering_angle);
+
+	ADD_GROUP("Suspension", "suspension_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "suspension_enabled"), "set_suspension_enabled", "get_suspension_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "suspension_hertz", PROPERTY_HINT_RANGE, "0,60,0.1,or_greater"), "set_suspension_hertz", "get_suspension_hertz");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "suspension_damping", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"), "set_suspension_damping", "get_suspension_damping");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "suspension_limit_enabled"), "set_suspension_limit_enabled", "get_suspension_limit_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lower_suspension_limit", PROPERTY_HINT_RANGE, "-10,10,0.01,or_greater"), "set_lower_suspension_limit", "get_lower_suspension_limit");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "upper_suspension_limit", PROPERTY_HINT_RANGE, "-10,10,0.01,or_greater"), "set_upper_suspension_limit", "get_upper_suspension_limit");
+	ADD_GROUP("Spin Motor", "spin_motor_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "spin_motor_enabled"), "set_spin_motor_enabled", "get_spin_motor_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "spin_motor_speed", PROPERTY_HINT_RANGE, "-100,100,0.1"), "set_spin_motor_speed", "get_spin_motor_speed");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_spin_torque", PROPERTY_HINT_RANGE, "0,10000,0.1,or_greater"), "set_max_spin_torque", "get_max_spin_torque");
+	ADD_GROUP("Steering", "steering_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "steering_enabled"), "set_steering_enabled", "get_steering_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "steering_hertz", PROPERTY_HINT_RANGE, "0,60,0.1,or_greater"), "set_steering_hertz", "get_steering_hertz");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "steering_damping", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"), "set_steering_damping", "get_steering_damping");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "target_steering_angle", PROPERTY_HINT_RANGE, "-90,90,0.1,radians_as_degrees"), "set_target_steering_angle", "get_target_steering_angle");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_steering_torque", PROPERTY_HINT_RANGE, "0,10000,0.1,or_greater"), "set_max_steering_torque", "get_max_steering_torque");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "steering_limit_enabled"), "set_steering_limit_enabled", "get_steering_limit_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lower_steering_limit", PROPERTY_HINT_RANGE, "-90,90,0.1,radians_as_degrees"), "set_lower_steering_limit", "get_lower_steering_limit");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "upper_steering_limit", PROPERTY_HINT_RANGE, "-90,90,0.1,radians_as_degrees"), "set_upper_steering_limit", "get_upper_steering_limit");
+}
+
+// ---------------------------------------------------------------------------
+// Box3DParallelJoint
+// ---------------------------------------------------------------------------
+
+b3JointId Box3DParallelJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3BodyId p_b,
+		const Transform3D &p_xf_a, const Transform3D &p_xf_b, const Transform3D &p_joint) {
+	b3ParallelJointDef def = b3DefaultParallelJointDef();
+	def.base.bodyIdA = p_a;
+	def.base.bodyIdB = p_b;
+	def.base.localFrameA = local_frame(p_xf_a, p_joint);
+	def.base.localFrameB = local_frame(p_xf_b, p_joint);
+	def.base.collideConnected = collide_connected;
+	def.hertz = (float)spring_hertz;
+	def.dampingRatio = (float)spring_damping;
+	if (max_torque > 0.0) {
+		def.maxTorque = (float)max_torque;
+	}
+	return b3CreateParallelJoint(p_world, &def);
+}
+
+void Box3DParallelJoint::set_spring_hertz(double p_v) {
+	spring_hertz = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3ParallelJoint_SetSpringHertz(joint_id, (float)p_v);
+	}
+}
+double Box3DParallelJoint::get_spring_hertz() const { return spring_hertz; }
+
+void Box3DParallelJoint::set_spring_damping(double p_v) {
+	spring_damping = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3ParallelJoint_SetSpringDampingRatio(joint_id, (float)p_v);
+	}
+}
+double Box3DParallelJoint::get_spring_damping() const { return spring_damping; }
+
+void Box3DParallelJoint::set_max_torque(double p_v) {
+	max_torque = p_v;
+	if (b3Joint_IsValid(joint_id) && p_v > 0.0) {
+		b3ParallelJoint_SetMaxTorque(joint_id, (float)p_v);
+	} else {
+		rebuild_if_alive(); // back to 0 = unlimited needs the def default
+	}
+}
+double Box3DParallelJoint::get_max_torque() const { return max_torque; }
+
+void Box3DParallelJoint::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_spring_hertz", "hertz"), &Box3DParallelJoint::set_spring_hertz);
+	ClassDB::bind_method(D_METHOD("get_spring_hertz"), &Box3DParallelJoint::get_spring_hertz);
+	ClassDB::bind_method(D_METHOD("set_spring_damping", "ratio"), &Box3DParallelJoint::set_spring_damping);
+	ClassDB::bind_method(D_METHOD("get_spring_damping"), &Box3DParallelJoint::get_spring_damping);
+	ClassDB::bind_method(D_METHOD("set_max_torque", "torque"), &Box3DParallelJoint::set_max_torque);
+	ClassDB::bind_method(D_METHOD("get_max_torque"), &Box3DParallelJoint::get_max_torque);
+
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "spring_hertz", PROPERTY_HINT_RANGE, "0,60,0.1,or_greater"), "set_spring_hertz", "get_spring_hertz");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "spring_damping", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"), "set_spring_damping", "get_spring_damping");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_torque", PROPERTY_HINT_RANGE, "0,10000,0.1,or_greater"), "set_max_torque", "get_max_torque");
+}
+
+// ---------------------------------------------------------------------------
 // Box3DMotorJoint
 // ---------------------------------------------------------------------------
 
@@ -479,9 +823,13 @@ b3JointId Box3DMotorJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3Bo
 }
 
 void Box3DMotorJoint::set_linear_velocity(const Vector3 &p_v) {
+	bool changed = p_v != linear_velocity;
 	linear_velocity = p_v;
 	if (b3Joint_IsValid(joint_id)) {
 		b3MotorJoint_SetLinearVelocity(joint_id, to_b3(p_v));
+		if (changed) {
+			wake_bodies();
+		}
 	}
 }
 Vector3 Box3DMotorJoint::get_linear_velocity() const { return linear_velocity; }
@@ -495,9 +843,13 @@ void Box3DMotorJoint::set_max_force(double p_v) {
 double Box3DMotorJoint::get_max_force() const { return max_force; }
 
 void Box3DMotorJoint::set_angular_velocity(const Vector3 &p_v) {
+	bool changed = p_v != angular_velocity;
 	angular_velocity = p_v;
 	if (b3Joint_IsValid(joint_id)) {
 		b3MotorJoint_SetAngularVelocity(joint_id, to_b3(p_v));
+		if (changed) {
+			wake_bodies();
+		}
 	}
 }
 Vector3 Box3DMotorJoint::get_angular_velocity() const { return angular_velocity; }

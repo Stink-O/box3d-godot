@@ -23,6 +23,7 @@ func _ready() -> void:
 	await _test_character()
 	await _test_queries()
 	await _test_ball_limits()
+	await _test_wheel_joint()
 	await _test_debug_draw()
 	await _test_debug_draw_compound()
 	await _test_compound()
@@ -461,6 +462,95 @@ func _test_ball_limits() -> void:
 	var limited_rot := await _twist_run(true)
 	_check("ball twist limit constrains rotation (free=%.2f limited=%.2f)" % [free_rot, limited_rot],
 		absf(limited_rot) < 0.6 and absf(free_rot) > 0.8)
+
+
+func _test_wheel_joint() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+
+	var floor := Box3DBody.new()
+	floor.body_type = Box3DBody.STATIC
+	floor.box_size = Vector3(60, 1, 20)
+	floor.position = Vector3(20, -0.5, 0)
+	world.add_child(floor)
+
+	# A minimal wheel-joint vehicle (the Car sample's layout, from upstream's
+	# Driving sample): box chassis, four sphere wheels, suspension springs,
+	# steering springs up front, spin motors in the rear, and a soft parallel
+	# joint holding the chassis upright.
+	var chassis := Box3DBody.new()
+	chassis.name = "Chassis"
+	chassis.box_size = Vector3(4, 1, 2)
+	chassis.density = 0.5
+	chassis.position = Vector3(0, 1.0, 0)
+	world.add_child(chassis)
+
+	var rear: Array = []
+	var wheel_index := 0
+	for w in [[1.5, 0.8, true], [1.5, -0.8, true], [-1.5, 0.8, false], [-1.5, -0.8, false]]:
+		var wheel := Box3DBody.new()
+		wheel.name = "Wheel%d" % wheel_index
+		wheel_index += 1
+		wheel.shape_type = Box3DBody.SPHERE
+		wheel.sphere_radius = 0.4
+		wheel.density = 2.0
+		wheel.friction = 3.0
+		wheel.allow_fast_rotation = true
+		wheel.position = Vector3(w[0], 0.5, w[1])
+		world.add_child(wheel)
+
+		var joint := Box3DWheelJoint.new()
+		joint.position = wheel.position  # identity basis: Y = suspension, Z = axle
+		joint.suspension_hertz = 4.0
+		joint.suspension_damping = 0.7
+		joint.suspension_limit_enabled = true
+		joint.lower_suspension_limit = -0.2
+		joint.upper_suspension_limit = 0.2
+		if w[2]:
+			joint.steering_enabled = true
+			joint.steering_hertz = 10.0
+			joint.steering_damping = 0.7
+			joint.max_steering_torque = 5.0
+		else:
+			joint.spin_motor_enabled = true
+			joint.max_spin_torque = 5.0
+			rear.append(joint)
+		world.add_child(joint)
+		joint.body_a = NodePath("../Chassis")
+		joint.body_b = NodePath("../" + wheel.name)
+
+	var upright := Box3DParallelJoint.new()
+	# Local Z (the aligned axis) pointed up: columns X, -Z... world up as Z.
+	upright.transform = Transform3D(
+		Basis(Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(0, 1, 0)), Vector3(0, 1.0, 0))
+	upright.spring_hertz = 0.5
+	upright.spring_damping = 1.0
+	world.add_child(upright)
+	upright.body_a = NodePath("../Chassis")
+
+	# Two frames: bodies created, then the deferred joints; settle briefly.
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	for i in range(30):
+		await get_tree().physics_frame
+
+	# Floor the rear spin motors and let it drive (negative spin about the +Z
+	# axle rolls the vehicle toward +X).
+	for joint in rear:
+		joint.spin_motor_speed = -30.0
+	for i in range(240):
+		await get_tree().physics_frame
+
+	var up: Vector3 = chassis.global_transform.basis.y
+	_check("wheel joint: rear spin motors drive the vehicle forward (x %.1f)" % chassis.position.x,
+		chassis.position.x > 2.0)
+	_check("wheel joint: suspension carries the chassis (y %.2f)" % chassis.position.y,
+		chassis.position.y > 0.5 and chassis.position.y < 1.4)
+	_check("wheel joint: get_spin_speed reads the live spin (%.1f rad/s)" % rear[0].get_spin_speed(),
+		absf(rear[0].get_spin_speed()) > 5.0)
+	_check("parallel joint keeps the chassis upright (up.y %.2f)" % up.y, up.y > 0.9)
+
+	world.free()
 
 
 func _test_debug_draw() -> void:

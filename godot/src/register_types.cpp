@@ -32,6 +32,8 @@ void initialize_box3d_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(Box3DBallJoint);
 	GDREGISTER_CLASS(Box3DFixedJoint);
 	GDREGISTER_CLASS(Box3DMotorJoint);
+	GDREGISTER_CLASS(Box3DWheelJoint);
+	GDREGISTER_CLASS(Box3DParallelJoint);
 }
 
 void uninitialize_box3d_module(ModuleInitializationLevel p_level) {
