@@ -19,8 +19,9 @@ upstream engine sources are unchanged; everything Godot-specific lives in
   into the extension no prebuilt engine binary required.
 - Covers worlds; static/kinematic/dynamic bodies; box/sphere/capsule/cylinder/
   cone/convex-hull/triangle-mesh colliders; the full joint set (hinge, slider,
-  distance, ball, fixed, motor); contact & sensor events; ray/shape/overlap
-  queries; a character controller; continuous collision; and live solver tuning.
+  distance, ball, fixed, motor, wheel, parallel); contact & sensor events;
+  ray/shape/overlap queries; a character controller; continuous collision; and
+  live solver tuning.
 - Ships a **sample browser** demo (~28 samples stacks, ragdoll, a drivable
   car, joints, queries, and toys).
 

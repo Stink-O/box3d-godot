@@ -26,7 +26,7 @@ which does the same thing for Unity via P/Invoke.
 | `Box3DBody` | `Node3D` | A rigid body simulated by the nearest `Box3DWorld` ancestor. |
 | `Box3DCharacterBody` | `Node3D` | A kinematic capsule controller with `move_and_slide`. See [Character controller](#character-controller). |
 | `Box3DCollisionShape` | `Node3D` | An extra shape for a compound `Box3DBody` (add as a child). |
-| `Box3DHingeJoint`, `Box3DSliderJoint`, `Box3DDistanceJoint`, `Box3DBallJoint`, `Box3DFixedJoint` | `Node3D` | Constraints connecting two bodies. See [Joints](#joints). |
+| `Box3DHingeJoint`, `Box3DSliderJoint`, `Box3DDistanceJoint`, `Box3DBallJoint`, `Box3DFixedJoint`, `Box3DMotorJoint`, `Box3DWheelJoint`, `Box3DParallelJoint` | `Node3D` | Constraints connecting two bodies. See [Joints](#joints). |
 
 A `Box3DBody` finds the closest `Box3DWorld` above it in the tree, so you just
 nest bodies (with a `MeshInstance3D` child for visuals) under a world.
@@ -134,8 +134,10 @@ and material). If a body has any such children it uses those instead of its own
 
 Joints connect two bodies (`body_a` and `body_b`). Leave `body_b` empty to
 anchor `body_a` to the world at the joint node's position. The joint node's
-**transform is the joint frame** — its position is the anchor, and for the
-hinge/slider the axis comes from the node's local Z / X.
+**transform is the joint frame** — its position is the anchor, and the axes
+come from the node's basis: hinge about local Z, slider along local X, wheel
+suspension/steering along local Y with the axle on local Z, parallel
+alignment on local Z.
 
 | Node | What it does | Key properties |
 | --- | --- | --- |
@@ -145,11 +147,16 @@ hinge/slider the axis comes from the node's local Z / X.
 | `Box3DBallJoint` | Pins a point, free rotation (spherical). | `cone_limit_enabled`, `cone_angle`, `twist_limit_enabled`, `twist_lower/upper` |
 | `Box3DFixedJoint` | Rigidly welds two bodies. | `linear_hertz`, `angular_hertz` (0 = rigid) |
 | `Box3DMotorJoint` | Drives the relative linear/angular velocity (a servo). | `linear_velocity`, `max_force`, `angular_velocity`, `max_torque` |
+| `Box3DWheelJoint` | A vehicle wheel: `body_b` (the wheel) rides a suspension spring along the node's local Y and spins about its local Z (the axle), with an optional spin motor and spring steering. | `suspension_*` (spring + travel limits), `spin_motor_*`, `steering_*` (target angle, spring, limits), `get_spin_speed()`, `get_steering_angle()` |
+| `Box3DParallelJoint` | A spring keeping the two bodies' joint-frame Z axes parallel — point the node's Z up (and leave `body_b` empty) to hold a body upright while it yaws freely. | `spring_hertz`, `spring_damping`, `max_torque` (0 = unlimited) |
 
-All share `body_a`, `body_b`, and `collide_connected`. Motor speed and (for
-distance) length can be changed live from script; other properties rebuild the
-joint. Avoid starting jointed bodies overlapping — an initial contact can fight
-the joint.
+All share `body_a`, `body_b`, and `collide_connected`. Drive targets — motor
+speeds, the wheel joint's spin/steering targets and tuning, distance length —
+can be changed live from script (changing one also wakes the bodies, so a
+parked vehicle responds); most other properties rebuild the joint. Jointed
+bodies may start overlapping (wheels inside a chassis, say): creating a joint
+with `collide_connected` off removes any contact that already formed between
+the pair, so a stale contact can't fight the joint.
 
 ### Character controller
 
@@ -291,13 +298,16 @@ Samples so far (more are added by the `/demo` loop):
 - **Bullets (CCD)** — a firing range that shoots fast bullets at a thin wall.
   Press **C** to toggle the world's `continuous_collision`: on, the wall catches
   them; off, they tunnel straight through to the backstop. (**B** fires a volley.)
-- **Car** — a boxy chassis on four free-rolling cylinder wheels, each pinned to
-  the chassis by a `Box3DHingeJoint` about its axle; drive it with the **arrow
-  keys** (Up/Down throttle, Left/Right steer — W A S D works too while you're
-  not flying the camera) over a flat ground dotted with gentle noise-placed
-  speed bumps. The drive is arcade — the script steers the chassis directly and
-  the wheels spin from ground contact — so it stays controllable without
-  depending on wheel-motor traction.
+- **Car** — a port of box3d's own *Driving* sample (same construction, same
+  numbers): a box chassis on four sphere wheels, each hanging on a
+  `Box3DWheelJoint` — the joint's suspension spring carries the chassis, the
+  rear pair drives via the spin motor, and the front pair steers by spring
+  toward the target angle — with a soft `Box3DParallelJoint` holding the body
+  upright. Nothing pushes the chassis; all motion comes from wheel traction.
+  Drive with the **arrow keys** (Up/Down throttle, Left/Right steer — W A S D
+  works too while you're not flying the camera) over rolling sine-wave terrain,
+  a triangle-mesh stand-in for upstream's wave height field
+  (`tools/gen_car_terrain.gd` bakes it). A floating readout shows your speed.
 
 **Controls:** hold **right mouse** to fly (**W A S D** + **Q/E**, **Shift** to
 boost); **left-click and drag** (when not flying) to grab a body *at the point
@@ -369,7 +379,8 @@ godot-cpp, so no prebuilt engine binary is needed.
 - [x] Character controller (capsule mover, `move_and_slide`)
 - [x] World queries (shape cast, overlap, explode)
 - [x] Ball joint cone & twist limits
-- [x] Motor joint (wheel joint skipped — vehicle-specific/niche)
+- [x] Motor joint
+- [x] Wheel & parallel joints (suspension, spin motor, steering, upright assist — see the Car sample)
 - [x] Separate `Box3DCollisionShape` nodes (multiple shapes per body)
 - [x] Debug draw (collider wireframes)
 - [x] Multithreaded stepping (`worker_count`, Box3D's internal scheduler)
