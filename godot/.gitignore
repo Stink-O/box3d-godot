@@ -1,0 +1,28 @@
+# SCons / compiler build artifacts
+*.os
+*.obj
+*.o
+*.a
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.gen.cpp
+*.gen.h
+.sconsign.dblite
+compile_commands.json
+build_log.txt
+msvc_capture.log
+
+# godot-cpp build output (source is a submodule)
+godot-cpp/gen/
+godot-cpp/bin/
+
+# Godot editor cache
+demo/.godot/
+
+# Keep the built extension libraries in demo/bin so the demo runs without a
+# build step, but ignore any stray intermediates there.
+demo/bin/*.exp
+demo/bin/*.lib
+demo/bin/*.pdb

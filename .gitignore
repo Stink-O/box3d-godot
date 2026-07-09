@@ -12,3 +12,33 @@ CMakeUserPresets.json
 .tmp/
 .fetchcontent-cache/
 *.b3rec
+
+# --- Godot GDExtension build (godot/) ---
+# SCons / compiler intermediates (produced next to sources)
+*.os
+*.obj
+*.o
+*.lib
+*.a
+*.exp
+*.pdb
+*.ilk
+*.gen.cpp
+*.gen.h
+.sconsign.dblite
+compile_commands.json
+godot/build_log.txt
+godot/msvc_capture.log
+
+# Compiled extension libraries (build them with scons)
+*.dll
+*.so
+*.dylib
+~*.dll
+# Godot hot-reload temp copies of reloadable extensions
+~*.dll*
+*.TMP
+*.tmp
+
+# Godot editor cache
+godot/demo/.godot/

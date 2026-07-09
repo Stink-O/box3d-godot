@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+#
+# Build the Box3D GDExtension for Godot.
+#
+# This compiles godot-cpp, the Box3D C sources (../src), and the C++ wrapper
+# (src/) into a single shared library placed in demo/bin. Run `scons` with no
+# arguments for a debug editor build, or e.g. `scons target=template_release`.
+
+import os
+
+# Build godot-cpp and inherit its fully configured environment. CCFLAGS
+# (shared by C and C++) carry the platform/arch/runtime settings, so the Box3D
+# C objects are compiled with the same MSVC runtime as godot-cpp and link
+# cleanly.
+env = SConscript("godot-cpp/SConstruct")
+
+# For reference:
+# - CCFLAGS   compile flags shared between C and C++
+# - CFLAGS    C-specific compile flags
+# - CXXFLAGS  C++-specific compile flags
+# - CPPPATH   header search paths
+# - CPPDEFINES  preprocessor defines
+
+# Wrapper headers, Box3D public headers, and Box3D internal headers.
+env.Append(CPPPATH=["src/", "../include/", "../src/"])
+
+# Box3D is C17. godot-cpp only sets a C++ standard, so set the C one here.
+if env.get("is_msvc", False):
+    env.Append(CFLAGS=["/std:c17"])
+else:
+    env.Append(CFLAGS=["-std=gnu17"])
+    # Match Box3D's deterministic-math build flag on GCC/Clang/MinGW.
+    env.Append(CFLAGS=["-ffp-contract=off"])
+
+# C++ wrapper + Box3D core C sources.
+sources = Glob("src/*.cpp") + Glob("../src/*.c")
+
+libname = "libbox3d_godot"
+bindir = "demo/bin"
+
+if env["platform"] == "macos":
+    library = env.SharedLibrary(
+        "{}/{}.{}.{}.framework/{}.{}.{}".format(
+            bindir, libname, env["platform"], env["target"], libname, env["platform"], env["target"]
+        ),
+        source=sources,
+    )
+elif env["platform"] == "ios":
+    if env["ios_simulator"]:
+        library = env.StaticLibrary(
+            "{}/{}.{}.{}.simulator.a".format(bindir, libname, env["platform"], env["target"]),
+            source=sources,
+        )
+    else:
+        library = env.StaticLibrary(
+            "{}/{}.{}.{}.a".format(bindir, libname, env["platform"], env["target"]),
+            source=sources,
+        )
+else:
+    library = env.SharedLibrary(
+        "{}/{}{}{}".format(bindir, libname, env["suffix"], env["SHLIBSUFFIX"]),
+        source=sources,
+    )
+
+env.NoCache(library)
+Default(library)

@@ -1,0 +1,106 @@
+// SPDX-FileCopyrightText: 2026 box3d-godot contributors
+// SPDX-License-Identifier: MIT
+
+#pragma once
+
+#include <godot_cpp/classes/node3d.hpp>
+#include <godot_cpp/variant/array.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
+
+#include <box3d/box3d.h>
+
+#include <vector>
+
+namespace godot {
+
+class Box3DBody;
+class MeshInstance3D;
+
+// A Box3DWorld owns a Box3D simulation. Add Box3DBody nodes anywhere beneath it.
+// The world drives the simulation every physics frame: it pushes kinematic
+// bodies in, steps Box3D, then reads dynamic bodies out.
+class Box3DWorld : public Node3D {
+	GDCLASS(Box3DWorld, Node3D)
+
+private:
+	b3WorldId world_id = b3_nullWorldId;
+	Vector3 gravity = Vector3(0, -9.8f, 0);
+	int substep_count = 4;
+	bool auto_step = true;
+	bool continuous_collision = true;
+	double max_linear_speed = 0.0; // 0 = keep Box3D's default
+	int worker_count = 1; // >1 enables Box3D's internal multithreaded solver
+	bool debug_draw = false;
+	// Solver tuning, forwarded to b3World_SetContactTuning. Defaults match
+	// Box3D's own (b3DefaultWorldDef): 30 Hz, damping ratio 10, at 1 length
+	// unit per meter (this binding never changes that scale).
+	double contact_hertz = 30.0;
+	double contact_damping = 10.0;
+	bool enable_sleep = true;
+	bool enable_warm_starting = true;
+	MeshInstance3D *debug_mi = nullptr;
+	std::vector<Box3DBody *> bodies;
+
+	void ensure_world();
+	void dispatch_contact_events();
+	void dispatch_sensor_events();
+	void update_debug_draw();
+	void apply_contact_tuning();
+
+protected:
+	static void _bind_methods();
+	void _notification(int p_what);
+
+public:
+	Box3DWorld();
+	~Box3DWorld();
+
+	// Internal: returns a valid world id, creating the world on demand.
+	b3WorldId get_world_id();
+	bool is_world_alive() const;
+	void register_body(Box3DBody *p_body);
+	void unregister_body(Box3DBody *p_body);
+
+	// Advance the simulation by delta seconds (called automatically when
+	// auto_step is enabled, or manually from script).
+	void step(double p_delta);
+
+	void set_gravity(const Vector3 &p_gravity);
+	Vector3 get_gravity() const;
+	void set_substep_count(int p_count);
+	int get_substep_count() const;
+	void set_auto_step(bool p_enabled);
+	bool get_auto_step() const;
+	void set_continuous_collision(bool p_enabled);
+	bool get_continuous_collision() const;
+	void set_max_linear_speed(double p_speed);
+	double get_max_linear_speed() const;
+	void set_worker_count(int p_count);
+	int get_worker_count() const;
+	void set_debug_draw(bool p_enabled);
+	bool get_debug_draw() const;
+	void set_contact_hertz(double p_hertz);
+	double get_contact_hertz() const;
+	void set_contact_damping(double p_damping);
+	double get_contact_damping() const;
+	void set_enable_sleep(bool p_enabled);
+	bool get_enable_sleep() const;
+	void set_enable_warm_starting(bool p_enabled);
+	bool get_enable_warm_starting() const;
+
+	// Cast a ray from -> to. Returns a Dictionary:
+	//   { hit: bool, position: Vector3, normal: Vector3,
+	//     fraction: float, collider: Box3DBody }
+	Dictionary raycast(const Vector3 &p_from, const Vector3 &p_to, uint32_t p_mask = 0xFFFFFFFFu);
+
+	// Maps a shape to the Box3DBody that owns it (via userData). Public so the
+	// query callbacks can use it.
+	Box3DBody *body_from_shape(b3ShapeId p_shape);
+
+	// Queries.
+	Array overlap_sphere(const Vector3 &p_center, double p_radius, uint32_t p_mask = 0xFFFFFFFFu);
+	Dictionary shape_cast_sphere(const Vector3 &p_from, const Vector3 &p_to, double p_radius, uint32_t p_mask = 0xFFFFFFFFu);
+	void explode(const Vector3 &p_center, double p_radius, double p_impulse_per_area, double p_falloff = 0.0, uint32_t p_mask = 0xFFFFFFFFu);
+};
+
+} // namespace godot
