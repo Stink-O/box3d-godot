@@ -77,6 +77,8 @@ const SAMPLES := {
 @onready var _sidebar_debug_check: CheckBox = $UI/Sidebar/Margin/VBox/DebugDrawCheck
 @onready var _contact_hertz_row: Control = $UI/Sidebar/Margin/VBox/ContactHertzRow
 @onready var _contact_hertz_spin: SpinBox = $UI/Sidebar/Margin/VBox/ContactHertzRow/ContactHertzSpin
+@onready var _contact_damping_row: Control = $UI/Sidebar/Margin/VBox/ContactDampingRow
+@onready var _contact_damping_spin: SpinBox = $UI/Sidebar/Margin/VBox/ContactDampingRow/ContactDampingSpin
 @onready var _readout: Label = $UI/Sidebar/Margin/VBox/Readout
 
 var _current: Node = null
@@ -122,6 +124,7 @@ func _ready() -> void:
 	_continuous_check.toggled.connect(_on_continuous_changed)
 	_sidebar_debug_check.toggled.connect(_on_sidebar_debug_changed)
 	_contact_hertz_spin.value_changed.connect(_on_contact_hertz_changed)
+	_contact_damping_spin.value_changed.connect(_on_contact_damping_changed)
 
 	var first_cat: String = SAMPLES.keys()[0]
 	var first_name: String = SAMPLES[first_cat].keys()[0]
@@ -237,6 +240,14 @@ func _on_contact_hertz_changed(value: float) -> void:
 			world.contact_hertz = value)
 
 
+func _on_contact_damping_changed(value: float) -> void:
+	if _updating_sidebar:
+		return
+	_with_world(func(world):
+		if "contact_damping" in world:
+			world.contact_damping = value)
+
+
 # Pull the just-loaded sample's world settings into the sidebar controls
 # without re-triggering the handlers above.
 func _refresh_sidebar_from_world(world) -> void:
@@ -248,12 +259,17 @@ func _refresh_sidebar_from_world(world) -> void:
 		_gravity_spin.set_value_no_signal(world.gravity.y)
 		_continuous_check.set_pressed_no_signal(world.continuous_collision)
 		_sidebar_debug_check.set_pressed_no_signal(_debug_draw)
+		# contact_hertz / contact_damping arrived together in the binding; show
+		# their rows only when the loaded build actually exposes them.
 		var has_hertz: bool = "contact_hertz" in world
 		_contact_hertz_row.visible = has_hertz
+		_contact_damping_row.visible = has_hertz
 		if has_hertz:
 			_contact_hertz_spin.set_value_no_signal(world.contact_hertz)
+			_contact_damping_spin.set_value_no_signal(world.contact_damping)
 	else:
 		_contact_hertz_row.visible = false
+		_contact_damping_row.visible = false
 	_updating_sidebar = false
 	_update_readout()
 

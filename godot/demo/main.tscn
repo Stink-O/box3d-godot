@@ -215,6 +215,23 @@ max_value = 120.0
 step = 1.0
 value = 30.0
 
+[node name="ContactDampingRow" type="HBoxContainer" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+visible = false
+
+[node name="ContactDampingLabel" type="Label" parent="UI/Sidebar/Margin/VBox/ContactDampingRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Contact Damping"
+
+[node name="ContactDampingSpin" type="SpinBox" parent="UI/Sidebar/Margin/VBox/ContactDampingRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(100, 0)
+min_value = 0.0
+max_value = 20.0
+step = 0.5
+value = 10.0
+
 [node name="ReadoutSep" type="HSeparator" parent="UI/Sidebar/Margin/VBox"]
 layout_mode = 2
 

@@ -312,7 +312,8 @@ blinks faster and faster over a 3-second fuse, then detonates with the same
 rebuilds the current sample; the **Debug** toggle overlays every body's collider
 wireframe (`Box3DWorld.debug_draw`) and stays on as you switch samples; and
 **⚙ Settings** (or **Tab**) opens a right-hand panel that live-edits the current
-world's solver (substeps, worker count, gravity, CCD, contact stiffness, …). A
+world's solver (substeps, worker count, gravity, CCD, contact stiffness and
+damping, …). A
 sample can frame its own opening view by exporting `camera_home` /
 `camera_look_at` (two Vector3s) on its root script.
 
