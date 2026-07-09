@@ -37,6 +37,7 @@ var _charge := 0.0
 var _charge_bar: ProgressBar = null
 
 const BOMB_SCENE := preload("res://common/bomb.tscn")
+const Despawn = preload("res://common/despawn.gd")
 var _bomb_mode := false  ## when true, F fires a fused Bomb instead of a ball
 
 
@@ -269,13 +270,4 @@ func _shoot(charge: float = 0.0) -> void:
 	ball.set_linear_velocity(dir * speed)
 
 	if shoot_lifetime > 0.0:
-		# The ball owns its own lifetime timer as a child, so if the whole
-		# sample (and this ball with it) gets freed on reset/switch, the timer
-		# goes with it instead of leaving a dangling callback pointed at a
-		# freed body.
-		var timer := Timer.new()
-		timer.wait_time = shoot_lifetime
-		timer.one_shot = true
-		timer.autostart = true
-		timer.timeout.connect(ball.queue_free)
-		ball.add_child(timer)
+		Despawn.attach(ball, shoot_lifetime)

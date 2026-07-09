@@ -6,6 +6,8 @@ extends Node3D
 ## the classic reason CCD exists. Shots persist for a while so a few always
 ## sit visible at the wall or backstop. Press B to fire an extra volley.
 
+const Despawn = preload("res://common/despawn.gd")
+
 const PERIOD := 0.8
 const SPEED := 46.0
 const LIFETIME := 7.0
@@ -74,16 +76,4 @@ func _fire(x: float) -> void:
 	mi.material_override = mat
 	b.add_child(mi)
 
-	_attach_lifetime(b, LIFETIME)
-
-
-## Self-contained despawn: the timer is a child of the body itself, so the two
-## are always freed together (no captured-node lambda that can dangle when the
-## sample unloads and the body is freed out from under a scene-tree timer).
-func _attach_lifetime(body: Box3DBody, lifetime: float) -> void:
-	var timer := Timer.new()
-	timer.wait_time = lifetime
-	timer.one_shot = true
-	timer.autostart = true
-	body.add_child(timer)
-	timer.timeout.connect(body.queue_free)
+	Despawn.attach(b, LIFETIME)

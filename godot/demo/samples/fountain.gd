@@ -5,6 +5,8 @@ extends Node3D
 ## and a pool that holds a few hundred balls before the oldest recycle.
 ## Shoot your own in with F.
 
+const Despawn = preload("res://common/despawn.gd")
+
 const PERIOD := 0.13
 const LIFETIME := 20.0
 const UP_SPEED := 12.5
@@ -48,16 +50,4 @@ func _spray() -> void:
 	mi.material_override = mat
 	b.add_child(mi)
 
-	_attach_lifetime(b, LIFETIME)
-
-
-## Self-contained despawn: the timer is a child of the body itself, so the two
-## are always freed together (no captured-node lambda that can dangle when the
-## sample unloads and the body is freed out from under a scene-tree timer).
-func _attach_lifetime(body: Box3DBody, lifetime: float) -> void:
-	var timer := Timer.new()
-	timer.wait_time = lifetime
-	timer.one_shot = true
-	timer.autostart = true
-	body.add_child(timer)
-	timer.timeout.connect(body.queue_free)
+	Despawn.attach(b, LIFETIME)

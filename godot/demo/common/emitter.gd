@@ -12,6 +12,8 @@ extends Node3D
 ##
 ## Drop one of these into a Box3DWorld, position it, tweak the exports, done.
 
+const Despawn = preload("res://common/despawn.gd")
+
 @export var rate: float = 0.65 ## seconds between spawns
 @export var speed: float = 1.0 ## initial speed along local -Y (down/forward)
 @export var radius: float = 0.25 ## sphere radius
@@ -89,20 +91,9 @@ func _spawn() -> void:
 	world.add_child(b)
 	b.set_linear_velocity(-global_transform.basis.y.normalized() * speed)
 
-	# Self-owned lifetime: this Timer is a CHILD OF THE BALL (not a
-	# get_tree().create_timer(...) scene-tree timer), so it lives and dies
-	# with the ball it belongs to and can never outlive it. Connecting
-	# straight to `b.queue_free` -- a bound method, not a lambda closing
-	# over `b` -- avoids the "Lambda capture freed" crash that hits when a
-	# scene-tree timer's captured-lambda callback fires (or is torn down)
-	# after the scene it captured a reference into has already unloaded.
-	var life := Timer.new()
-	life.one_shot = true
-	life.wait_time = maxf(lifetime, 0.01)
-	life.process_callback = Timer.TIMER_PROCESS_PHYSICS
-	b.add_child(life)
-	life.timeout.connect(b.queue_free)
-	life.start()
+	# Self-owned lifetime -- the timer lives and dies with the ball (see
+	# common/despawn.gd for why that matters).
+	Despawn.attach(b, lifetime)
 
 	# Count-based cap: track this ball, drop refs to any that already died on
 	# their own (lifetime timer), then if we're still over max_alive free the
