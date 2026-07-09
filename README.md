@@ -1,3 +1,38 @@
+# Box3D for Godot
+
+A **[Godot 4](https://godotengine.org) GDExtension** that embeds
+**[Box3D](https://github.com/erincatto/box3d)** — Erin Catto's 3D rigid-body
+physics engine — and exposes it as ready-to-use nodes: `Box3DWorld`,
+`Box3DBody`, the joints, and a character controller.
+
+This is a fork of **[erincatto/box3d](https://github.com/erincatto/box3d)**. The
+upstream engine sources are unchanged; everything Godot-specific lives in
+**[`godot/`](godot/)**. The original Box3D README is preserved [below](#box3d).
+
+> ⚠️ **Very early / experimental.** Box3D itself is v0.1.0 and this binding is
+> young — expect rough edges, missing pieces, and API churn. It's not
+> production-ready; it's a starting point to build on.
+
+### What's here
+
+- Targets **Godot 4.7**. One-command build (`scons`) compiles Box3D from source
+  into the extension — no prebuilt engine binary required.
+- Covers worlds; static/kinematic/dynamic bodies; box/sphere/capsule/cylinder/
+  cone/convex-hull/triangle-mesh colliders; the full joint set (hinge, slider,
+  distance, ball, fixed, motor); contact & sensor events; ray/shape/overlap
+  queries; a character controller; continuous collision; and live solver tuning.
+- Ships a **sample browser** demo (~28 samples — stacks, ragdoll, a drivable
+  car, joints, queries, and toys).
+
+**→ Get started:** see **[`godot/README.md`](godot/README.md)**.
+
+Inspired by the [`box3d-unity`](https://github.com/timskap/box3d-unity) binding,
+which does the same for Unity.
+
+---
+
+<sub>The rest of this file is the upstream Box3D README.</sub>
+
 # Box3D
 
 [![Build Status](https://github.com/erincatto/box3d/actions/workflows/build.yml/badge.svg)](https://github.com/erincatto/box3d/actions)
