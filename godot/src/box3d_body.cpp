@@ -559,6 +559,9 @@ void Box3DBody::teleport(const Transform3D &p_xform) {
 	// starts at rest. Unlike a kinematic move this doesn't sweep through the
 	// world, so don't teleport into overlapping geometry.
 	set_global_transform(p_xform);
+	// With physics interpolation on, an instant jump must not be smeared
+	// across the render frame.
+	reset_physics_interpolation();
 	if (b3Body_IsValid(body_id)) {
 		b3Body_SetTransform(body_id, to_b3_pos(p_xform.origin),
 				to_b3(p_xform.basis.get_rotation_quaternion()));
