@@ -41,12 +41,18 @@ S('[sub_resource type="StandardMaterial3D" id="ChassisMat"]\n'
   'albedo_color = Color(0.78, 0.18, 0.16, 1)\nroughness = 0.35\nmetallic = 0.25')
 # The wheel mesh (car_wheel.res, from gen_car_wheel.gd) is the collider
 # sphere with a checkerboard baked into vertex colors, so spin is visible.
+# vertex_color_is_srgb: the baked colors are authored as screen (sRGB)
+# colors; without the flag Forward+ reads them as linear and washes them out.
 S('[sub_resource type="StandardMaterial3D" id="WheelMat"]\n'
-  'vertex_color_use_as_albedo = true\nroughness = 0.8')
+  'vertex_color_use_as_albedo = true\nvertex_color_is_srgb = true\nroughness = 0.8')
 # The terrain mesh carries per-vertex colors (height + slope, baked by
-# gen_car_terrain.gd); the material just lets them through.
+# gen_car_terrain.gd); the material just lets them through (as sRGB — see
+# the wheel material note).
+# metallic_specular 0: even at roughness 1 the default 0.5 specular sheens
+# grazing angles with sky-blue Fresnel, painting distant crests blue.
 S('[sub_resource type="StandardMaterial3D" id="TerrainMat"]\n'
-  'vertex_color_use_as_albedo = true\nroughness = 1.0')
+  'vertex_color_use_as_albedo = true\nvertex_color_is_srgb = true\n'
+  'roughness = 1.0\nmetallic_specular = 0.0')
 
 B('[node name="Car" type="Node3D"]')
 B('script = ExtResource("1_car")')

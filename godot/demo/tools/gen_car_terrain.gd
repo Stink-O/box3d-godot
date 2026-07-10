@@ -29,9 +29,14 @@ const RIPPLE_AMP := 0.45
 const RIPPLE_ROW_FREQ := 0.11
 const RIPPLE_COLUMN_FREQ := 0.13
 
-const COLOR_LOW := Color(0.16, 0.27, 0.14)   # moss in the hollows
+const COLOR_LOW := Color(0.2, 0.32, 0.17)    # moss in the hollows
 const COLOR_HIGH := Color(0.56, 0.6, 0.32)   # dried grass on the crests
 const COLOR_STEEP := Color(0.4, 0.32, 0.2)   # earth on the slopes
+# The rim darkens toward a distant-ridge green. It must stay GREEN: a
+# neutral grey out there sits in the key light's falloff and picks up only
+# the blue sky ambient + fill, rendering as flat navy "lakes".
+const COLOR_FAR := Color(0.12, 0.18, 0.11)
+const RIM_FADE_START := 95.0  # metres from centre where the far darkening begins
 
 func _init() -> void:
 	var c := (VERTS - 1) / 2.0 # integer for odd VERTS: sin(0) = 0 at the origin
@@ -69,7 +74,11 @@ func _init() -> void:
 			var ground := COLOR_LOW.lerp(COLOR_HIGH, t)
 			ground = ground.lerp(COLOR_STEEP, clampf((1.0 - n.y) * 14.0, 0.0, 0.55))
 			var grain := 0.94 + 0.06 * fposmod(sin(i * 12.9898 + j * 78.233) * 43758.55, 1.0)
-			col.append(ground * Color(grain, grain, grain, 1.0))
+			ground = ground * Color(grain, grain, grain, 1.0)
+			# Darken the rim like a distant ridge line, so the field's edge
+			# recedes instead of cutting a hard bright seam at the horizon.
+			var rim := clampf(inverse_lerp(RIM_FADE_START, (VERTS - 1) / 2.0 * CELL, Vector2(x, z).length()), 0.0, 1.0)
+			col.append(ground.lerp(COLOR_FAR, rim * rim))
 
 	# Godot front faces wind clockwise seen from outside (above, for ground).
 	for i in range(VERTS - 1):

@@ -16,11 +16,14 @@ metallic = 0.25
 
 [sub_resource type="StandardMaterial3D" id="WheelMat"]
 vertex_color_use_as_albedo = true
+vertex_color_is_srgb = true
 roughness = 0.8
 
 [sub_resource type="StandardMaterial3D" id="TerrainMat"]
 vertex_color_use_as_albedo = true
+vertex_color_is_srgb = true
 roughness = 1.0
+metallic_specular = 0.0
 
 [node name="Car" type="Node3D"]
 script = ExtResource("1_car")
