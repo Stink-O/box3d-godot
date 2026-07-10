@@ -24,9 +24,6 @@ window/stretch/aspect="expand"
 
 [physics]
 
-; Physics runs at 60 Hz; without interpolation everything visibly steps on
-; faster monitors (spinning wheels judder worst). Box3DBody transforms are
-; written each physics tick, which is exactly what this smooths.
 common/physics_interpolation=true
 
 [rendering]
