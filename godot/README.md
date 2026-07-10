@@ -310,8 +310,10 @@ Samples so far (more are added by the `/demo` loop):
   height and slope so the relief reads clearly (a triangle-mesh stand-in for
   upstream's wave height field; `tools/gen_car_terrain.gd` bakes it). A
   floating readout shows your speed, and the top bar's **🎥 Third Person**
-  toggle swaps the free camera for a chase rig behind the car — toggling it
-  off returns the camera exactly where you left it.
+  toggle glides the camera onto a chase rig behind the car — hold **right
+  mouse** there to orbit the view around the car (it eases back behind once
+  released), and toggling off glides the free camera back to exactly where
+  you left it.
 
 **Controls:** hold **right mouse** to fly (**W A S D** + **Q/E**, **Shift** to
 boost); **left-click and drag** (when not flying) to grab a body *at the point

@@ -37,13 +37,21 @@ var _charge := 0.0
 var _charge_bar: ProgressBar = null
 
 ## Third-person follow (samples opt in through the shell's toggle button).
-## While following, the camera trails `_follow` and fly/look input is
-## suspended; grabbing and shooting still work.
+## While following, the camera glides to a chase anchor behind the target and
+## keeps trailing it; HOLD RIGHT MOUSE to orbit the view around the target
+## (it eases back behind once released). Grabbing and shooting still work.
+## Toggling off glides the camera back to where the free camera was.
 var _follow: Node3D = null
 var _follow_anchor := Vector3(-8.0, 3.2, 0.0)  ## chase offset in the target's yaw frame
 var _follow_look_height := 1.2
 var _follow_saved_pose := Transform3D()
+var _orbiting := false     ## right mouse held: mouse drags the orbit angles
+var _orbit_yaw := 0.0      ## user orbit offsets around the chase anchor
+var _orbit_pitch := 0.0
+var _returning := false    ## gliding back to _follow_saved_pose after clear_follow()
 @export var follow_smoothing := 6.0  ## 1/s position chase rate (higher = snappier)
+@export var follow_look_smoothing := 10.0  ## 1/s aim chase rate
+@export var orbit_recenter := 2.5  ## 1/s ease-back of the orbit once released
 
 const BOMB_SCENE := preload("res://common/bomb.tscn")
 const Despawn = preload("res://common/despawn.gd")
@@ -64,7 +72,7 @@ func _ready() -> void:
 func set_world(world: Box3DWorld) -> void:
 	_world = world
 	_grabbed = null
-	_follow = null  # the new sample owns the framing; nothing to restore
+	_end_follow_states()  # the new sample owns the framing; nothing to restore
 	_reset_pose()
 
 
@@ -73,27 +81,42 @@ func set_world(world: Box3DWorld) -> void:
 func set_world_keep_view(world: Box3DWorld) -> void:
 	_world = world
 	_grabbed = null
+	_end_follow_states()
+
+
+func _end_follow_states() -> void:
 	_follow = null
+	_returning = false
+	_orbiting = false
+	_orbit_yaw = 0.0
+	_orbit_pitch = 0.0
 
 
-# Chase `target` third-person: hover at `local_anchor` in the target's
-# yaw-only frame (x = along its nose, y = height, z = sideways) and look at
-# it. The current free-camera pose is saved; clear_follow() restores it.
+# Chase `target` third-person: glide to `local_anchor` in the target's
+# yaw-only frame (x = along its nose, y = height, z = sideways) and keep
+# looking at it. The current free-camera pose is saved; clear_follow()
+# glides back to it.
 func set_follow(target: Node3D, local_anchor := Vector3(-8.0, 3.2, 0.0), look_height := 1.2) -> void:
-	if _follow == null and target != null:
+	# Re-following mid-return keeps the ORIGINAL saved pose as the way home.
+	if _follow == null and target != null and not _returning:
 		_follow_saved_pose = global_transform
 	_follow = target
 	_follow_anchor = local_anchor
 	_follow_look_height = look_height
+	_returning = false
+	_orbit_yaw = 0.0
+	_orbit_pitch = 0.0
 
 
-# Stop following and put the camera back where it was when the follow began.
+# Stop following and glide the camera back to where it was when the follow
+# began (starting to fly with right mouse cancels the glide and takes over).
 func clear_follow() -> void:
 	if _follow != null:
-		global_transform = _follow_saved_pose
-		_yaw = rotation.y
-		_pitch = rotation.x
+		_returning = true
 	_follow = null
+	if _orbiting:
+		_orbiting = false
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 # Frame the view from `home`, looking at `look_at`. Samples opt into custom
@@ -128,15 +151,25 @@ func _reset_pose() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_RIGHT:
-			# The follow cam owns the view; don't enter fly mode (this also
-			# keeps the mouse free, so W A S D keeps driving the sample).
-			if _follow == null:
+			if _follow != null:
+				# Third person: right mouse orbits the chase view around the
+				# target instead of flying (arrow keys keep driving).
+				_orbiting = event.pressed
+				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if _orbiting else Input.MOUSE_MODE_VISIBLE
+			else:
+				# Grabbing the camera mid-glide cancels the return and flies
+				# from wherever the glide had reached.
+				if event.pressed:
+					_returning = false
 				_set_flying(event.pressed)
 		elif event.button_index == MOUSE_BUTTON_LEFT and not _flying:
 			if event.pressed:
 				_try_grab()
 			else:
 				_grabbed = null
+	elif event is InputEventMouseMotion and _follow != null and _orbiting:
+		_orbit_yaw -= event.relative.x * look_sensitivity
+		_orbit_pitch = clampf(_orbit_pitch - event.relative.y * look_sensitivity, -0.6, 1.3)
 	elif event is InputEventMouseMotion and _flying:
 		_yaw -= event.relative.x * look_sensitivity
 		_pitch = clampf(_pitch - event.relative.y * look_sensitivity, -1.5, 1.5)
@@ -164,6 +197,9 @@ func _process(delta: float) -> void:
 			_update_follow(delta)
 			return
 		_follow = null  # target freed (reset/switch): stay put, follow ends
+	if _returning:
+		_update_return(delta)
+		return
 	if not _flying:
 		return
 	var dir := Vector3.ZERO
@@ -181,6 +217,12 @@ func _process(delta: float) -> void:
 
 
 func _update_follow(delta: float) -> void:
+	# Once the orbit drag ends, ease the view back to dead-behind.
+	if not _orbiting:
+		var recenter := 1.0 - exp(-orbit_recenter * delta)
+		_orbit_yaw = lerpf(_orbit_yaw, 0.0, recenter)
+		_orbit_pitch = lerpf(_orbit_pitch, 0.0, recenter)
+
 	# Chase in the target's YAW-ONLY frame -- its local X (the Car's nose)
 	# flattened to the ground plane -- so terrain pitch/roll doesn't bob the
 	# camera around.
@@ -191,9 +233,18 @@ func _update_follow(delta: float) -> void:
 		fwd.y = 0.0
 	fwd = fwd.normalized()
 	var side := Vector3.UP.cross(fwd)
-	var target_pos: Vector3 = _follow.global_position
-	var desired := target_pos + fwd * _follow_anchor.x \
+	var offset := fwd * _follow_anchor.x \
 			+ Vector3.UP * _follow_anchor.y + side * _follow_anchor.z
+
+	# User orbit: swing the chase offset around the target (yaw about UP,
+	# then pitch about the swung offset's own side axis).
+	offset = offset.rotated(Vector3.UP, _orbit_yaw)
+	var horiz := Vector3(offset.x, 0.0, offset.z)
+	if horiz.length_squared() > 0.001:
+		offset = offset.rotated(horiz.normalized().cross(Vector3.UP), _orbit_pitch)
+
+	var target_pos: Vector3 = _follow.global_position
+	var desired := target_pos + offset
 
 	# Don't sink the chase anchor into a hill (or a wall): cast from just above
 	# the target and pull the camera in front of whatever the ray hits.
@@ -204,7 +255,31 @@ func _update_follow(delta: float) -> void:
 			desired = (hit["position"] as Vector3).lerp(from, 0.1)
 
 	position = position.lerp(desired, 1.0 - exp(-follow_smoothing * delta))
-	look_at(target_pos + Vector3.UP * _follow_look_height, Vector3.UP)
+
+	# Aim by slerp rather than a hard look_at, so entering third person (and
+	# every chase correction) glides instead of snapping.
+	var to_target := (target_pos + Vector3.UP * _follow_look_height) - global_position
+	if to_target.length_squared() > 0.01 and absf(to_target.normalized().y) < 0.999:
+		var aim := Basis.looking_at(to_target, Vector3.UP).get_rotation_quaternion()
+		var q := global_transform.basis.get_rotation_quaternion() \
+				.slerp(aim, 1.0 - exp(-follow_look_smoothing * delta))
+		global_transform.basis = Basis(q)
+	_yaw = rotation.y
+	_pitch = rotation.x
+
+
+func _update_return(delta: float) -> void:
+	# Glide home to the pose saved when the follow began, then snap the last
+	# hair's-breadth so the restore is exact.
+	var t := 1.0 - exp(-follow_smoothing * delta)
+	position = position.lerp(_follow_saved_pose.origin, t)
+	var target_q := _follow_saved_pose.basis.get_rotation_quaternion()
+	var q := global_transform.basis.get_rotation_quaternion().slerp(target_q, t)
+	global_transform.basis = Basis(q)
+	if position.distance_to(_follow_saved_pose.origin) < 0.05 \
+			and q.angle_to(target_q) < 0.01:
+		global_transform = _follow_saved_pose
+		_returning = false
 	_yaw = rotation.y
 	_pitch = rotation.x
 

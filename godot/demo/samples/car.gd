@@ -18,9 +18,11 @@ extends Node3D
 ## Up/Down = throttle, Left/Right = steer. The car crests the swells, leans
 ## on its suspension, and can be flipped if you fly off a crest badly — the
 ## upright spring will wrestle it back. The top bar's "Third Person" toggle
-## (the shell's reusable sample toggle) puts the shared camera on a chase
-## rig behind the car; toggling it off returns to the free camera exactly
-## where you left it.
+## (the shell's reusable sample toggle) glides the shared camera onto a
+## chase rig behind the car — hold RIGHT MOUSE there to orbit the view
+## around the car (it eases back behind when released; steer with the
+## arrows while orbiting). Toggling off glides the free camera back to
+## exactly where you left it.
 
 const SPIN_SPEED := 30.0     # rad/s wheel-spin target at full throttle (upstream's)
 const MAX_STEER := 0.25 * PI # target steering angle at full lock (upstream's)
