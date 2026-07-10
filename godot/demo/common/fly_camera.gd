@@ -37,11 +37,13 @@ var _charge := 0.0
 var _charge_bar: ProgressBar = null
 
 ## Third-person follow (samples opt in through the shell's toggle button).
-## While following, the camera glides to a chase anchor behind the target and
-## keeps trailing it; HOLD RIGHT MOUSE to orbit the view around the target
-## (vertical is inverted, flight-style) — the orbit STAYS where you put it
-## until the follow ends. Grabbing and shooting still work, and it runs in
-## _physics_process so it moves in lockstep with the body it chases.
+## A standard orbit rig: the camera sits EXACTLY on an orbit sphere around a
+## smoothed pivot and is hard-aimed at it, so HOLD-RIGHT-MOUSE orbiting is
+## 1:1 with the mouse (vertical inverted, flight-style) and the orbit STAYS
+## where you put it until the follow ends. Only the pivot (the target's
+## position) and the rig's base heading (the target's yaw) are smoothed —
+## that's what keeps the chase steady without making the camera itself feel
+## laggy. Runs in _physics_process, in lockstep with the body it chases.
 ## Toggling off glides the camera back to where the free camera was.
 var _follow: Node3D = null
 var _follow_anchor := Vector3(-8.0, 3.2, 0.0)  ## chase offset in the target's yaw frame
@@ -50,9 +52,15 @@ var _follow_saved_pose := Transform3D()
 var _orbiting := false     ## right mouse held: mouse drags the orbit angles
 var _orbit_yaw := 0.0      ## user orbit offsets around the chase anchor (kept on release)
 var _orbit_pitch := 0.0
+var _pivot := Vector3.ZERO ## smoothed orbit centre (the target, a beat behind)
+var _heading := 0.0        ## smoothed target yaw the rig hangs from
+var _follow_blend := 1.0   ## 0 -> 1 entry blend from the free pose onto the rig
+var _blend_from := Transform3D()
 var _returning := false    ## gliding back to _follow_saved_pose after clear_follow()
-@export var follow_smoothing := 5.0  ## 1/s position chase rate (higher = snappier)
-@export var follow_look_smoothing := 8.0  ## 1/s aim chase rate
+@export var follow_smoothing := 5.0  ## 1/s glide rate for the toggle-off return
+@export var follow_pivot_smoothing := 12.0  ## 1/s pivot chase (higher = tighter)
+@export var follow_heading_smoothing := 5.0  ## 1/s how fast the rig re-centres behind a turn
+@export var follow_blend_time := 0.5  ## seconds to blend onto the rig when toggled on
 
 const BOMB_SCENE := preload("res://common/bomb.tscn")
 const Despawn = preload("res://common/despawn.gd")
@@ -114,6 +122,12 @@ func set_follow(target: Node3D, local_anchor := Vector3(-8.0, 3.2, 0.0), look_he
 	_returning = false
 	_orbit_yaw = 0.0
 	_orbit_pitch = 0.0
+	if target != null:
+		_pivot = target.global_position
+		var fwd: Vector3 = target.global_transform.basis.x
+		_heading = atan2(fwd.z, fwd.x)
+		_follow_blend = 0.0
+		_blend_from = global_transform
 
 
 # Stop following and glide the camera back to where it was when the follow
@@ -229,48 +243,54 @@ func _process(delta: float) -> void:
 
 
 func _update_follow(delta: float) -> void:
-	# Chase in the target's YAW-ONLY frame -- its local X (the Car's nose)
-	# flattened to the ground plane -- so terrain pitch/roll doesn't bob the
-	# camera around.
-	var fwd: Vector3 = _follow.global_transform.basis.x
-	fwd.y = 0.0
-	if fwd.length_squared() < 0.001:
-		fwd = -global_transform.basis.z  # degenerate (nose straight up): hold heading
-		fwd.y = 0.0
-	fwd = fwd.normalized()
+	# Smooth ONLY the pivot (where the target is) and the base heading (which
+	# way it faces); the camera itself then sits exactly on the orbit sphere
+	# and is hard-aimed at the pivot, so mouse orbiting is 1:1 and the target
+	# stays centred even through fast drags.
+	_pivot = _pivot.lerp(_follow.global_position, 1.0 - exp(-follow_pivot_smoothing * delta))
+	var nose: Vector3 = _follow.global_transform.basis.x
+	nose.y = 0.0
+	if nose.length_squared() > 0.001:
+		_heading = lerp_angle(_heading, atan2(nose.z, nose.x),
+				1.0 - exp(-follow_heading_smoothing * delta))
+
+	var fwd := Vector3(cos(_heading), 0.0, sin(_heading))
 	var side := Vector3.UP.cross(fwd)
 	var offset := fwd * _follow_anchor.x \
 			+ Vector3.UP * _follow_anchor.y + side * _follow_anchor.z
 
-	# User orbit: swing the chase offset around the target (yaw about UP,
-	# then pitch about the swung offset's own side axis).
+	# User orbit: swing the offset around the pivot (yaw about UP, then pitch
+	# about the swung offset's own side axis) -- applied EXACTLY, no easing.
 	offset = offset.rotated(Vector3.UP, _orbit_yaw)
 	var horiz := Vector3(offset.x, 0.0, offset.z)
 	if horiz.length_squared() > 0.001:
 		offset = offset.rotated(horiz.normalized().cross(Vector3.UP), _orbit_pitch)
 
-	var target_pos: Vector3 = _follow.global_position
-	var desired := target_pos + offset
+	var desired := _pivot + offset
 
-	# Don't sink the chase anchor into a hill (or a wall): cast from safely
-	# above the target (clear of its own collider even when it pitches) and
+	# Don't sink the rig into a hill (or a wall): cast from safely above the
+	# pivot (clear of the target's own collider even when it pitches) and
 	# pull the camera in front of whatever the ray hits.
 	if _world != null:
-		var from := target_pos + Vector3.UP * maxf(_follow_look_height, 1.2)
+		var from := _pivot + Vector3.UP * maxf(_follow_look_height, 1.2)
 		var hit := _world.raycast(from, desired)
 		if hit.get("hit", false):
 			desired = (hit["position"] as Vector3).lerp(from, 0.1)
 
-	position = position.lerp(desired, 1.0 - exp(-follow_smoothing * delta))
+	var look_target := _pivot + Vector3.UP * _follow_look_height
 
-	# Aim by slerp rather than a hard look_at, so entering third person (and
-	# every chase correction) glides instead of snapping.
-	var to_target := (target_pos + Vector3.UP * _follow_look_height) - global_position
+	# Short one-way blend from the free pose onto the rig when toggled on;
+	# once it completes the camera IS the rig, with zero lag of its own.
+	_follow_blend = minf(_follow_blend + delta / maxf(follow_blend_time, 0.001), 1.0)
+	var t := smoothstep(0.0, 1.0, _follow_blend)
+	global_position = _blend_from.origin.lerp(desired, t) if t < 1.0 else desired
+
+	var to_target := look_target - global_position
 	if to_target.length_squared() > 0.01 and absf(to_target.normalized().y) < 0.999:
 		var aim := Basis.looking_at(to_target, Vector3.UP).get_rotation_quaternion()
-		var q := global_transform.basis.get_rotation_quaternion() \
-				.slerp(aim, 1.0 - exp(-follow_look_smoothing * delta))
-		global_transform.basis = Basis(q)
+		if t < 1.0:
+			aim = _blend_from.basis.get_rotation_quaternion().slerp(aim, t)
+		global_transform.basis = Basis(aim)
 	_yaw = rotation.y
 	_pitch = rotation.x
 
