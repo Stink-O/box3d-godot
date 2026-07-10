@@ -18,10 +18,19 @@ extends SceneTree
 const RADIUS := 0.4
 const SEGMENTS := 24 # around the axle
 const RINGS := 12    # pole to pole
-const SEG_STEP := 3  # quads per checker cell -> 8 cells around
-const RING_STEP := 3 # -> 4 bands pole to pole
-const DARK := Color(0.08, 0.08, 0.09)
-const LIGHT := Color(0.78, 0.75, 0.68)
+# The moving pattern lives ONLY on the equatorial tread band: the equator is
+# a great circle, so its projection is always centred on the ball from any
+# viewing angle -- a pole-centred pattern reads as off-centre rotation from
+# oblique views even when the axle is mathematically perfect. 4 tread blocks,
+# not more: at full throttle the wheel turns ~29 deg per 60 Hz physics frame,
+# so any pattern repeating faster than every ~58 deg strobes backwards like
+# a wagon wheel (a 90 deg period can't alias).
+const SEG_STEP := 6    # quads per tread block -> 4 blocks around
+const TREAD_RINGS := 3 # rings each side of the equator that carry the tread
+const HUB_RINGS := 2   # solid hubcap rings at each pole
+const RUBBER := Color(0.07, 0.07, 0.08)
+const TREAD := Color(0.78, 0.75, 0.68)
+const HUB := Color(0.55, 0.53, 0.5)
 
 func _init() -> void:
 	# Lat-long grid with poles on +/-Z: theta from the +Z pole, phi around it.
@@ -38,7 +47,11 @@ func _init() -> void:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i in range(RINGS):
 		for j in range(SEGMENTS):
-			var color: Color = DARK if ((i / RING_STEP) + (j / SEG_STEP)) % 2 == 0 else LIGHT
+			var color := RUBBER
+			if i < HUB_RINGS or i >= RINGS - HUB_RINGS:
+				color = HUB
+			elif absi(2 * i + 1 - RINGS) < 2 * TREAD_RINGS and (j / SEG_STEP) % 2 == 0:
+				color = TREAD
 			var v00: Vector3 = pts[i][j]
 			var v01: Vector3 = pts[i][j + 1]
 			var v10: Vector3 = pts[i + 1][j]
