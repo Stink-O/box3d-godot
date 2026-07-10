@@ -19,10 +19,10 @@ extends Node3D
 ## on its suspension, and can be flipped if you fly off a crest badly — the
 ## upright spring will wrestle it back. The top bar's "Third Person" toggle
 ## (the shell's reusable sample toggle) glides the shared camera onto a
-## chase rig behind the car — hold RIGHT MOUSE there to orbit the view
-## around the car (it eases back behind when released; steer with the
-## arrows while orbiting). Toggling off glides the free camera back to
-## exactly where you left it.
+## chase rig centred on the chassis — hold RIGHT MOUSE there to orbit the
+## view around the car (vertical inverted, flight-style; the view STAYS
+## where you put it, and W A S D keeps driving while you drag). Toggling
+## off glides the free camera back to exactly where you left it.
 
 const SPIN_SPEED := 30.0     # rad/s wheel-spin target at full throttle (upstream's)
 const MAX_STEER := 0.25 * PI # target steering angle at full lock (upstream's)
@@ -35,6 +35,7 @@ const MAX_STEER := 0.25 * PI # target steering angle at full lock (upstream's)
 @onready var _front: Array = [$Box3DWorld/FrontLeftJoint, $Box3DWorld/FrontRightJoint]
 @onready var _rear: Array = [$Box3DWorld/RearLeftJoint, $Box3DWorld/RearRightJoint]
 @onready var _speedo: Label3D = $Speedo
+@onready var _cam: Camera3D = get_viewport().get_camera_3d()
 
 
 # --- Shell toggle: third-person chase camera (see main.gd's SampleToggle) ---
@@ -44,19 +45,21 @@ func get_toggle_label() -> String:
 
 
 func set_toggled(on: bool) -> void:
-	var cam := get_viewport().get_camera_3d()
-	if cam == null or not cam.has_method("set_follow"):
+	if _cam == null or not _cam.has_method("set_follow"):
 		return
 	if on:
-		cam.set_follow(_chassis, Vector3(-8.0, 3.2, 0.0), 1.2)
+		# Pivot on the chassis box's centre; aim just over its roof.
+		_cam.set_follow(_chassis, Vector3(-8.0, 3.2, 0.0), 0.6)
 	else:
-		cam.clear_follow()
+		_cam.clear_follow()
 
 
 func _physics_process(_delta: float) -> void:
-	# Arrow keys always; W A S D too, but only while the camera isn't captured
-	# (right mouse held for flying), so the two never fight.
-	var driving := Input.mouse_mode != Input.MOUSE_MODE_CAPTURED
+	# Arrow keys always; W A S D too, unless the mouse is captured for FLYING
+	# (so the two never fight). The third-person orbit also captures the
+	# mouse, but there's no fly camera to protect then — keep driving.
+	var driving: bool = Input.mouse_mode != Input.MOUSE_MODE_CAPTURED \
+			or (_cam != null and _cam.has_method("is_following") and _cam.is_following())
 	var throttle := 0.0
 	if Input.is_key_pressed(KEY_UP) or (driving and Input.is_key_pressed(KEY_W)):
 		throttle += 1.0

@@ -39,19 +39,20 @@ var _charge_bar: ProgressBar = null
 ## Third-person follow (samples opt in through the shell's toggle button).
 ## While following, the camera glides to a chase anchor behind the target and
 ## keeps trailing it; HOLD RIGHT MOUSE to orbit the view around the target
-## (it eases back behind once released). Grabbing and shooting still work.
+## (vertical is inverted, flight-style) — the orbit STAYS where you put it
+## until the follow ends. Grabbing and shooting still work, and it runs in
+## _physics_process so it moves in lockstep with the body it chases.
 ## Toggling off glides the camera back to where the free camera was.
 var _follow: Node3D = null
 var _follow_anchor := Vector3(-8.0, 3.2, 0.0)  ## chase offset in the target's yaw frame
 var _follow_look_height := 1.2
 var _follow_saved_pose := Transform3D()
 var _orbiting := false     ## right mouse held: mouse drags the orbit angles
-var _orbit_yaw := 0.0      ## user orbit offsets around the chase anchor
+var _orbit_yaw := 0.0      ## user orbit offsets around the chase anchor (kept on release)
 var _orbit_pitch := 0.0
 var _returning := false    ## gliding back to _follow_saved_pose after clear_follow()
-@export var follow_smoothing := 6.0  ## 1/s position chase rate (higher = snappier)
-@export var follow_look_smoothing := 10.0  ## 1/s aim chase rate
-@export var orbit_recenter := 2.5  ## 1/s ease-back of the orbit once released
+@export var follow_smoothing := 5.0  ## 1/s position chase rate (higher = snappier)
+@export var follow_look_smoothing := 8.0  ## 1/s aim chase rate
 
 const BOMB_SCENE := preload("res://common/bomb.tscn")
 const Despawn = preload("res://common/despawn.gd")
@@ -90,6 +91,13 @@ func _end_follow_states() -> void:
 	_orbiting = false
 	_orbit_yaw = 0.0
 	_orbit_pitch = 0.0
+
+
+# True while the third-person follow owns the camera. Samples use this to
+# keep W A S D driving even though the orbit drag captures the mouse (the
+# capture gate exists to protect the FLY camera, which isn't active here).
+func is_following() -> bool:
+	return _follow != null
 
 
 # Chase `target` third-person: glide to `local_anchor` in the target's
@@ -168,8 +176,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				_grabbed = null
 	elif event is InputEventMouseMotion and _follow != null and _orbiting:
+		# Vertical inverted (flight-style): push the mouse up to dip the
+		# camera and look up at the target.
 		_orbit_yaw -= event.relative.x * look_sensitivity
-		_orbit_pitch = clampf(_orbit_pitch - event.relative.y * look_sensitivity, -0.6, 1.3)
+		_orbit_pitch = clampf(_orbit_pitch + event.relative.y * look_sensitivity, -0.6, 1.3)
 	elif event is InputEventMouseMotion and _flying:
 		_yaw -= event.relative.x * look_sensitivity
 		_pitch = clampf(_pitch - event.relative.y * look_sensitivity, -1.5, 1.5)
@@ -193,10 +203,12 @@ func _set_flying(active: bool) -> void:
 func _process(delta: float) -> void:
 	_update_charge(delta)
 	if _follow != null:
-		if is_instance_valid(_follow):
-			_update_follow(delta)
-			return
-		_follow = null  # target freed (reset/switch): stay put, follow ends
+		if not is_instance_valid(_follow):
+			_follow = null  # target freed (reset/switch): stay put, follow ends
+		# Following is driven from _physics_process, in lockstep with the
+		# chased body -- moving here (at render rate, against a body that only
+		# moves per physics tick) makes the target judder relative to the view.
+		return
 	if _returning:
 		_update_return(delta)
 		return
@@ -217,12 +229,6 @@ func _process(delta: float) -> void:
 
 
 func _update_follow(delta: float) -> void:
-	# Once the orbit drag ends, ease the view back to dead-behind.
-	if not _orbiting:
-		var recenter := 1.0 - exp(-orbit_recenter * delta)
-		_orbit_yaw = lerpf(_orbit_yaw, 0.0, recenter)
-		_orbit_pitch = lerpf(_orbit_pitch, 0.0, recenter)
-
 	# Chase in the target's YAW-ONLY frame -- its local X (the Car's nose)
 	# flattened to the ground plane -- so terrain pitch/roll doesn't bob the
 	# camera around.
@@ -246,10 +252,11 @@ func _update_follow(delta: float) -> void:
 	var target_pos: Vector3 = _follow.global_position
 	var desired := target_pos + offset
 
-	# Don't sink the chase anchor into a hill (or a wall): cast from just above
-	# the target and pull the camera in front of whatever the ray hits.
+	# Don't sink the chase anchor into a hill (or a wall): cast from safely
+	# above the target (clear of its own collider even when it pitches) and
+	# pull the camera in front of whatever the ray hits.
 	if _world != null:
-		var from := target_pos + Vector3.UP * _follow_look_height
+		var from := target_pos + Vector3.UP * maxf(_follow_look_height, 1.2)
 		var hit := _world.raycast(from, desired)
 		if hit.get("hit", false):
 			desired = (hit["position"] as Vector3).lerp(from, 0.1)
@@ -306,8 +313,10 @@ func _release_charge() -> void:
 	_shoot(charge)
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	_drag_grabbed()
+	if _follow != null and is_instance_valid(_follow):
+		_update_follow(delta)
 
 
 func _try_grab() -> void:
