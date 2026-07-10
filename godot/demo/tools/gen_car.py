@@ -39,9 +39,10 @@ B = nodes.append
 S('[sub_resource type="BoxMesh" id="ChassisMesh"]\nsize = Vector3(%g, %g, %g)' % CHASSIS)
 S('[sub_resource type="StandardMaterial3D" id="ChassisMat"]\n'
   'albedo_color = Color(0.78, 0.18, 0.16, 1)\nroughness = 0.35\nmetallic = 0.25')
-S('[sub_resource type="SphereMesh" id="WheelMesh"]\nradius = %g\nheight = %g' % (WHEEL_R, WHEEL_R * 2))
+# The wheel mesh (car_wheel.res, from gen_car_wheel.gd) is the collider
+# sphere with a checkerboard baked into vertex colors, so spin is visible.
 S('[sub_resource type="StandardMaterial3D" id="WheelMat"]\n'
-  'albedo_color = Color(0.09, 0.09, 0.1, 1)\nroughness = 0.85')
+  'vertex_color_use_as_albedo = true\nroughness = 0.8')
 # The terrain mesh carries per-vertex colors (height + slope, baked by
 # gen_car_terrain.gd); the material just lets them through.
 S('[sub_resource type="StandardMaterial3D" id="TerrainMat"]\n'
@@ -51,6 +52,7 @@ B('[node name="Car" type="Node3D"]')
 B('script = ExtResource("1_car")')
 B('')
 B('[node name="Box3DWorld" type="Box3DWorld" parent="."]')
+B('gravity = Vector3(0, -10, 0)')  # box3d's own default, as the Driving sample runs
 B('')
 
 # Rolling wave ground: one continuous static triangle-mesh collider, sourced
@@ -64,10 +66,13 @@ B('mesh = ExtResource("2_terrain")')
 B('material_override = SubResource("TerrainMat")')
 B('')
 
+# angular_damping 0: upstream body defs carry NO angular damping; the
+# binding's 0.05 default bleeds wheel spin and drags the chassis' yaw.
 B('[node name="Chassis" type="Box3DBody" parent="Box3DWorld"]')
 B('transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, %g, 0)' % CHASSIS_Y)
 B('box_size = Vector3(%g, %g, %g)' % CHASSIS)
 B('density = 0.5')
+B('angular_damping = 0.0')
 B('')
 B('[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Chassis"]')
 B('mesh = SubResource("ChassisMesh")')
@@ -81,10 +86,11 @@ for name, x, z, _steers in WHEELS:
     B('sphere_radius = %g' % WHEEL_R)
     B('density = 2.0')
     B('friction = 3.0')
+    B('angular_damping = 0.0')
     B('allow_fast_rotation = true')
     B('')
     B('[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/%s"]' % name)
-    B('mesh = SubResource("WheelMesh")')
+    B('mesh = ExtResource("3_wheel")')
     B('material_override = SubResource("WheelMat")')
     B('')
 
@@ -132,9 +138,10 @@ B('modulate = Color(1, 0.92, 0.6, 1)')
 B('text = "0.0 m/s"')
 B('')
 
-header = '[gd_scene load_steps=%d format=3]' % (len(subres) + 3)
+header = '[gd_scene load_steps=%d format=3]' % (len(subres) + 4)
 ext = ('[ext_resource type="Script" path="res://samples/car.gd" id="1_car"]\n\n'
-       '[ext_resource type="ArrayMesh" path="res://samples/car_terrain.res" id="2_terrain"]')
+       '[ext_resource type="ArrayMesh" path="res://samples/car_terrain.res" id="2_terrain"]\n\n'
+       '[ext_resource type="ArrayMesh" path="res://samples/car_wheel.res" id="3_wheel"]')
 out = header + '\n\n' + ext + '\n\n' + '\n\n'.join(subres) + '\n\n' + '\n'.join(nodes)
 
 _out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "samples", "car.tscn")

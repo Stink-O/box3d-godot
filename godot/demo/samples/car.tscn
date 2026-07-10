@@ -4,6 +4,8 @@
 
 [ext_resource type="ArrayMesh" path="res://samples/car_terrain.res" id="2_terrain"]
 
+[ext_resource type="ArrayMesh" path="res://samples/car_wheel.res" id="3_wheel"]
+
 [sub_resource type="BoxMesh" id="ChassisMesh"]
 size = Vector3(4, 1, 2)
 
@@ -12,13 +14,9 @@ albedo_color = Color(0.78, 0.18, 0.16, 1)
 roughness = 0.35
 metallic = 0.25
 
-[sub_resource type="SphereMesh" id="WheelMesh"]
-radius = 0.4
-height = 0.8
-
 [sub_resource type="StandardMaterial3D" id="WheelMat"]
-albedo_color = Color(0.09, 0.09, 0.1, 1)
-roughness = 0.85
+vertex_color_use_as_albedo = true
+roughness = 0.8
 
 [sub_resource type="StandardMaterial3D" id="TerrainMat"]
 vertex_color_use_as_albedo = true
@@ -28,6 +26,7 @@ roughness = 1.0
 script = ExtResource("1_car")
 
 [node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -10, 0)
 
 [node name="Terrain" type="Box3DBody" parent="Box3DWorld"]
 body_type = 0
@@ -41,6 +40,7 @@ material_override = SubResource("TerrainMat")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 box_size = Vector3(4, 1, 2)
 density = 0.5
+angular_damping = 0.0
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Chassis"]
 mesh = SubResource("ChassisMesh")
@@ -52,10 +52,11 @@ shape_type = 1
 sphere_radius = 0.4
 density = 2.0
 friction = 3.0
+angular_damping = 0.0
 allow_fast_rotation = true
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/FrontLeftWheel"]
-mesh = SubResource("WheelMesh")
+mesh = ExtResource("3_wheel")
 material_override = SubResource("WheelMat")
 
 [node name="FrontRightWheel" type="Box3DBody" parent="Box3DWorld"]
@@ -64,10 +65,11 @@ shape_type = 1
 sphere_radius = 0.4
 density = 2.0
 friction = 3.0
+angular_damping = 0.0
 allow_fast_rotation = true
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/FrontRightWheel"]
-mesh = SubResource("WheelMesh")
+mesh = ExtResource("3_wheel")
 material_override = SubResource("WheelMat")
 
 [node name="RearLeftWheel" type="Box3DBody" parent="Box3DWorld"]
@@ -76,10 +78,11 @@ shape_type = 1
 sphere_radius = 0.4
 density = 2.0
 friction = 3.0
+angular_damping = 0.0
 allow_fast_rotation = true
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/RearLeftWheel"]
-mesh = SubResource("WheelMesh")
+mesh = ExtResource("3_wheel")
 material_override = SubResource("WheelMat")
 
 [node name="RearRightWheel" type="Box3DBody" parent="Box3DWorld"]
@@ -88,10 +91,11 @@ shape_type = 1
 sphere_radius = 0.4
 density = 2.0
 friction = 3.0
+angular_damping = 0.0
 allow_fast_rotation = true
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/RearRightWheel"]
-mesh = SubResource("WheelMesh")
+mesh = ExtResource("3_wheel")
 material_override = SubResource("WheelMat")
 
 [node name="FrontLeftJoint" type="Box3DWheelJoint" parent="Box3DWorld"]
