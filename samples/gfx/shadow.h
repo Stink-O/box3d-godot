@@ -43,7 +43,7 @@ extern "C"
 #endif
 
 #define SHADOW_CASCADE_COUNT 3
-#define SHADOW_RESOLUTION 2048
+#define SHADOW_RESOLUTION 4096
 
 // Default cascade far split, view-space distance from the camera. Scenes
 // smaller than this keep the default range, larger ones widen it.
@@ -86,6 +86,13 @@ Mat4 GetCascadeMatrix( int cascade );
 // cascade. Lit shaders compare a fragment's view-space depth against
 // these to pick which cascade to sample.
 float GetCascadeFarViewZ( int cascade );
+
+// PCF tap-offset multiplier for a cascade, in (0, 1]. The kernel is
+// authored in texels of cascade 0, farther cascades cover more world per
+// texel, so their tap offsets shrink by the texel-size ratio. This keeps
+// the penumbra a constant world width, without it the shadow edge blur
+// visibly jumps at every cascade boundary.
+float GetCascadePcfScale( int cascade );
 
 // Bound by lit pipelines once for sampling across all cascades. The view
 // is the depth array's full-array sampling view. Per-cascade selection

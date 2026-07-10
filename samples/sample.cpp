@@ -93,8 +93,6 @@ void SampleContext::Save()
 	fprintf( file, "{\n" );
 	fprintf( file, "  \"sampleIndex\": %d,\n", sampleIndex );
 	fprintf( file, "  \"drawShapes\": %s,\n", gd->drawShapes ? "true" : "false" );
-	fprintf( file, "  \"drawJoints\": %s,\n", gd->drawJoints ? "true" : "false" );
-	fprintf( file, "  \"drawContacts\": %s,\n", gd->drawContacts ? "true" : "false" );
 	fprintf( file, "  \"enableShadows\": %s,\n", enableShadows ? "true" : "false" );
 	fprintf( file, "  \"enableGtao\": %s,\n", enableGtao ? "true" : "false" );
 	fprintf( file, "  \"gtaoQuality\": %d,\n", gtaoQuality );
@@ -170,16 +168,6 @@ void SampleContext::Load()
 		{
 			const char* s = data + tokens[i + 1].start;
 			GetGuiDraw()->drawShapes = strncmp( s, "true", 4 ) == 0;
-		}
-		else if ( jsoneq( data, &tokens[i], "drawJoints" ) == 0 )
-		{
-			const char* s = data + tokens[i + 1].start;
-			GetGuiDraw()->drawJoints = strncmp( s, "true", 4 ) == 0;
-		}
-		else if ( jsoneq( data, &tokens[i], "drawContacts" ) == 0 )
-		{
-			const char* s = data + tokens[i + 1].start;
-			GetGuiDraw()->drawContacts = strncmp( s, "true", 4 ) == 0;
 		}
 		else if ( jsoneq( data, &tokens[i], "enableShadows" ) == 0 )
 		{

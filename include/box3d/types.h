@@ -511,6 +511,11 @@ typedef struct b3ShapeDef
 	/// Warning: if this is false, you MUST call b3Body_ApplyMassFromShapes or b3Body_SetMassData before simulating the world.
 	bool updateBodyMass;
 
+	/// Enable speculative collision. Leave this true unless you care about reducing ghost collision
+	/// more than continuous collision under rotation.
+	/// Experimental: this can only disable speculative contact between hulls and triangles (meshes and height fields).
+	bool enableSpeculativeContact;
+
 	/// Used internally to detect a valid definition. DO NOT SET.
 	int internalValue;
 

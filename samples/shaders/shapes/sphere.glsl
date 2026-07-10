@@ -139,6 +139,7 @@ layout( binding = 1 ) uniform ub_pass
 	mat4 view;				  // for view-space depth debug mode + cascade selection
 	vec4 cascade_far_view_z;  // .xyz = far view-space Z per cascade
 	mat4 cascade_matrices[3]; // light-space view-proj per cascade
+	vec4 cascade_pcf_scale;	  // .xyz = PCF tap-offset scale per cascade (constant world penumbra)
 	vec4 sh[9];				  // IBL diffuse SH coefficients (band 0..2, RGB in .xyz)
 	vec4 ibl_params;		  // .x = prefilter cube max_lod, .y = IBL enable (1=IBL, 0=flat ambient), .zw reserved
 };
@@ -165,26 +166,7 @@ layout( binding = 4 ) uniform texture2D tex_ao;
 #pragma sokol @sampler_type smp_ao filtering
 layout( binding = 3 ) uniform sampler smp_ao;
 
-// 3x3 PCF over a 1-texel radius. Manually unrolled, see cube.glsl for
-// the X3570 rationale.
-float sampleShadowPCF( int cascade, vec3 light_uv, float bias )
-{
-	float t = 1.0 / 2048.0;
-	float ly = float( cascade );
-	float rz = light_uv.z - bias;
-	vec2 c = light_uv.xy;
-	float s = 0.0;
-	s += texture( sampler2DArrayShadow( tex_shadow, smp_shadow ), vec4( c.x - t, c.y - t, ly, rz ) );
-	s += texture( sampler2DArrayShadow( tex_shadow, smp_shadow ), vec4( c.x, c.y - t, ly, rz ) );
-	s += texture( sampler2DArrayShadow( tex_shadow, smp_shadow ), vec4( c.x + t, c.y - t, ly, rz ) );
-	s += texture( sampler2DArrayShadow( tex_shadow, smp_shadow ), vec4( c.x - t, c.y, ly, rz ) );
-	s += texture( sampler2DArrayShadow( tex_shadow, smp_shadow ), vec4( c.x, c.y, ly, rz ) );
-	s += texture( sampler2DArrayShadow( tex_shadow, smp_shadow ), vec4( c.x + t, c.y, ly, rz ) );
-	s += texture( sampler2DArrayShadow( tex_shadow, smp_shadow ), vec4( c.x - t, c.y + t, ly, rz ) );
-	s += texture( sampler2DArrayShadow( tex_shadow, smp_shadow ), vec4( c.x, c.y + t, ly, rz ) );
-	s += texture( sampler2DArrayShadow( tex_shadow, smp_shadow ), vec4( c.x + t, c.y + t, ly, rz ) );
-	return s / 9.0;
-}
+#pragma sokol @include ../common/shadow_pcf.glsl
 
 float sampleCascade( int cascade, vec3 world_pos, vec3 world_normal )
 {
@@ -202,7 +184,7 @@ float sampleCascade( int cascade, vec3 world_pos, vec3 world_normal )
 	float n_dot_l = max( dot( world_normal, normalize( sun_dir_world.xyz ) ), 0.0 );
 	float bias = mix( 0.0040, 0.0008, n_dot_l );
 
-	float pcf = sampleShadowPCF( cascade, light_uv, bias );
+	float pcf = sampleShadowPCF( tex_shadow, smp_shadow, cascade, light_uv, bias, cascade_pcf_scale[cascade] );
 
 	// See cube.glsl for the longer note. Cascade 2 has no fallback at its
 	// UV boundary, so fade PCF toward 1.0 over the outer 10% to hide the

@@ -248,6 +248,11 @@ void b3CreateContact( b3World* world, b3Shape* shapeA, b3Shape* shapeB, int chil
 		contact->flags |= b3_contactEnableContactEvents;
 	}
 
+	if ( ( shapeA->flags & b3_enableSpeculative ) && ( shapeB->flags & b3_enableSpeculative ) )
+	{
+		contact->flags |= b3_enableSpeculativePoints;
+	}
+
 	// Connect to body A
 	{
 		contact->edges[0].bodyId = shapeA->bodyId;

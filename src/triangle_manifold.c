@@ -595,8 +595,8 @@ static b3EdgeQuery b3TestEdgePairs( const b3TriangleData* triangle, const b3Hull
 	return result;
 }
 
-static float b3CollideHullFace( b3LocalManifold* manifold, int pointCapacity, const b3TriangleData* triangle, const b3HullData* hull,
-								b3FaceQuery query, b3SATCache* cache )
+static float b3CollideHullFace( b3LocalManifold* manifold, int pointCapacity, const b3TriangleData* triangle,
+								const b3HullData* hull, b3FaceQuery query, b3SATCache* cache, bool enableSpeculative )
 {
 	manifold->pointCount = 0;
 
@@ -663,23 +663,31 @@ static float b3CollideHullFace( b3LocalManifold* manifold, int pointCapacity, co
 
 	pointCount = b3MinInt( pointCount, pointCapacity );
 	float minSeparation = FLT_MAX;
+	int finalPointCount = 0;
 
 	for ( int i = 0; i < pointCount; ++i )
 	{
 		b3ClipVertex* clipPoint = input + i;
+		minSeparation = b3MinFloat( minSeparation, clipPoint->separation );
+
+		if ( enableSpeculative == false && clipPoint->separation > 0.0f )
+		{
+			continue;
+		}
 
 		// Move point onto hull face improved culling
 		b3Vec3 point = b3MulSub( clipPoint->position, clipPoint->separation, refPlane.normal );
 
-		b3LocalManifoldPoint* pt = manifold->points + i;
+		b3LocalManifoldPoint* pt = manifold->points + finalPointCount;
 		pt->point = point;
 		pt->separation = clipPoint->separation;
 		pt->pair = b3FlipPair( clipPoint->pair );
 
-		minSeparation = b3MinFloat( minSeparation, clipPoint->separation );
+		finalPointCount += 1;
 	}
 
-	if ( minSeparation > B3_SPECULATIVE_DISTANCE )
+	float speculativeDistance = enableSpeculative ? B3_SPECULATIVE_DISTANCE : 0.0f;
+	if ( minSeparation > speculativeDistance )
 	{
 		// This can occur with a stale SAT cache
 		manifold->pointCount = 0;
@@ -687,7 +695,7 @@ static float b3CollideHullFace( b3LocalManifold* manifold, int pointCapacity, co
 		return minSeparation;
 	}
 
-	manifold->pointCount = pointCount;
+	manifold->pointCount = finalPointCount;
 	manifold->normal = b3Neg( refPlane.normal );
 	manifold->feature = b3_featureHullFace;
 
@@ -700,7 +708,7 @@ static float b3CollideHullFace( b3LocalManifold* manifold, int pointCapacity, co
 }
 
 static float b3CollideTriangleFace( b3LocalManifold* manifold, int pointCapacity, const b3TriangleData* triangle,
-									const b3HullData* hull, b3FaceQuery query, b3SATCache* cache )
+									const b3HullData* hull, b3FaceQuery query, b3SATCache* cache, bool enableSpeculative )
 {
 	B3_VALIDATE( manifold->pointCount == 0 );
 
@@ -770,30 +778,38 @@ static float b3CollideTriangleFace( b3LocalManifold* manifold, int pointCapacity
 
 	float minSeparation = FLT_MAX;
 
+	int finalPointCount = 0;
 	for ( int i = 0; i < pointCount; ++i )
 	{
 		b3ClipVertex* clipPoint = input + i;
+		minSeparation = b3MinFloat( minSeparation, clipPoint->separation );
+
+		if ( enableSpeculative == false && clipPoint->separation > 0.0f )
+		{
+			continue;
+		}
 
 		// Move point onto triangle surface for improved culling
 		// b3Vec3 point = b3MulSub( clipPoint->position, clipPoint->separation, refPlane.normal );
 		b3Vec3 point = clipPoint->position;
 
-		b3LocalManifoldPoint* pt = manifold->points + i;
+		b3LocalManifoldPoint* pt = manifold->points + finalPointCount;
 		pt->point = point;
 		pt->separation = clipPoint->separation;
 		pt->pair = clipPoint->pair;
 
-		minSeparation = b3MinFloat( minSeparation, clipPoint->separation );
+		finalPointCount += 1;
 	}
 
-	if ( minSeparation >= B3_SPECULATIVE_DISTANCE )
+	float speculativeDistance = enableSpeculative ? B3_SPECULATIVE_DISTANCE : 0.0f;
+	if ( minSeparation >= speculativeDistance )
 	{
 		// This can happens if the objects move a part while re-using a cached axis
 		*cache = (b3SATCache){ 0 };
 		return minSeparation;
 	}
 
-	manifold->pointCount = pointCount;
+	manifold->pointCount = finalPointCount;
 	manifold->normal = refPlane.normal;
 	manifold->feature = b3_featureTriangleFace;
 
@@ -853,7 +869,8 @@ static void b3CollideHullAndTriangleEdges( b3LocalManifold* manifold, int capaci
 	b3SegmentDistanceResult result = b3LineDistance( pA, eA, pB, eB );
 
 	// Is one of the closest points outside of the associated edge segment?
-	if ( capacity == 0 || result.fraction1 < 0.0f || 1.0f < result.fraction1 || result.fraction2 < 0.0f || 1.0f < result.fraction2 )
+	if ( capacity == 0 || result.fraction1 < 0.0f || 1.0f < result.fraction1 || result.fraction2 < 0.0f ||
+		 1.0f < result.fraction2 )
 	{
 		// Invalid edge pair, no points generated
 		B3_ASSERT( manifold->pointCount == 0 );
@@ -901,7 +918,7 @@ b3AtomicInt b3_triangleCacheHits;
 
 // Computes the manifold in the local space of the hull
 void b3CollideHullAndTriangle( b3LocalManifold* manifold, int capacity, const b3HullData* hullA, b3Vec3 v1, b3Vec3 v2, b3Vec3 v3,
-							   int triangleFlags, b3SATCache* cache )
+							   int triangleFlags, b3SATCache* cache, bool enableSpeculative )
 {
 	manifold->pointCount = 0;
 	manifold->feature = b3_featureNone;
@@ -954,7 +971,7 @@ void b3CollideHullAndTriangle( b3LocalManifold* manifold, int capacity, const b3
 	const b3Plane* hullPlanes = b3GetHullPlanes( hullA );
 	const b3Vec3* hullPoints = b3GetHullPoints( hullA );
 
-	float speculativeDistance = B3_SPECULATIVE_DISTANCE;
+	float speculativeDistance = enableSpeculative ? B3_SPECULATIVE_DISTANCE : 0.0f;
 	cache->hit = 1;
 
 	// Attempt to use the cache to speed up collision
@@ -967,7 +984,7 @@ void b3CollideHullAndTriangle( b3LocalManifold* manifold, int capacity, const b3
 			int vertexIndex = b3FindHullSupportVertex( hullA, b3Neg( trianglePlane.normal ) );
 			b3Vec3 support = hullPoints[vertexIndex];
 			float separation = b3PlaneSeparation( trianglePlane, support );
-			if ( separation >= speculativeDistance )
+			if ( separation > speculativeDistance )
 			{
 				// Cache hit, shapes are separated
 				return;
@@ -980,7 +997,8 @@ void b3CollideHullAndTriangle( b3LocalManifold* manifold, int capacity, const b3
 
 			// Read cache but don't modify it
 			b3SATCache localCache = *cache;
-			float clippedSeparation = b3CollideTriangleFace( manifold, capacity, &triangle, hullA, faceQuery, &localCache );
+			float clippedSeparation =
+				b3CollideTriangleFace( manifold, capacity, &triangle, hullA, faceQuery, &localCache, enableSpeculative );
 
 			if ( manifold->pointCount > 0 && b3AbsFloat( cache->separation - clippedSeparation ) < linearSlop )
 			{
@@ -1017,7 +1035,7 @@ void b3CollideHullAndTriangle( b3LocalManifold* manifold, int capacity, const b3
 
 			// Separation of triangle support point with hull plane
 			float separation = b3PlaneSeparation( plane, support );
-			if ( separation >= speculativeDistance )
+			if ( separation > speculativeDistance )
 			{
 				// Cache hit, shapes are separated
 				return;
@@ -1038,7 +1056,8 @@ void b3CollideHullAndTriangle( b3LocalManifold* manifold, int capacity, const b3
 
 				// Read cache but don't modify it
 				b3SATCache localCache = *cache;
-				float clippedSeparation = b3CollideHullFace( manifold, capacity, &triangle, hullA, faceQuery, &localCache );
+				float clippedSeparation =
+					b3CollideHullFace( manifold, capacity, &triangle, hullA, faceQuery, &localCache, enableSpeculative );
 
 				// Cache reuse is only successful if it creates contact points and the clipped separation didn't change much.
 				if ( manifold->pointCount > 0 && b3AbsFloat( cache->separation - clippedSeparation ) < linearSlop )
@@ -1116,7 +1135,7 @@ void b3CollideHullAndTriangle( b3LocalManifold* manifold, int capacity, const b3
 		case b3_manualFaceAxisA:
 		{
 			b3FaceQuery faceQueryA = b3QueryTriangleFace( &triangle, hullA );
-			b3CollideTriangleFace( manifold, capacity, &triangle, hullA, faceQueryA, cache );
+			b3CollideTriangleFace( manifold, capacity, &triangle, hullA, faceQueryA, cache, enableSpeculative );
 			return;
 		}
 
@@ -1124,7 +1143,7 @@ void b3CollideHullAndTriangle( b3LocalManifold* manifold, int capacity, const b3
 		case b3_manualFaceAxisB:
 		{
 			b3FaceQuery faceQueryB = b3QueryHullFace( &triangle, hullA );
-			b3CollideHullFace( manifold, capacity, &triangle, hullA, faceQueryB, cache );
+			b3CollideHullFace( manifold, capacity, &triangle, hullA, faceQueryB, cache, enableSpeculative );
 			return;
 		}
 
@@ -1186,16 +1205,19 @@ void b3CollideHullAndTriangle( b3LocalManifold* manifold, int capacity, const b3
 
 	float clippedFaceSeparation;
 
-	// Don't allow a hull face opposed to the triangle face.
+	// Don't admit a hull face significantly opposed to the triangle face.
+	// Need a tolerance to avoid ghost collisions.
+	// todo hull query skips faces that point along the triangle normal
 	b3Vec3 hullNormal = hullPlanes[faceQueryB.faceIndex].normal;
-	bool pushingUp = b3Dot( hullNormal, trianglePlane.normal ) < 0.0f;
-	if ( faceQueryB.separation > faceQueryA.separation + linearSlop && pushingUp )
+	bool pushingDown = b3Dot( hullNormal, trianglePlane.normal ) > 0.25f;
+	if ( faceQueryB.separation > faceQueryA.separation + linearSlop && pushingDown == false )
 	{
-		clippedFaceSeparation = b3CollideHullFace( manifold, capacity, &triangle, hullA, faceQueryB, cache );
+		clippedFaceSeparation = b3CollideHullFace( manifold, capacity, &triangle, hullA, faceQueryB, cache, enableSpeculative );
 	}
 	else
 	{
-		clippedFaceSeparation = b3CollideTriangleFace( manifold, capacity, &triangle, hullA, faceQueryA, cache );
+		clippedFaceSeparation =
+			b3CollideTriangleFace( manifold, capacity, &triangle, hullA, faceQueryA, cache, enableSpeculative );
 	}
 
 	// Does an edge axis exist?
