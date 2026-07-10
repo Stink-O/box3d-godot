@@ -303,7 +303,10 @@ public:
 };
 
 // Motor joint: drives the relative linear/angular velocity between two bodies
-// (like a servo). Good for driven platforms and conveyor-style motion.
+// (like a servo), and/or pulls the joint frames together with position
+// springs. The spring half makes a great compliant "mouse grab": box3d's own
+// samples hold bodies with linear_hertz 7.5, damping 1, a force cap, and
+// max_torque as angular friction.
 class Box3DMotorJoint : public Box3DJoint {
 	GDCLASS(Box3DMotorJoint, Box3DJoint)
 
@@ -311,6 +314,12 @@ class Box3DMotorJoint : public Box3DJoint {
 	double max_force = 1000.0;
 	Vector3 angular_velocity;
 	double max_torque = 1000.0;
+	double linear_hertz = 0.0; // 0 = no position spring
+	double linear_damping = 1.0;
+	double max_spring_force = 0.0;
+	double angular_hertz = 0.0;
+	double angular_damping = 1.0;
+	double max_spring_torque = 0.0;
 
 protected:
 	static void _bind_methods();
@@ -326,6 +335,18 @@ public:
 	Vector3 get_angular_velocity() const;
 	void set_max_torque(double p_v);
 	double get_max_torque() const;
+	void set_linear_hertz(double p_v);
+	double get_linear_hertz() const;
+	void set_linear_damping(double p_v);
+	double get_linear_damping() const;
+	void set_max_spring_force(double p_v);
+	double get_max_spring_force() const;
+	void set_angular_hertz(double p_v);
+	double get_angular_hertz() const;
+	void set_angular_damping(double p_v);
+	double get_angular_damping() const;
+	void set_max_spring_torque(double p_v);
+	double get_max_spring_torque() const;
 };
 
 } // namespace godot

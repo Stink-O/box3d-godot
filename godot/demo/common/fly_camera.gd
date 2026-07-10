@@ -15,7 +15,6 @@ extends Camera3D
 @export var move_speed := 8.0
 @export var boost_multiplier := 3.0
 @export var look_sensitivity := 0.0028
-@export var grab_strength := 12.0
 @export var look_target := Vector3(0, 2.5, 0)
 @export var home_position := Vector3(0, 7, 16)
 @export var shoot_speed_min := 20.0
@@ -28,9 +27,16 @@ var _world: Box3DWorld
 var _flying := false
 var _yaw := 0.0
 var _pitch := 0.0
+## The grab is box3d's own samples' scheme: a collisionless KINEMATIC "mouse
+## body" follows the cursor, tied to the grabbed body by a Box3DMotorJoint
+## position spring (critically damped, force-capped) anchored at the point
+## you clicked, with max_torque acting as angular friction. Compliant and
+## calm — unlike a velocity override, it doesn't tremble the held body (a
+## held car's wheels used to bob on their suspensions from that jitter).
 var _grabbed: Box3DBody = null
 var _grab_distance := 0.0
-var _grab_local_offset := Vector3.ZERO  ## hit point, in the grabbed body's local space
+var _grab_mouse_body: Box3DBody = null
+var _grab_joint: Box3DMotorJoint = null
 
 var _charging := false
 var _charge := 0.0
@@ -79,8 +85,8 @@ func _ready() -> void:
 # Point the camera at a newly loaded sample's world and reset to the default
 # framing. A sample can override the framing afterwards via frame_view().
 func set_world(world: Box3DWorld) -> void:
+	_end_grab()
 	_world = world
-	_grabbed = null
 	_end_follow_states()  # the new sample owns the framing; nothing to restore
 	_reset_pose()
 
@@ -88,8 +94,8 @@ func set_world(world: Box3DWorld) -> void:
 # Point at a rebuilt world (e.g. after Reset) WITHOUT moving the camera, so the
 # view the user flew to is preserved.
 func set_world_keep_view(world: Box3DWorld) -> void:
+	_end_grab()
 	_world = world
-	_grabbed = null
 	_end_follow_states()
 
 
@@ -188,7 +194,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.pressed:
 				_try_grab()
 			else:
-				_grabbed = null
+				_end_grab()
 	elif event is InputEventMouseMotion and _follow != null and _orbiting:
 		# Vertical inverted (flight-style): push the mouse up to dip the
 		# camera and look up at the target.
@@ -208,7 +214,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _set_flying(active: bool) -> void:
 	_flying = active
 	if active:
-		_grabbed = null
+		_end_grab()
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	else:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -349,40 +355,62 @@ func _try_grab() -> void:
 	if hit.get("hit", false):
 		var body = hit.get("collider")
 		if body is Box3DBody and body.body_type == Box3DBody.DYNAMIC:
-			_grabbed = body
-			_grab_distance = from.distance_to(hit["position"])
-			# Remember the hit point in the body's local frame so the drag
-			# follows that exact point (and rotates the body) rather than
-			# snapping the body's origin to the cursor.
-			_grab_local_offset = body.global_transform.affine_inverse() * hit["position"]
+			_begin_grab(body, hit["position"], from.distance_to(hit["position"]))
+
+
+# Build the mouse-body + motor-joint grab rig at the clicked point, mirroring
+# upstream sample.cpp (linear spring 7.5 Hz / damping 1 / force cap 100 mg,
+# angular friction ~0.5 * lever * mg).
+func _begin_grab(body: Box3DBody, hit_pos: Vector3, distance: float) -> void:
+	_end_grab()
+	_grabbed = body
+	_grab_distance = distance
+	var to_world_local: Transform3D = _world.global_transform.affine_inverse()
+
+	_grab_mouse_body = Box3DBody.new()
+	_grab_mouse_body.body_type = Box3DBody.KINEMATIC
+	_grab_mouse_body.shape_type = Box3DBody.SPHERE
+	_grab_mouse_body.sphere_radius = 0.05
+	_grab_mouse_body.collision_layer = 0  # collides with nothing
+	_grab_mouse_body.collision_mask = 0
+	_grab_mouse_body.position = to_world_local * hit_pos  # BEFORE add_child
+	_world.add_child(_grab_mouse_body)
+
+	var mg: float = body.get_mass() * _world.gravity.length()
+	_grab_joint = Box3DMotorJoint.new()
+	_grab_joint.position = to_world_local * hit_pos  # joint frame = grab point
+	_grab_joint.max_force = 0.0  # no velocity drive; the position spring pulls
+	_grab_joint.linear_hertz = 7.5
+	_grab_joint.linear_damping = 1.0
+	_grab_joint.max_spring_force = 100.0 * mg
+	_grab_joint.max_torque = 0.2 * mg  # angular friction (lever ~0.4 m)
+	_world.add_child(_grab_joint)
+	_grab_joint.body_a = _grab_joint.get_path_to(_grab_mouse_body)
+	_grab_joint.body_b = _grab_joint.get_path_to(body)
+
+
+func _end_grab() -> void:
+	if is_instance_valid(_grab_joint):
+		_grab_joint.queue_free()
+	if is_instance_valid(_grab_mouse_body):
+		_grab_mouse_body.queue_free()
+	_grab_joint = null
+	_grab_mouse_body = null
+	_grabbed = null
 
 
 func _drag_grabbed() -> void:
 	if _grabbed == null or _flying:
 		return
+	if not (is_instance_valid(_grabbed) and is_instance_valid(_grab_mouse_body)):
+		_end_grab()  # sample reset/switch freed the world under the grab
+		return
+	# The kinematic mouse body chases the cursor point; the joint's spring
+	# hauls the grabbed body after it.
 	var mouse := get_viewport().get_mouse_position()
 	var from := project_ray_origin(mouse)
 	var dir := project_ray_normal(mouse)
-	var target := from + dir * _grab_distance
-
-	# World-space offset of the grabbed point, rotating with the body.
-	var r: Vector3 = _grabbed.global_transform.basis * _grab_local_offset
-	var point_world: Vector3 = _grabbed.global_position + r
-	var error: Vector3 = target - point_world
-
-	# Approximate a point constraint: the component of the error tangent to
-	# the lever arm `r` is chased by rotating about the body's centre (so
-	# grabbing near a table's edge pivots it), and the component along `r`
-	# is chased by translating the centre. Below a small lever length there's
-	# no stable pivot axis, so just translate.
-	var ang_vel := Vector3.ZERO
-	var lever2 := r.length_squared()
-	if lever2 > 0.01:
-		ang_vel = (r.cross(error) * (grab_strength / lever2)).limit_length(25.0)
-	var lin_vel: Vector3 = error * grab_strength - ang_vel.cross(r)
-
-	_grabbed.set_linear_velocity(lin_vel)
-	_grabbed.set_angular_velocity(ang_vel)
+	_grab_mouse_body.global_position = from + dir * _grab_distance
 
 
 var _ball_mesh: SphereMesh

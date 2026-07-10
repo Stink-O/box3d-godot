@@ -819,6 +819,12 @@ b3JointId Box3DMotorJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3Bo
 	def.maxVelocityForce = (float)max_force;
 	def.angularVelocity = to_b3(angular_velocity);
 	def.maxVelocityTorque = (float)max_torque;
+	def.linearHertz = (float)linear_hertz;
+	def.linearDampingRatio = (float)linear_damping;
+	def.maxSpringForce = (float)max_spring_force;
+	def.angularHertz = (float)angular_hertz;
+	def.angularDampingRatio = (float)angular_damping;
+	def.maxSpringTorque = (float)max_spring_torque;
 	return b3CreateMotorJoint(p_world, &def);
 }
 
@@ -862,6 +868,54 @@ void Box3DMotorJoint::set_max_torque(double p_v) {
 }
 double Box3DMotorJoint::get_max_torque() const { return max_torque; }
 
+void Box3DMotorJoint::set_linear_hertz(double p_v) {
+	linear_hertz = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3MotorJoint_SetLinearHertz(joint_id, (float)p_v);
+	}
+}
+double Box3DMotorJoint::get_linear_hertz() const { return linear_hertz; }
+
+void Box3DMotorJoint::set_linear_damping(double p_v) {
+	linear_damping = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3MotorJoint_SetLinearDampingRatio(joint_id, (float)p_v);
+	}
+}
+double Box3DMotorJoint::get_linear_damping() const { return linear_damping; }
+
+void Box3DMotorJoint::set_max_spring_force(double p_v) {
+	max_spring_force = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3MotorJoint_SetMaxSpringForce(joint_id, (float)p_v);
+	}
+}
+double Box3DMotorJoint::get_max_spring_force() const { return max_spring_force; }
+
+void Box3DMotorJoint::set_angular_hertz(double p_v) {
+	angular_hertz = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3MotorJoint_SetAngularHertz(joint_id, (float)p_v);
+	}
+}
+double Box3DMotorJoint::get_angular_hertz() const { return angular_hertz; }
+
+void Box3DMotorJoint::set_angular_damping(double p_v) {
+	angular_damping = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3MotorJoint_SetAngularDampingRatio(joint_id, (float)p_v);
+	}
+}
+double Box3DMotorJoint::get_angular_damping() const { return angular_damping; }
+
+void Box3DMotorJoint::set_max_spring_torque(double p_v) {
+	max_spring_torque = p_v;
+	if (b3Joint_IsValid(joint_id)) {
+		b3MotorJoint_SetMaxSpringTorque(joint_id, (float)p_v);
+	}
+}
+double Box3DMotorJoint::get_max_spring_torque() const { return max_spring_torque; }
+
 void Box3DMotorJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_linear_velocity", "velocity"), &Box3DMotorJoint::set_linear_velocity);
 	ClassDB::bind_method(D_METHOD("get_linear_velocity"), &Box3DMotorJoint::get_linear_velocity);
@@ -872,8 +926,28 @@ void Box3DMotorJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_max_torque", "torque"), &Box3DMotorJoint::set_max_torque);
 	ClassDB::bind_method(D_METHOD("get_max_torque"), &Box3DMotorJoint::get_max_torque);
 
+	ClassDB::bind_method(D_METHOD("set_linear_hertz", "hertz"), &Box3DMotorJoint::set_linear_hertz);
+	ClassDB::bind_method(D_METHOD("get_linear_hertz"), &Box3DMotorJoint::get_linear_hertz);
+	ClassDB::bind_method(D_METHOD("set_linear_damping", "ratio"), &Box3DMotorJoint::set_linear_damping);
+	ClassDB::bind_method(D_METHOD("get_linear_damping"), &Box3DMotorJoint::get_linear_damping);
+	ClassDB::bind_method(D_METHOD("set_max_spring_force", "force"), &Box3DMotorJoint::set_max_spring_force);
+	ClassDB::bind_method(D_METHOD("get_max_spring_force"), &Box3DMotorJoint::get_max_spring_force);
+	ClassDB::bind_method(D_METHOD("set_angular_hertz", "hertz"), &Box3DMotorJoint::set_angular_hertz);
+	ClassDB::bind_method(D_METHOD("get_angular_hertz"), &Box3DMotorJoint::get_angular_hertz);
+	ClassDB::bind_method(D_METHOD("set_angular_damping", "ratio"), &Box3DMotorJoint::set_angular_damping);
+	ClassDB::bind_method(D_METHOD("get_angular_damping"), &Box3DMotorJoint::get_angular_damping);
+	ClassDB::bind_method(D_METHOD("set_max_spring_torque", "torque"), &Box3DMotorJoint::set_max_spring_torque);
+	ClassDB::bind_method(D_METHOD("get_max_spring_torque"), &Box3DMotorJoint::get_max_spring_torque);
+
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "linear_velocity"), "set_linear_velocity", "get_linear_velocity");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_force", PROPERTY_HINT_RANGE, "0,100000,1,or_greater"), "set_max_force", "get_max_force");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "angular_velocity"), "set_angular_velocity", "get_angular_velocity");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_torque", PROPERTY_HINT_RANGE, "0,100000,1,or_greater"), "set_max_torque", "get_max_torque");
+	ADD_GROUP("Position Spring", "");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "linear_hertz", PROPERTY_HINT_RANGE, "0,60,0.1,or_greater"), "set_linear_hertz", "get_linear_hertz");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "linear_damping", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"), "set_linear_damping", "get_linear_damping");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_spring_force", PROPERTY_HINT_RANGE, "0,100000,1,or_greater"), "set_max_spring_force", "get_max_spring_force");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "angular_hertz", PROPERTY_HINT_RANGE, "0,60,0.1,or_greater"), "set_angular_hertz", "get_angular_hertz");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "angular_damping", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"), "set_angular_damping", "get_angular_damping");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_spring_torque", PROPERTY_HINT_RANGE, "0,100000,1,or_greater"), "set_max_spring_torque", "get_max_spring_torque");
 }
