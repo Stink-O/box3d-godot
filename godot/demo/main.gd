@@ -17,6 +17,7 @@ const SAMPLES := {
 	"Stacking & Friction": {
 		"Friction Ramp": "res://samples/friction_ramp.tscn",
 		"Pyramid": "res://samples/pyramid.tscn",
+		"Large Pyramid": "res://samples/large_pyramid.tscn",
 		"Mixed Stacks": "res://samples/mixed_stacks.tscn",
 	},
 	"Constraints": {
