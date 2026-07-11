@@ -12,9 +12,8 @@ metallic = 0.1
 
 [node name="LargePyramid" type="Node3D"]
 
-[node name="CameraStart" type="Marker3D" parent="."]
+[node name="CameraStart" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 55, 115)
-gizmo_extents = 5.0
 
 [node name="Box3DWorld" type="Box3DWorld" parent="."]
 gravity = Vector3(0, -9.8, 0)

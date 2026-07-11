@@ -82,6 +82,13 @@ const SAMPLES := {
 @onready var _contact_damping_row: Control = $UI/Sidebar/Margin/VBox/ContactDampingRow
 @onready var _contact_damping_spin: SpinBox = $UI/Sidebar/Margin/VBox/ContactDampingRow/ContactDampingSpin
 @onready var _readout: Label = $UI/Sidebar/Margin/VBox/Readout
+@onready var _set_start_btn: Button = $UI/Sidebar/Margin/VBox/StartViewRow/SetStartView
+@onready var _clear_start_btn: Button = $UI/Sidebar/Margin/VBox/StartViewRow/ClearStartView
+
+## Start views saved at runtime with the sidebar's "Set Start View" button,
+## keyed by sample scene path. Highest-priority spawn view, survives restarts.
+const START_VIEWS_PATH := "user://start_views.cfg"
+var _start_views := ConfigFile.new()
 
 var _current: Node = null
 var _items: Dictionary = {}  ## popup item id -> {path, name}
@@ -129,7 +136,13 @@ func _ready() -> void:
 
 	_camera.set_charge_bar(_charge_bar)
 
+	_start_views.load(START_VIEWS_PATH)  # missing on first run, that's fine
+
 	_sidebar.visible = false
+	_set_start_btn.focus_mode = Control.FOCUS_NONE
+	_set_start_btn.pressed.connect(_on_set_start_view)
+	_clear_start_btn.focus_mode = Control.FOCUS_NONE
+	_clear_start_btn.pressed.connect(_on_clear_start_view)
 	_substep_spin.value_changed.connect(_on_substep_changed)
 	_worker_spin.value_changed.connect(_on_worker_changed)
 	_max_speed_spin.value_changed.connect(_on_max_speed_changed)
@@ -305,6 +318,29 @@ func _on_sidebar_debug_changed(pressed: bool) -> void:
 	_apply_debug()
 
 
+# --- Start view: fly the camera somewhere, save it as this sample's spawn ---
+
+func _on_set_start_view() -> void:
+	if _current_path == "":
+		return
+	var xform: Transform3D = _camera.global_transform
+	_start_views.set_value("views", _current_path, xform)
+	_start_views.save(START_VIEWS_PATH)
+	# Authoring helper: the same pose as a scene-file line, ready to paste onto
+	# a sample's CameraStart node in the editor to ship it in the repo.
+	DisplayServer.clipboard_set("transform = " + var_to_str(xform))
+	_info.text = "Start view saved for %s   ·   transform also copied to clipboard" % _current_name
+
+
+func _on_clear_start_view() -> void:
+	if _current_path == "":
+		return
+	if _start_views.has_section_key("views", _current_path):
+		_start_views.erase_section_key("views", _current_path)
+		_start_views.save(START_VIEWS_PATH)
+	_info.text = "Start view cleared for %s (scene default applies on next load)" % _current_name
+
+
 func _on_contact_hertz_changed(value: float) -> void:
 	if _updating_sidebar:
 		return
@@ -422,15 +458,33 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 			_camera.set_world_keep_view(world)
 		else:
 			_camera.set_world(world)
-			# A sample can place its starting view by hand: a Node3D (use a
-			# Marker3D for the editor gizmo) named CameraStart at the scene
-			# root. Drag / rotate it in the viewport; the camera spawns there,
-			# facing the marker's -Z. Falls back to the script-exported
-			# camera_home / camera_look_at pair.
+			# Spawn view, by priority:
+			# 1. A view saved at runtime with the sidebar's "Set Start View"
+			#    button (fly to the shot, click, done).
+			# 2. A node named CameraStart at the scene root. Make it a
+			#    Camera3D: the editor then shows a frustum, a Preview
+			#    checkbox, and View > Align Transform with View (fly the
+			#    editor camera to the shot, then snap the node to it). The
+			#    spawn view faces the node's -Z; give it a Node3D child named
+			#    LookAt and the view aims at that point instead — two
+			#    draggable position gizmos, no rotation rings.
+			# 3. Script-exported camera_home / camera_look_at Vector3s.
+			# (has_section_key first: get_value treats a null default as "no
+			# default" and logs an error for samples with no saved view.)
+			var saved_view = null
+			if _start_views.has_section_key("views", path):
+				saved_view = _start_views.get_value("views", path)
 			var cam_start = _current.get_node_or_null("CameraStart")
-			if cam_start is Node3D:
-				_camera.frame_view(cam_start.global_position,
-						cam_start.global_position - cam_start.global_basis.z)
+			if saved_view is Transform3D:
+				_camera.frame_view(saved_view.origin,
+						saved_view.origin - saved_view.basis.z)
+			elif cam_start is Node3D:
+				var eye: Vector3 = cam_start.global_position
+				var target: Vector3 = eye - cam_start.global_basis.z
+				var aim = cam_start.get_node_or_null("LookAt")
+				if aim is Node3D and not aim.global_position.is_equal_approx(eye):
+					target = aim.global_position
+				_camera.frame_view(eye, target)
 			elif "camera_home" in _current and "camera_look_at" in _current:
 				_camera.frame_view(_current.camera_home, _current.camera_look_at)
 	_apply_debug()  # carry the debug-draw toggle into the newly loaded sample

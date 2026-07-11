@@ -27,12 +27,12 @@ A('metallic = 0.1')
 A('')
 A('[node name="LargePyramid" type="Node3D"]')
 A('')
-# Hand-editable spawn view: the shell spawns the fly camera at this marker,
-# facing its -Z. Identity basis at +Z already faces the pyramid; drag /
-# rotate the gizmo in the editor to taste.
-A('[node name="CameraStart" type="Marker3D" parent="."]')
+# Hand-editable spawn view: the shell spawns the fly camera here, facing the
+# node's -Z. A Camera3D (never current at runtime — the shell's camera owns
+# the viewport) so the editor offers Preview and Align Transform with View.
+# Identity basis at +Z already faces the pyramid.
+A('[node name="CameraStart" type="Camera3D" parent="."]')
 A('transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 55, 115)')
-A('gizmo_extents = 5.0')
 A('')
 A('[node name="Box3DWorld" type="Box3DWorld" parent="."]')
 A('gravity = Vector3(0, -9.8, 0)')

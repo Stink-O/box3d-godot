@@ -239,6 +239,20 @@ max_value = 20.0
 step = 0.5
 value = 10.0
 
+[node name="StartViewRow" type="HBoxContainer" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+
+[node name="SetStartView" type="Button" parent="UI/Sidebar/Margin/VBox/StartViewRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Save the current camera as this sample's start view. Also copies the transform to the clipboard for a CameraStart node."
+text = "Set Start View"
+
+[node name="ClearStartView" type="Button" parent="UI/Sidebar/Margin/VBox/StartViewRow"]
+layout_mode = 2
+tooltip_text = "Forget the saved start view; the sample spawns at its scene default again."
+text = "Clear"
+
 [node name="ReadoutSep" type="HSeparator" parent="UI/Sidebar/Margin/VBox" unique_id=413345837]
 layout_mode = 2
 
