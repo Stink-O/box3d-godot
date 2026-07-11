@@ -131,15 +131,16 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.1, 0)
 material_override = SubResource("WallMat")
 mesh = SubResource("M_TrayLipL")
 
-[node name="FrontGuard" type="Box3DBody" parent="Box3DWorld"]
+[node name="FrontGuard" type="Box3DBody" parent="Box3DWorld" unique_id=199995550]
 body_type = 0
 box_size = Vector3(12, 15, 0.4)
 friction = 0.25
-collision_layer = 2
 debug_visualize = false
+collision_layer = 2
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.5, 1.6)
 
 [node name="Emitter" parent="Box3DWorld" unique_id=678430257 instance=ExtResource("2_emitter")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.6, 14.25, 0)
 rate = 0.2
+lifetime = 90.0
 max_alive = 400

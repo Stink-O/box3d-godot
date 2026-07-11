@@ -12313,3 +12313,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.65, 15.85, 6.63)
 
 [node name="Cube_4095" parent="Box3DWorld/CubeGrid" unique_id=801124864 instance=ExtResource("1_cube")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.65, 15.85, 7.65)
+
+[node name="CameraStart" type="Marker3D" parent="." unique_id=1920479174]
+transform = Transform3D(-0.61128247, 0.55488765, -0.56429905, 0.37850255, 0.83117276, 0.40729383, 0.6950321, 0.035382982, -0.7181076, -24.712185, 24.37611, -28.4469)
+gizmo_extents = 5.0
