@@ -203,6 +203,11 @@ b3JointId Box3DHingeJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3Bo
 	def.enableMotor = motor_enabled;
 	def.motorSpeed = (float)motor_speed;
 	def.maxMotorTorque = (float)max_motor_torque;
+	// Angular spring toward the spawn pose (frames coincide at creation, so the
+	// rest angle is 0 = the authored pose). Ragdolls use this to hold a stance.
+	def.enableSpring = spring_enabled;
+	def.hertz = (float)spring_hertz;
+	def.dampingRatio = (float)spring_damping;
 	return b3CreateRevoluteJoint(p_world, &def);
 }
 
@@ -236,6 +241,13 @@ double Box3DHingeJoint::get_motor_speed() const { return motor_speed; }
 void Box3DHingeJoint::set_max_motor_torque(double p_v) { max_motor_torque = p_v; rebuild_if_alive(); }
 double Box3DHingeJoint::get_max_motor_torque() const { return max_motor_torque; }
 
+void Box3DHingeJoint::set_spring_enabled(bool p_v) { spring_enabled = p_v; rebuild_if_alive(); }
+bool Box3DHingeJoint::get_spring_enabled() const { return spring_enabled; }
+void Box3DHingeJoint::set_spring_hertz(double p_v) { spring_hertz = p_v; rebuild_if_alive(); }
+double Box3DHingeJoint::get_spring_hertz() const { return spring_hertz; }
+void Box3DHingeJoint::set_spring_damping(double p_v) { spring_damping = p_v; rebuild_if_alive(); }
+double Box3DHingeJoint::get_spring_damping() const { return spring_damping; }
+
 void Box3DHingeJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_limit_enabled", "enabled"), &Box3DHingeJoint::set_limit_enabled);
 	ClassDB::bind_method(D_METHOD("get_limit_enabled"), &Box3DHingeJoint::get_limit_enabled);
@@ -249,6 +261,12 @@ void Box3DHingeJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_motor_speed"), &Box3DHingeJoint::get_motor_speed);
 	ClassDB::bind_method(D_METHOD("set_max_motor_torque", "torque"), &Box3DHingeJoint::set_max_motor_torque);
 	ClassDB::bind_method(D_METHOD("get_max_motor_torque"), &Box3DHingeJoint::get_max_motor_torque);
+	ClassDB::bind_method(D_METHOD("set_spring_enabled", "enabled"), &Box3DHingeJoint::set_spring_enabled);
+	ClassDB::bind_method(D_METHOD("get_spring_enabled"), &Box3DHingeJoint::get_spring_enabled);
+	ClassDB::bind_method(D_METHOD("set_spring_hertz", "hertz"), &Box3DHingeJoint::set_spring_hertz);
+	ClassDB::bind_method(D_METHOD("get_spring_hertz"), &Box3DHingeJoint::get_spring_hertz);
+	ClassDB::bind_method(D_METHOD("set_spring_damping", "ratio"), &Box3DHingeJoint::set_spring_damping);
+	ClassDB::bind_method(D_METHOD("get_spring_damping"), &Box3DHingeJoint::get_spring_damping);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "limit_enabled"), "set_limit_enabled", "get_limit_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lower_limit", PROPERTY_HINT_RANGE, "-180,180,0.1,radians_as_degrees"), "set_lower_limit", "get_lower_limit");
@@ -256,6 +274,9 @@ void Box3DHingeJoint::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "motor_enabled"), "set_motor_enabled", "get_motor_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "motor_speed", PROPERTY_HINT_RANGE, "-50,50,0.1"), "set_motor_speed", "get_motor_speed");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_motor_torque", PROPERTY_HINT_RANGE, "0,10000,1,or_greater"), "set_max_motor_torque", "get_max_motor_torque");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "spring_enabled"), "set_spring_enabled", "get_spring_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "spring_hertz", PROPERTY_HINT_RANGE, "0,30,0.1,or_greater"), "set_spring_hertz", "get_spring_hertz");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "spring_damping", PROPERTY_HINT_RANGE, "0,4,0.05,or_greater"), "set_spring_damping", "get_spring_damping");
 }
 
 // ---------------------------------------------------------------------------
@@ -422,6 +443,16 @@ b3JointId Box3DBallJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3Bod
 	def.enableTwistLimit = twist_limit_enabled;
 	def.lowerTwistAngle = (float)twist_lower;
 	def.upperTwistAngle = (float)twist_upper;
+	// Angular spring toward the spawn pose (frames coincide at creation).
+	def.enableSpring = spring_enabled;
+	def.hertz = (float)spring_hertz;
+	def.dampingRatio = (float)spring_damping;
+	// A zero-velocity motor with a torque cap acts as dry friction, the same
+	// trick box3d's own human prefab uses to keep ragdoll limbs from flailing.
+	if (friction_torque > 0.0) {
+		def.enableMotor = true;
+		def.maxMotorTorque = (float)friction_torque;
+	}
 	return b3CreateSphericalJoint(p_world, &def);
 }
 
@@ -436,6 +467,15 @@ double Box3DBallJoint::get_twist_lower() const { return twist_lower; }
 void Box3DBallJoint::set_twist_upper(double p_v) { twist_upper = p_v; rebuild_if_alive(); }
 double Box3DBallJoint::get_twist_upper() const { return twist_upper; }
 
+void Box3DBallJoint::set_spring_enabled(bool p_v) { spring_enabled = p_v; rebuild_if_alive(); }
+bool Box3DBallJoint::get_spring_enabled() const { return spring_enabled; }
+void Box3DBallJoint::set_spring_hertz(double p_v) { spring_hertz = p_v; rebuild_if_alive(); }
+double Box3DBallJoint::get_spring_hertz() const { return spring_hertz; }
+void Box3DBallJoint::set_spring_damping(double p_v) { spring_damping = p_v; rebuild_if_alive(); }
+double Box3DBallJoint::get_spring_damping() const { return spring_damping; }
+void Box3DBallJoint::set_friction_torque(double p_v) { friction_torque = p_v; rebuild_if_alive(); }
+double Box3DBallJoint::get_friction_torque() const { return friction_torque; }
+
 void Box3DBallJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_cone_limit_enabled", "enabled"), &Box3DBallJoint::set_cone_limit_enabled);
 	ClassDB::bind_method(D_METHOD("get_cone_limit_enabled"), &Box3DBallJoint::get_cone_limit_enabled);
@@ -447,12 +487,24 @@ void Box3DBallJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_twist_lower"), &Box3DBallJoint::get_twist_lower);
 	ClassDB::bind_method(D_METHOD("set_twist_upper", "radians"), &Box3DBallJoint::set_twist_upper);
 	ClassDB::bind_method(D_METHOD("get_twist_upper"), &Box3DBallJoint::get_twist_upper);
+	ClassDB::bind_method(D_METHOD("set_spring_enabled", "enabled"), &Box3DBallJoint::set_spring_enabled);
+	ClassDB::bind_method(D_METHOD("get_spring_enabled"), &Box3DBallJoint::get_spring_enabled);
+	ClassDB::bind_method(D_METHOD("set_spring_hertz", "hertz"), &Box3DBallJoint::set_spring_hertz);
+	ClassDB::bind_method(D_METHOD("get_spring_hertz"), &Box3DBallJoint::get_spring_hertz);
+	ClassDB::bind_method(D_METHOD("set_spring_damping", "ratio"), &Box3DBallJoint::set_spring_damping);
+	ClassDB::bind_method(D_METHOD("get_spring_damping"), &Box3DBallJoint::get_spring_damping);
+	ClassDB::bind_method(D_METHOD("set_friction_torque", "torque"), &Box3DBallJoint::set_friction_torque);
+	ClassDB::bind_method(D_METHOD("get_friction_torque"), &Box3DBallJoint::get_friction_torque);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "cone_limit_enabled"), "set_cone_limit_enabled", "get_cone_limit_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cone_angle", PROPERTY_HINT_RANGE, "0,180,0.1,radians_as_degrees"), "set_cone_angle", "get_cone_angle");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "twist_limit_enabled"), "set_twist_limit_enabled", "get_twist_limit_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "twist_lower", PROPERTY_HINT_RANGE, "-180,180,0.1,radians_as_degrees"), "set_twist_lower", "get_twist_lower");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "twist_upper", PROPERTY_HINT_RANGE, "-180,180,0.1,radians_as_degrees"), "set_twist_upper", "get_twist_upper");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "spring_enabled"), "set_spring_enabled", "get_spring_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "spring_hertz", PROPERTY_HINT_RANGE, "0,30,0.1,or_greater"), "set_spring_hertz", "get_spring_hertz");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "spring_damping", PROPERTY_HINT_RANGE, "0,4,0.05,or_greater"), "set_spring_damping", "get_spring_damping");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "friction_torque", PROPERTY_HINT_RANGE, "0,100,0.1,or_greater"), "set_friction_torque", "get_friction_torque");
 }
 
 // ---------------------------------------------------------------------------

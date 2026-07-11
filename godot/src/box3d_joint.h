@@ -72,6 +72,9 @@ class Box3DHingeJoint : public Box3DJoint {
 	bool motor_enabled = false;
 	double motor_speed = 0.0; // radians / second
 	double max_motor_torque = 0.0;
+	bool spring_enabled = false;
+	double spring_hertz = 1.0;
+	double spring_damping = 0.7;
 
 protected:
 	static void _bind_methods();
@@ -91,6 +94,12 @@ public:
 	double get_motor_speed() const;
 	void set_max_motor_torque(double p_v);
 	double get_max_motor_torque() const;
+	void set_spring_enabled(bool p_v);
+	bool get_spring_enabled() const;
+	void set_spring_hertz(double p_v);
+	double get_spring_hertz() const;
+	void set_spring_damping(double p_v);
+	double get_spring_damping() const;
 };
 
 // Prismatic joint: body_b slides along this node's local X axis (the red gizmo arrow).
@@ -169,6 +178,10 @@ class Box3DBallJoint : public Box3DJoint {
 	bool twist_limit_enabled = false;
 	double twist_lower = 0.0; // radians
 	double twist_upper = 0.0; // radians
+	bool spring_enabled = false;
+	double spring_hertz = 1.0;
+	double spring_damping = 0.7;
+	double friction_torque = 0.0; // > 0 enables a zero-target motor = dry joint friction
 
 protected:
 	static void _bind_methods();
@@ -186,6 +199,14 @@ public:
 	double get_twist_lower() const;
 	void set_twist_upper(double p_v);
 	double get_twist_upper() const;
+	void set_spring_enabled(bool p_v);
+	bool get_spring_enabled() const;
+	void set_spring_hertz(double p_v);
+	double get_spring_hertz() const;
+	void set_spring_damping(double p_v);
+	double get_spring_damping() const;
+	void set_friction_torque(double p_v);
+	double get_friction_torque() const;
 };
 
 // Fixed / weld joint: rigidly locks two bodies together.
