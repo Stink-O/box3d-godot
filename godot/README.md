@@ -344,6 +344,10 @@ shell and verifies the menu + ball shooting.
 
 ## Building
 
+Prebuilt **Windows x86_64** binaries are committed in `demo/bin/`, so on Windows
+the demo runs straight from a fresh clone. Build only if you're on another
+platform or have changed the C/C++ sources.
+
 You need Python 3, SCons, and a C++17 compiler (MSVC, Clang, or GCC).
 
 ```sh

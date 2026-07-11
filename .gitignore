@@ -39,6 +39,10 @@ godot/msvc_capture.log
 ~*.dll*
 *.TMP
 *.tmp
+# renamed-aside copies of locked DLLs (Windows rebuild-while-editor-open trick)
+*.dll.old
+# ...but ship the prebuilt Windows demo binaries so a fresh clone plays out of the box
+!godot/demo/bin/libbox3d_godot.windows.*.dll
 
 # Godot editor cache
 godot/demo/.godot/

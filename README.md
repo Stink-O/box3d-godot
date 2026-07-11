@@ -39,7 +39,18 @@ https://github.com/user-attachments/assets/33752918-c3a2-4899-821c-bf13d9adce11
 
 
 
-**→ Get started:** see **[`godot/README.md`](godot/README.md)**.
+### Try the demo
+
+```sh
+git clone https://github.com/Stink-O/box3d-godot
+```
+
+Open `godot/demo/project.godot` in **Godot 4.7** and press play — prebuilt
+Windows binaries are committed, so no build step is needed. On Linux/macOS
+(or after changing the C++ sources) build the extension first: see
+[Building](godot/README.md#building).
+
+**→ Full docs:** see **[`godot/README.md`](godot/README.md)**.
 
 Inspired by the [`box3d-unity`](https://github.com/timskap/box3d-unity) binding,
 which does the same for Unity.
