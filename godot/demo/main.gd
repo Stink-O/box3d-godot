@@ -329,7 +329,7 @@ func _on_set_start_view() -> void:
 	# Authoring helper: the same pose as a scene-file line, ready to paste onto
 	# a sample's CameraStart node in the editor to ship it in the repo.
 	DisplayServer.clipboard_set("transform = " + var_to_str(xform))
-	_info.text = "Start view saved for %s   ·   transform also copied to clipboard" % _current_name
+	_flash_info("Start view saved for %s   ·   transform also copied to clipboard" % _current_name)
 
 
 func _on_clear_start_view() -> void:
@@ -338,7 +338,24 @@ func _on_clear_start_view() -> void:
 	if _start_views.has_section_key("views", _current_path):
 		_start_views.erase_section_key("views", _current_path)
 		_start_views.save(START_VIEWS_PATH)
-	_info.text = "Start view cleared for %s (scene default applies on next load)" % _current_name
+	_flash_info("Start view cleared for %s (scene default applies on next load)" % _current_name)
+
+
+## Show a transient message in the info bar, then restore the controls hint.
+## The id check keeps a stale timer from clobbering a newer message or sample.
+var _info_flash_id := 0
+
+func _flash_info(msg: String) -> void:
+	_info_flash_id += 1
+	var id := _info_flash_id
+	_info.text = msg
+	await get_tree().create_timer(3.0).timeout
+	if id == _info_flash_id:
+		_show_controls_hint()
+
+
+func _show_controls_hint() -> void:
+	_info.text = "%s      Right-click: fly (WASD / Q E, Shift boost)   ·   Left-drag: grab   ·   Hold F: charge shot" % _current_name
 
 
 func _on_contact_hertz_changed(value: float) -> void:
@@ -498,4 +515,5 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	_sample_toggle.set_pressed_no_signal(false)
 	if has_toggle and _current.has_method("get_toggle_label"):
 		_sample_toggle.text = _current.get_toggle_label()
-	_info.text = "%s      Right-click: fly (WASD / Q E, Shift boost)   ·   Left-drag: grab   ·   Hold F: charge shot" % sample_name
+	_info_flash_id += 1  # cancel any pending flash from the previous sample
+	_show_controls_hint()
