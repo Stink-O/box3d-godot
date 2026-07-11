@@ -26,8 +26,10 @@ extends Camera3D
 var _world: Box3DWorld
 var _flying := false
 ## Collision layer 2 is the demos' invisible-guard layer (e.g. the marble
-## run's front glass): bodies bounce off it, but camera rays skip it so you
-## can still aim, grab, and frame shots through it.
+## run's front glass): contained bodies bounce off it, but camera rays AND
+## the camera's projectiles (shot ball / bomb) skip it, so you can aim,
+## grab, and shoot into a guarded area from outside. Box3D only collides two
+## shapes when both masks agree, so the guard's own mask can stay "all".
 const RAY_MASK := 0xFFFFFFFF ^ 2
 
 var _yaw := 0.0
@@ -446,6 +448,7 @@ func _shoot(charge: float = 0.0) -> void:
 	if _bomb_mode:
 		var bomb := BOMB_SCENE.instantiate() as Box3DBody
 		bomb.debug_visualize = false  # projectiles keep their real look
+		bomb.collision_mask = RAY_MASK  # fly through invisible guards
 		bomb.position = origin + dir * (shoot_radius + 0.6)
 		_world.add_child(bomb)
 		bomb.set_linear_velocity(dir * speed)
@@ -462,6 +465,7 @@ func _shoot(charge: float = 0.0) -> void:
 
 	var ball := Box3DBody.new()
 	ball.debug_visualize = false  # projectiles keep their real look
+	ball.collision_mask = RAY_MASK  # fly through invisible guards
 	ball.shape_type = Box3DBody.SPHERE
 	ball.sphere_radius = shoot_radius
 	ball.density = 4.0
