@@ -141,10 +141,10 @@ alignment on local Z.
 
 | Node | What it does | Key properties |
 | --- | --- | --- |
-| `Box3DHingeJoint` | Rotates about the node's local Z (revolute). | `limit_enabled`, `lower/upper_limit`, `motor_enabled`, `motor_speed`, `max_motor_torque` |
+| `Box3DHingeJoint` | Rotates about the node's local Z (revolute). | `limit_enabled`, `lower/upper_limit`, `motor_enabled`, `motor_speed`, `max_motor_torque`, `spring_*` (spring toward the spawn angle) |
 | `Box3DSliderJoint` | Slides along the node's local X (prismatic). | same shape as hinge, plus `max_motor_force` |
 | `Box3DDistanceJoint` | Holds two bodies a set distance apart (rope / rod / spring). | `length` (-1 = auto), `spring_enabled`, `spring_hertz`, `spring_damping`, `limit_enabled`, `min/max_length` |
-| `Box3DBallJoint` | Pins a point, free rotation (spherical). | `cone_limit_enabled`, `cone_angle`, `twist_limit_enabled`, `twist_lower/upper` |
+| `Box3DBallJoint` | Pins a point, free rotation (spherical). | `cone_limit_enabled`, `cone_angle`, `twist_limit_enabled`, `twist_lower/upper`, `spring_*` (spring toward the spawn pose), `friction_torque` (dry joint friction) |
 | `Box3DFixedJoint` | Rigidly welds two bodies. | `linear_hertz`, `angular_hertz` (0 = rigid) |
 | `Box3DMotorJoint` | Drives the relative linear/angular velocity (a servo). | `linear_velocity`, `max_force`, `angular_velocity`, `max_torque` |
 | `Box3DWheelJoint` | A vehicle wheel: `body_b` (the wheel) rides a suspension spring along the node's local Y and spins about its local Z (the axle), with an optional spin motor and spring steering. | `suspension_*` (spring + travel limits), `spin_motor_*`, `steering_*` (target angle, spring, limits), `get_spin_speed()`, `get_steering_angle()` |
@@ -255,12 +255,14 @@ Samples so far (more are added by the `/demo` loop):
   each, spring disabled → inextensible), locked to the swing plane so each is a
   true pendulum; the raised end ball swings down and the impact ripples along
   the touching line, kicking the far ball out. Grab or shoot the balls yourself.
-- **Ragdoll** — a hand-built humanoid (sphere head, box chest + pelvis, capsule
-  limbs) linked by ball joints (neck, waist, shoulders, hips) and hinge joints
-  (elbows, knees) with cone/twist/angle limits. Every bone collides with every
-  other one (jointed pairs excepted), so it can't pass through itself; spawned
-  tilted, it drops and crumples into a believable heap. A mass-scaled shove adds
-  variety.
+- **Ragdoll** — a wooden-mannequin humanoid in the style of box3d's own human
+  prefab: every bone is a capsule (a four-segment torso stack, an egg head,
+  capsule limbs) linked by ball joints (spine, neck, shoulders, hips) and hinge
+  joints (elbows, knees) with human-range limits — knees only fold backward,
+  elbows only forward. Each joint carries a soft spring toward the spawn pose
+  plus a little dry friction (upstream's ragdoll tuning), so it stands like a
+  posed mannequin until you grab, shoot, or bomb it — then it crumples
+  believably (non-adjacent bones collide, so it can't fold through itself).
 - **Character Controller** — a `Box3DCharacterBody` capsule turned loose in a
   Box3D **playground**: walk it (**W A S D**, camera-relative, **Space** to jump,
   while the mouse is free) up a ramp to a platform and along walls, and shove
@@ -336,6 +338,9 @@ world's solver (substeps, worker count, gravity, CCD, contact stiffness and
 damping, …). A
 sample can frame its own opening view by exporting `camera_home` /
 `camera_look_at` (two Vector3s) on its root script.
+
+Launching with `-- --sample=<Name>` (e.g. `godot --path demo -- --sample=Ragdoll`,
+case-insensitive) opens straight to that sample instead of the first menu entry.
 
 Headless checks: `res://tests/test_samples.tscn -- --selftest` loads and steps
 every sample; `res://tests/test_features.tscn -- --selftest` exercises the

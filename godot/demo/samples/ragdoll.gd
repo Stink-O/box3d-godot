@@ -1,23 +1,17 @@
 extends Node3D
 
-## Ragdoll: a hand-built humanoid (sphere head, box chest + pelvis, capsule
-## limbs) linked by ball joints (neck, waist, shoulders, hips) and hinge joints
-## (elbows, knees) with cone/twist/angle limits. Every bone collides with every
-## other one, so it can't pass through itself — it crumples into a believable
-## heap when it lands. A one-time mass-scaled shove gives each drop some variety.
-## Use the Reset button to drop it again.
+## Ragdoll: a wooden-mannequin humanoid in the style of box3d's own human
+## prefab -- every bone is a capsule (a four-segment torso stack, an egg head,
+## capsule limbs) linked by ball joints (spine, neck, shoulders, hips) and
+## hinge joints (elbows, knees) with upstream human.c's own limit ranges:
+## knees only fold backward (45 deg), elbows only forward (60 deg). Every
+## joint carries a soft spring toward the spawn pose plus a little dry
+## friction (upstream's ragdoll-sample tuning: hertz 1, damping 0.7), so the
+## figure stands like a posed mannequin instead of collapsing on load. Grab a
+## limb, shoot it, or bomb it and it crumples believably -- non-adjacent bones
+## collide with each other, so it can't fold through itself -- then slowly
+## sags back toward its pose. Use Reset to stand it up again.
 
-## Startup nudge, in meters/second of velocity change — NOT a raw impulse. A
-## fixed impulse would kick a light bone to a huge speed and blow the ragdoll
-## apart; scaling by the body's own mass keeps it a fixed *speed*. The figure
-## spawns nearly upright, so it needs a firm shove up high (the chest) to topple
-## and crumple — it has no muscles, so once tipped it always collapses.
-const SHOVE_SPEED := 2.5
-
-
-func _ready() -> void:
-	var chest := $Box3DWorld/Body.get_node_or_null("chest") as Box3DBody
-	if chest != null:
-		var a := randf_range(0.0, TAU)
-		var dir := Vector3(cos(a), 0.05, sin(a)).normalized()
-		chest.apply_central_impulse(dir * chest.get_mass() * SHOVE_SPEED)
+## Frame the opening view: a 3/4 front view of the standing figure.
+var camera_home := Vector3(1.7, 1.5, 2.8)
+var camera_look_at := Vector3(0.0, 0.95, 0.0)
