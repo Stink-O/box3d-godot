@@ -350,20 +350,63 @@ shell and verifies the menu + ball shooting.
 ## Building
 
 Prebuilt **Windows x86_64** binaries are committed in `demo/bin/`, so on Windows
-the demo runs straight from a fresh clone. Build only if you're on another
-platform or have changed the C/C++ sources.
+the demo runs straight from a fresh clone. On **Linux and macOS you build the
+library yourself** (only the Windows binaries ship; `.so` files are gitignored).
+On Windows, build only if you change the C/C++ sources.
 
-You need Python 3, SCons, and a C++17 compiler (MSVC, Clang, or GCC).
+You need Python 3, SCons, and a C++17 compiler (GCC, Clang, or MSVC), plus the
+`godot-cpp` submodule. A plain clone will not build, so clone with submodules:
 
 ```sh
-# from this godot/ folder
-git submodule update --init          # fetch godot-cpp
-scons target=template_debug          # debug build (what the editor loads)
-scons target=template_release        # optimized build for exports
+git clone --recurse-submodules https://github.com/Stink-O/box3d-godot.git
+# or, in a clone you already have:
+git submodule update --init
 ```
 
-The library is written to `demo/bin/`. Open `demo/` in Godot 4.7 and press play
-(see [Demo](#demo) below for controls).
+### Linux
+
+Install the toolchain:
+
+```sh
+sudo dnf install gcc gcc-c++ scons git      # Fedora
+sudo apt install build-essential scons git  # Debian / Ubuntu / Mint
+```
+
+Build both targets from this `godot/` folder:
+
+```sh
+cd box3d-godot/godot
+scons -j$(nproc)                          # debug build (what the editor loads)
+scons -j$(nproc) target=template_release  # optimized build for exports
+```
+
+The first build also compiles all of godot-cpp and takes a few minutes;
+rebuilds after that are quick. (On a low-RAM machine, drop the `-j` flag.) The
+libraries land in `demo/bin/libbox3d_godot.linux.template_debug.x86_64.so` and
+`...template_release...`, exactly where `box3d.gdextension` expects them.
+
+Then install Godot 4.7 for Linux (godotengine.org download, Flatpak, or
+Steam), open `demo/project.godot`, and press play. To sanity-check the build
+without opening the editor:
+
+```sh
+cd demo
+godot --headless --path . res://tests/test_samples.tscn -- --selftest
+```
+
+### Windows
+
+When SCons is installed through pip it is often not on `PATH`; running it
+through Python always works:
+
+```sh
+cd godot
+py -3 -m SCons target=template_debug
+py -3 -m SCons target=template_release
+```
+
+The libraries are written to `demo/bin/`. Open `demo/` in Godot 4.7 and press
+play (see [Demo](#demo) below for controls).
 
 To use it in your own project, copy `demo/bin/box3d.gdextension` and the built
 library into your project's `bin/` folder.
