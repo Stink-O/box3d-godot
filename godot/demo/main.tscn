@@ -14,10 +14,8 @@ environment = ExtResource("2_env")
 transform = Transform3D(0.57357645, 0.5690309, -0.58924866, 0, 0.7193398, 0.6946584, 0.81915206, -0.3984397, 0.41259637, 0, 0, 0)
 light_color = Color(1, 0.965, 0.91, 1)
 light_energy = 1.15
-light_angular_distance = 1.5
 shadow_enabled = true
 shadow_bias = 0.03
-shadow_blur = 2.25
 
 [node name="FillLight3D" type="DirectionalLight3D" parent="." unique_id=1892850984]
 transform = Transform3D(-0.84804803, -0.32625094, 0.41758215, 0, 0.7880108, 0.6156615, -0.5299193, 0.5221105, -0.668271, 0, 0, 0)
