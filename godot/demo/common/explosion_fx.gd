@@ -18,20 +18,20 @@ const _Self = preload("res://common/explosion_fx.gd")  # self-ref so static func
 
 
 ## Spawn just the visual flash at a world position.
-static func burst(parent: Node, position: Vector3, radius := 3.0, tint := Color(1.0, 0.55, 0.15)) -> void:
+static func burst(parent: Node, at: Vector3, radius := 3.0, tint := Color(1.0, 0.55, 0.15)) -> void:
 	var fx := _Self.new()
 	fx.visual_radius = radius
 	fx.color = tint
 	parent.add_child(fx)
-	fx.global_position = position
+	fx.global_position = at
 
 
 ## Physics blast (Box3DWorld.explode) plus the visual flash, in one call.
-static func blast(world: Box3DWorld, position: Vector3, blast_radius := 8.0,
+static func blast(world: Box3DWorld, at: Vector3, blast_radius := 8.0,
 		impulse := 8.0, tint := Color(1.0, 0.55, 0.15)) -> void:
 	if world != null:
-		world.explode(position, blast_radius, impulse, 1.0)
-		burst(world, position, blast_radius * 0.55, tint)
+		world.explode(at, blast_radius, impulse, 1.0)
+		burst(world, at, blast_radius * 0.55, tint)
 
 
 func _ready() -> void:

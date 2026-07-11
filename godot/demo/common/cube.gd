@@ -1,13 +1,11 @@
 extends Box3DBody
 
-## Gives each cube instance its own color. The physics body itself is created
-## by the native Box3DBody class; this only touches the visual material.
+## Gives each cube instance its own color. Every cube shares the one
+## ShaderMaterial in cube.tscn; the color is a per-instance shader parameter,
+## so thousands of cubes don't create thousands of materials.
 
 func _ready() -> void:
 	var mesh := get_node_or_null("MeshInstance3D") as MeshInstance3D
 	if mesh == null:
 		return
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color.from_hsv(randf(), 0.5, 0.95)
-	material.roughness = 0.8
-	mesh.material_override = material
+	mesh.set_instance_shader_parameter("tint", Color.from_hsv(randf(), 0.5, 0.95))

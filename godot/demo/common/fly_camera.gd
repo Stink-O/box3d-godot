@@ -283,7 +283,7 @@ func _update_follow(delta: float) -> void:
 		if hit.get("hit", false):
 			desired = (hit["position"] as Vector3).lerp(from, 0.1)
 
-	var look_target := _pivot + Vector3.UP * _follow_look_height
+	var aim_point := _pivot + Vector3.UP * _follow_look_height
 
 	# Short one-way blend from the free pose onto the rig when toggled on;
 	# once it completes the camera IS the rig, with zero lag of its own.
@@ -291,7 +291,7 @@ func _update_follow(delta: float) -> void:
 	var t := smoothstep(0.0, 1.0, _follow_blend)
 	global_position = _blend_from.origin.lerp(desired, t) if t < 1.0 else desired
 
-	var to_target := look_target - global_position
+	var to_target := aim_point - global_position
 	if to_target.length_squared() > 0.01 and absf(to_target.normalized().y) < 0.999:
 		var aim := Basis.looking_at(to_target, Vector3.UP).get_rotation_quaternion()
 		if t < 1.0:
@@ -369,6 +369,7 @@ func _begin_grab(body: Box3DBody, hit_pos: Vector3, distance: float) -> void:
 
 	_grab_mouse_body = Box3DBody.new()
 	_grab_mouse_body.body_type = Box3DBody.KINEMATIC
+	_grab_mouse_body.debug_visualize = false  # invisible helper, no debug shell
 	_grab_mouse_body.shape_type = Box3DBody.SPHERE
 	_grab_mouse_body.sphere_radius = 0.05
 	_grab_mouse_body.collision_layer = 0  # collides with nothing
@@ -439,6 +440,7 @@ func _shoot(charge: float = 0.0) -> void:
 
 	if _bomb_mode:
 		var bomb := BOMB_SCENE.instantiate() as Box3DBody
+		bomb.debug_visualize = false  # projectiles keep their real look
 		bomb.position = origin + dir * (shoot_radius + 0.6)
 		_world.add_child(bomb)
 		bomb.set_linear_velocity(dir * speed)
@@ -454,6 +456,7 @@ func _shoot(charge: float = 0.0) -> void:
 		_ball_mat.roughness = 0.35
 
 	var ball := Box3DBody.new()
+	ball.debug_visualize = false  # projectiles keep their real look
 	ball.shape_type = Box3DBody.SPHERE
 	ball.sphere_radius = shoot_radius
 	ball.density = 4.0

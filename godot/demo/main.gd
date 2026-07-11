@@ -89,6 +89,12 @@ var _current_name := ""
 var _debug_draw := false
 var _step_count := 0
 var _updating_sidebar := false  ## guard while pushing values into the controls
+## Box3D fixes the worker count when the world is created, so the sidebar
+## can't live-edit it like the other settings. Instead a change reloads the
+## sample with this override applied before the world exists. Sticky across
+## Reset, cleared when switching samples (-1 = use the scene's own value).
+var _worker_override := -1
+var _debug_hidden: Array = []  ## MeshInstance3Ds hidden while the debug view is on
 
 
 func _ready() -> void:
@@ -132,8 +138,18 @@ func _ready() -> void:
 	_contact_hertz_spin.value_changed.connect(_on_contact_hertz_changed)
 	_contact_damping_spin.value_changed.connect(_on_contact_damping_changed)
 
+	# `-- --sample=Ragdoll` (case-insensitive) opens straight to that sample.
+	var wanted := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sample="):
+			wanted = arg.get_slice("=", 1).to_lower()
 	var first_cat: String = SAMPLES.keys()[0]
 	var first_name: String = SAMPLES[first_cat].keys()[0]
+	for category in SAMPLES:
+		for sample_name in SAMPLES[category]:
+			if sample_name.to_lower() == wanted:
+				first_cat = category
+				first_name = sample_name
 	_load(SAMPLES[first_cat][first_name], first_name)
 
 
@@ -146,6 +162,12 @@ func _physics_process(_delta: float) -> void:
 	_step_count += 1
 	if _sidebar.visible:
 		_update_readout()
+	# Catch bodies spawned after the toggle (emitters, shots): re-hide their
+	# visuals every half second while the debug view is on.
+	if _debug_draw and _step_count % 30 == 0 and _current != null:
+		var world = _current.get_node_or_null("Box3DWorld")
+		if world != null:
+			_hide_shelled_visuals(world)
 
 
 func _on_reset() -> void:
@@ -184,6 +206,43 @@ func _apply_debug() -> void:
 	var world = _current.get_node_or_null("Box3DWorld")
 	if world != null and "debug_draw" in world:
 		world.debug_draw = _debug_draw
+	# The debug shells REPLACE the sample's look, like upstream's viewer: hide
+	# every shelled body's own visuals so nothing pokes through the shells, and
+	# restore them when the toggle goes off.
+	if _debug_draw:
+		if world != null:
+			_hide_shelled_visuals(world)
+	else:
+		for mi in _debug_hidden:
+			if is_instance_valid(mi):
+				mi.visible = true
+		_debug_hidden.clear()
+
+
+## Bodies the world shells (primitive shape types or compound children) get
+## their MeshInstance3D visuals hidden. Hull/mesh bodies and bodies opted out
+## via debug_visualize keep their looks — they have no shell covering them.
+func _hide_shelled_visuals(node: Node) -> void:
+	if node is Box3DBody and node.debug_visualize:
+		var shelled: bool = node.shape_type <= Box3DBody.CONE
+		if not shelled:
+			for child in node.get_children():
+				if child is Box3DCollisionShape:
+					shelled = true
+					break
+		if shelled:
+			_hide_visuals_under(node)
+			return
+	for child in node.get_children():
+		_hide_shelled_visuals(child)
+
+
+func _hide_visuals_under(node: Node) -> void:
+	for child in node.get_children():
+		if child is MeshInstance3D and child.visible:
+			child.visible = false
+			_debug_hidden.append(child)
+		_hide_visuals_under(child)
 
 
 func _on_sidebar_toggled(pressed: bool) -> void:
@@ -211,7 +270,9 @@ func _on_substep_changed(value: float) -> void:
 func _on_worker_changed(value: float) -> void:
 	if _updating_sidebar:
 		return
-	_with_world(func(world): world.worker_count = int(value))
+	_worker_override = int(value)
+	if _current_path != "":
+		_load(_current_path, _current_name, true)
 
 
 func _on_max_speed_changed(value: float) -> void:
@@ -330,8 +391,14 @@ func _on_menu_id(id: int) -> void:
 
 
 func _load(path: String, sample_name: String, keep_camera := false) -> void:
+	if path != _current_path:
+		_worker_override = -1
+	_debug_hidden.clear()  # the old sample's nodes are freed with it
 	if _current != null:
-		_current.queue_free()
+		# Free immediately, not deferred: a queued free would leave both the
+		# old and new sample alive within one frame, and two 4096-cube piles
+		# overflow the per-instance shader parameter buffer (black cubes).
+		_current.free()
 		_current = null
 	var scene: PackedScene = load(path)
 	if scene == null:
@@ -339,6 +406,12 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	_current = scene.instantiate()
 	_current_path = path
 	_current_name = sample_name
+	# worker_count only takes effect at world creation, so apply the override
+	# before add_child triggers _ready.
+	if _worker_override > 0:
+		var override_world = _current.get_node_or_null("Box3DWorld")
+		if override_world != null:
+			override_world.worker_count = _worker_override
 	_host.add_child(_current)
 	_step_count = 0
 	var world = _current.get_node_or_null("Box3DWorld")
