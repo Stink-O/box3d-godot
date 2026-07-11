@@ -65,10 +65,9 @@ mesh = SubResource("RampMesh")
 body_type = 0
 box_size = Vector3(9, 0.3, 2.8)
 friction = 0.2
-transform = Transform3D(0.96639, 0.25708, 0, -0.25708, 0.96639, 0, 0, 0, 1, 0, 9.2, 0)
+transform = Transform3D(0.96639, 0.25708, 0, -0.25708, 0.96639, 0, 0, 0, 1, -1.0913268, 9.2, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ramps/Ramp_1" unique_id=2071034980]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.0546474, -0.2805586, 0)
 material_override = SubResource("RampMat")
 mesh = SubResource("RampMesh")
 
@@ -76,10 +75,9 @@ mesh = SubResource("RampMesh")
 body_type = 0
 box_size = Vector3(9, 0.3, 2.8)
 friction = 0.2
-transform = Transform3D(0.96639, -0.25708, 0, 0.25708, 0.96639, 0, 0, 0, 1, 0, 6.4, 0)
+transform = Transform3D(0.96639, -0.25708, 0, 0.25708, 0.96639, 0, 0, 0, 1, 1.2282469, 6.0319123, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ramps/Ramp_2" unique_id=1774006341]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.0923378, -0.671474, 0)
 material_override = SubResource("RampMat")
 mesh = SubResource("RampMesh")
 
@@ -87,10 +85,9 @@ mesh = SubResource("RampMesh")
 body_type = 0
 box_size = Vector3(9, 0.3, 2.8)
 friction = 0.2
-transform = Transform3D(0.96639, 0.25708, 0, -0.25708, 0.96639, 0, 0, 0, 1, 0, 3.6, 0)
+transform = Transform3D(0.96639, 0.25708, 0, -0.25708, 0.96639, 0, 0, 0, 1, -1.2044542, 2.6319633, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ramps/Ramp_3" unique_id=468731746]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.9151098, -1.2451425, 0)
 material_override = SubResource("RampMat")
 mesh = SubResource("RampMesh")
 
