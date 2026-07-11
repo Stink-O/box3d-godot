@@ -8,7 +8,7 @@ metallic = 0.1
 roughness = 0.55
 
 [sub_resource type="BoxMesh" id="FloorMesh_1"]
-size = Vector3(40, 1, 40)
+size = Vector3(120, 1, 120)
 
 [node name="CubePile" type="Node3D" unique_id=390331195]
 
