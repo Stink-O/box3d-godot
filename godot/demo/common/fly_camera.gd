@@ -25,6 +25,11 @@ extends Camera3D
 
 var _world: Box3DWorld
 var _flying := false
+## Collision layer 2 is the demos' invisible-guard layer (e.g. the marble
+## run's front glass): bodies bounce off it, but camera rays skip it so you
+## can still aim, grab, and frame shots through it.
+const RAY_MASK := 0xFFFFFFFF ^ 2
+
 var _yaw := 0.0
 var _pitch := 0.0
 ## The grab is box3d's own samples' scheme: a collisionless KINEMATIC "mouse
@@ -279,7 +284,7 @@ func _update_follow(delta: float) -> void:
 	# pull the camera in front of whatever the ray hits.
 	if _world != null:
 		var from := _pivot + Vector3.UP * maxf(_follow_look_height, 1.2)
-		var hit := _world.raycast(from, desired)
+		var hit := _world.raycast(from, desired, RAY_MASK)
 		if hit.get("hit", false):
 			desired = (hit["position"] as Vector3).lerp(from, 0.1)
 
@@ -351,7 +356,7 @@ func _try_grab() -> void:
 	var mouse := get_viewport().get_mouse_position()
 	var from := project_ray_origin(mouse)
 	var dir := project_ray_normal(mouse)
-	var hit := _world.raycast(from, from + dir * 500.0)
+	var hit := _world.raycast(from, from + dir * 500.0, RAY_MASK)
 	if hit.get("hit", false):
 		var body = hit.get("collider")
 		if body is Box3DBody and body.body_type == Box3DBody.DYNAMIC:
