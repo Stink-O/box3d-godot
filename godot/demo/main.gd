@@ -422,9 +422,16 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 			_camera.set_world_keep_view(world)
 		else:
 			_camera.set_world(world)
-			# A sample can frame its own view by exporting camera_home /
-			# camera_look_at (two Vector3s) on its root script.
-			if "camera_home" in _current and "camera_look_at" in _current:
+			# A sample can place its starting view by hand: a Node3D (use a
+			# Marker3D for the editor gizmo) named CameraStart at the scene
+			# root. Drag / rotate it in the viewport; the camera spawns there,
+			# facing the marker's -Z. Falls back to the script-exported
+			# camera_home / camera_look_at pair.
+			var cam_start = _current.get_node_or_null("CameraStart")
+			if cam_start is Node3D:
+				_camera.frame_view(cam_start.global_position,
+						cam_start.global_position - cam_start.global_basis.z)
+			elif "camera_home" in _current and "camera_look_at" in _current:
 				_camera.frame_view(_current.camera_home, _current.camera_look_at)
 	_apply_debug()  # carry the debug-draw toggle into the newly loaded sample
 	_refresh_sidebar_from_world(world)
