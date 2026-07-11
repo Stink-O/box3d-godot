@@ -12,6 +12,7 @@ CMakeUserPresets.json
 .tmp/
 .fetchcontent-cache/
 *.b3rec
+Superluminal/
 
 # --- Godot GDExtension build (godot/) ---
 # SCons / compiler intermediates (produced next to sources)
