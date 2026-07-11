@@ -7,10 +7,16 @@
 #include "box3d_collision_shape.h"
 #include "box3d_conversions.h"
 
+#include <godot_cpp/classes/box_mesh.hpp>
+#include <godot_cpp/classes/capsule_mesh.hpp>
+#include <godot_cpp/classes/cylinder_mesh.hpp>
 #include <godot_cpp/classes/engine.hpp>
-#include <godot_cpp/classes/immediate_mesh.hpp>
-#include <godot_cpp/classes/mesh_instance3d.hpp>
-#include <godot_cpp/classes/standard_material3d.hpp>
+#include <godot_cpp/classes/multi_mesh.hpp>
+#include <godot_cpp/classes/multi_mesh_instance3d.hpp>
+#include <godot_cpp/classes/shader.hpp>
+#include <godot_cpp/classes/shader_material.hpp>
+#include <godot_cpp/classes/sphere_mesh.hpp>
+#include <godot_cpp/templates/local_vector.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/math.hpp>
 
@@ -89,11 +95,13 @@ void Box3DWorld::step(double p_delta) {
 			body->sync_to_physics(p_delta);
 		}
 	}
+	last_step_delta = p_delta;
 	b3World_Step(world_id, (float)p_delta, substep_count);
 	// Read simulated (dynamic) transforms back out to the nodes.
 	for (Box3DBody *body : bodies) {
 		if (body != nullptr) {
 			body->sync_from_physics();
+			body->debug_hit_decay();
 		}
 	}
 	dispatch_contact_events();
@@ -133,6 +141,32 @@ void Box3DWorld::dispatch_contact_events() {
 		if (a != nullptr && b != nullptr) {
 			a->emit_contact_end(b);
 			b->emit_contact_end(a);
+		}
+	}
+	// Hit events stand in for upstream's internal TOI flag (lime flash).
+	// Upstream sets it during the continuous-collision sweep, i.e. only for
+	// bodies moving over half their min extent per step, and CCD only sweeps
+	// against static geometry (bullets also sweep dynamic bodies). Mirror
+	// both conditions using the hit event's approach speed.
+	float dt = (float)last_step_delta;
+	for (int i = 0; i < events.hitCount; ++i) {
+		const b3ContactHitEvent &hit = events.hitEvents[i];
+		Box3DBody *a = body_from_shape(hit.shapeIdA);
+		Box3DBody *b = body_from_shape(hit.shapeIdB);
+		if (a == nullptr || b == nullptr) {
+			continue;
+		}
+		Box3DBody *pair[2] = { a, b };
+		for (int j = 0; j < 2; ++j) {
+			Box3DBody *self = pair[j];
+			Box3DBody *other = pair[1 - j];
+			if (self->get_body_type() != Box3DBody::DYNAMIC) {
+				continue;
+			}
+			bool swept_partner = other->get_body_type() == Box3DBody::STATIC || self->get_continuous();
+			if (swept_partner && hit.approachSpeed * dt > 0.5f * self->debug_min_extent()) {
+				self->debug_hit_mark();
+			}
 		}
 	}
 }
@@ -378,123 +412,150 @@ void Box3DWorld::explode(const Vector3 &p_center, double p_radius, double p_impu
 	b3World_Explode(world_id, &def);
 }
 
-// --- Debug draw ---
-
-namespace {
-
-struct DrawBuffer {
-	PackedVector3Array verts;
-	PackedColorArray colors;
-	void add_line(const Vector3 &a, const Vector3 &b, const Color &c) {
-		verts.push_back(a);
-		colors.push_back(c);
-		verts.push_back(b);
-		colors.push_back(c);
-	}
-};
-
-void add_circle(DrawBuffer *buf, const Vector3 &center, const Vector3 &u, const Vector3 &v, float radius, const Color &color) {
-	const int SEG = 16;
-	Vector3 prev = center + u * radius;
-	for (int i = 1; i <= SEG; ++i) {
-		float a = (float)i / SEG * 6.2831853f;
-		Vector3 cur = center + (u * (real_t)Math::cos(a) + v * (real_t)Math::sin(a)) * radius;
-		buf->add_line(prev, cur, color);
-		prev = cur;
-	}
-}
-
-void draw_ball(DrawBuffer *buf, const Vector3 &c, float r, const Color &color) {
-	add_circle(buf, c, Vector3(1, 0, 0), Vector3(0, 1, 0), r, color);
-	add_circle(buf, c, Vector3(0, 1, 0), Vector3(0, 0, 1), r, color);
-	add_circle(buf, c, Vector3(1, 0, 0), Vector3(0, 0, 1), r, color);
-}
-
-void add_box_corners(DrawBuffer *buf, const Vector3 c[8], const Color &col) {
-	static const int edges[12][2] = { { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 } };
-	for (int i = 0; i < 12; ++i) {
-		buf->add_line(c[edges[i][0]], c[edges[i][1]], col);
-	}
-}
-
-void draw_box(DrawBuffer &buf, const Transform3D &xf, const Vector3 &half, const Color &col) {
-	const Basis &b = xf.basis;
-	const Vector3 &o = xf.origin;
-	Vector3 c[8] = {
-		o + b.xform(Vector3(-half.x, -half.y, -half.z)), o + b.xform(Vector3(half.x, -half.y, -half.z)),
-		o + b.xform(Vector3(half.x, -half.y, half.z)), o + b.xform(Vector3(-half.x, -half.y, half.z)),
-		o + b.xform(Vector3(-half.x, half.y, -half.z)), o + b.xform(Vector3(half.x, half.y, -half.z)),
-		o + b.xform(Vector3(half.x, half.y, half.z)), o + b.xform(Vector3(-half.x, half.y, half.z))
-	};
-	add_box_corners(&buf, c, col);
-}
-
-// Draws two rings joined by struts along the local Y axis (used for capsule /
-// cylinder). For a capsule the rings sit at the hemisphere centers and get end
-// caps; for a cylinder they sit at the flat ends.
-void draw_barrel(DrawBuffer &buf, const Transform3D &xf, float radius, float ring_offset, const Color &col, bool caps) {
-	Vector3 up = xf.basis.get_column(1).normalized();
-	Vector3 u = xf.basis.get_column(0).normalized();
-	Vector3 w = xf.basis.get_column(2).normalized();
-	Vector3 top = xf.origin + up * ring_offset;
-	Vector3 bot = xf.origin - up * ring_offset;
-	add_circle(&buf, top, u, w, radius, col);
-	add_circle(&buf, bot, u, w, radius, col);
-	for (int i = 0; i < 4; ++i) {
-		float a = (float)i / 4 * 6.2831853f;
-		Vector3 off = (u * (real_t)Math::cos(a) + w * (real_t)Math::sin(a)) * radius;
-		buf.add_line(bot + off, top + off, col);
-	}
-	if (caps) {
-		draw_ball(&buf, top, radius, col);
-		draw_ball(&buf, bot, radius, col);
-	}
-}
-
-void draw_cone(DrawBuffer &buf, const Transform3D &xf, float radius, float height, const Color &col) {
-	Vector3 up = xf.basis.get_column(1).normalized();
-	Vector3 u = xf.basis.get_column(0).normalized();
-	Vector3 w = xf.basis.get_column(2).normalized();
-	Vector3 apex = xf.origin + up * (height * 0.5f);
-	Vector3 base = xf.origin - up * (height * 0.5f);
-	add_circle(&buf, base, u, w, radius, col);
-	for (int i = 0; i < 4; ++i) {
-		float a = (float)i / 4 * 6.2831853f;
-		Vector3 off = (u * (real_t)Math::cos(a) + w * (real_t)Math::sin(a)) * radius;
-		buf.add_line(base + off, apex, col);
-	}
-}
-
-} // namespace
 
 void Box3DWorld::update_debug_draw() {
 	if (!b3World_IsValid(world_id)) {
 		return;
 	}
-	if (debug_mi == nullptr) {
-		debug_mi = memnew(MeshInstance3D);
-		debug_mi->set_name("Box3DDebugDraw");
-		debug_mi->set_as_top_level(true); // draw in world space
-		Ref<ImmediateMesh> im;
-		im.instantiate();
-		debug_mi->set_mesh(im);
-		Ref<StandardMaterial3D> mat;
-		mat.instantiate();
-		mat->set_shading_mode(BaseMaterial3D::SHADING_MODE_UNSHADED);
-		mat->set_flag(BaseMaterial3D::FLAG_ALBEDO_FROM_VERTEX_COLOR, true);
-		debug_mi->set_material_override(mat);
-		add_child(debug_mi);
-	}
-	Ref<ImmediateMesh> im = debug_mi->get_mesh();
-	im->clear_surfaces();
+	if (debug_mm[DEBUG_BOX] == nullptr) {
+		// Solid state-colored shells, like upstream box3d's sample viewer. One
+		// MultiMesh per primitive keeps thousands of bodies at a handful of
+		// draw calls. A fixed-direction half-lambert ignores the sample's own
+		// lighting/tonemap so the state colors read the same everywhere.
+		Ref<Shader> shader;
+		shader.instantiate();
+		shader->set_code(R"(shader_type spatial;
+render_mode unshaded;
 
-	DrawBuffer buffer;
-	const Color col(0.25f, 1.0f, 0.4f);
+void fragment() {
+	vec3 light_vs = normalize((VIEW_MATRIX * vec4(0.35, 0.8, 0.45, 0.0)).xyz);
+	float shade = clamp(dot(normalize(NORMAL), light_vs), 0.0, 1.0) * 0.55 + 0.45;
+	// Instance colors are upstream's sRGB hex palette; linearize so the
+	// rendered output matches it.
+	ALBEDO = pow(COLOR.rgb, vec3(2.2)) * shade;
+}
+)");
+		Ref<ShaderMaterial> mat;
+		mat.instantiate();
+		mat->set_shader(shader);
+
+		Ref<BoxMesh> box_mesh;
+		box_mesh.instantiate();
+		box_mesh->set_size(Vector3(1, 1, 1));
+		Ref<SphereMesh> sphere_mesh;
+		sphere_mesh.instantiate();
+		sphere_mesh->set_radius(0.5);
+		sphere_mesh->set_height(1.0);
+		Ref<CapsuleMesh> capsule_mesh;
+		capsule_mesh.instantiate();
+		capsule_mesh->set_radius(0.5);
+		capsule_mesh->set_height(2.0);
+		Ref<CylinderMesh> cylinder_mesh;
+		cylinder_mesh.instantiate();
+		cylinder_mesh->set_top_radius(0.5);
+		cylinder_mesh->set_bottom_radius(0.5);
+		cylinder_mesh->set_height(1.0);
+		Ref<CylinderMesh> cone_mesh;
+		cone_mesh.instantiate();
+		cone_mesh->set_top_radius(0.0);
+		cone_mesh->set_bottom_radius(0.5);
+		cone_mesh->set_height(1.0);
+		Ref<Mesh> meshes[DEBUG_PRIM_MAX] = { box_mesh, sphere_mesh, capsule_mesh, cylinder_mesh, cone_mesh };
+
+		for (int p = 0; p < DEBUG_PRIM_MAX; ++p) {
+			MultiMeshInstance3D *mi = memnew(MultiMeshInstance3D);
+			mi->set_name(String("Box3DDebugDraw") + String::num_int64(p));
+			mi->set_as_top_level(true); // draw in world space
+			// The shells are rewritten every physics tick already; interpolating
+			// them too would just smear the debug view a frame behind.
+			mi->set_physics_interpolation_mode(Node::PHYSICS_INTERPOLATION_MODE_OFF);
+			Ref<MultiMesh> mm;
+			mm.instantiate();
+			mm->set_transform_format(MultiMesh::TRANSFORM_3D);
+			mm->set_use_colors(true);
+			mm->set_mesh(meshes[p]);
+			mi->set_multimesh(mm);
+			mi->set_material_override(mat);
+			mi->set_visible(debug_draw);
+			add_child(mi);
+			debug_mm[p] = mi;
+		}
+	}
+
+	// While every body sleeps nothing moves or changes color, so skip the
+	// instance rewrite entirely. The first quiet frame still rebuilds, which
+	// is what paints the pile in its sleeping colors.
+	bool any_awake = false;
+	int body_count = 0;
 	for (Box3DBody *body : bodies) {
-		if (body == nullptr || !body->is_body_valid()) {
+		if (body != nullptr && body->is_body_valid()) {
+			++body_count;
+			if (!any_awake && body->is_awake_now()) {
+				any_awake = true;
+			}
+		}
+	}
+	if (!any_awake && !debug_last_any_awake && body_count == debug_last_body_count) {
+		return;
+	}
+	debug_last_any_awake = any_awake;
+	debug_last_body_count = body_count;
+
+	const float INFLATE = 1.02f; // shells cover the samples' own visuals
+
+	LocalVector<Transform3D> xforms[DEBUG_PRIM_MAX];
+	LocalVector<Color> colors[DEBUG_PRIM_MAX];
+	auto push_shell = [&](int prim, Transform3D xf, Vector3 scale, const Color &col) {
+		scale *= INFLATE;
+		// Right-multiply the basis by diag(scale): component-scale each row.
+		xf.basis[0] = xf.basis[0] * scale;
+		xf.basis[1] = xf.basis[1] * scale;
+		xf.basis[2] = xf.basis[2] * scale;
+		xforms[prim].push_back(xf);
+		colors[prim].push_back(col);
+	};
+
+	for (Box3DBody *body : bodies) {
+		if (body == nullptr || !body->is_body_valid() || !body->get_debug_visualize()) {
 			continue;
 		}
-		// Compound bodies: outline each Box3DCollisionShape child. The physics
+		// State colors: upstream box3d's exact palette and priority order
+		// (physics_world.c). Red bad body, slate disabled, wheat sensor, lime
+		// recent impact (hit event, standing in for the internal TOI flag),
+		// turquoise awake bullet, yellow speed-capped, orange fast (moves
+		// over half its min extent per step, the CCD criterion), dark gray
+		// static, steel blues kinematic, tan awake / light slate asleep.
+		bool awake = body->is_awake_now();
+		bool dynamic = body->get_body_type() == Box3DBody::DYNAMIC;
+		float lin_speed = 0.0f;
+		float motion_speed = 0.0f; // upstream: |v| + |w| * maxExtent (farthest point)
+		if (dynamic && awake) {
+			lin_speed = (float)body->get_linear_velocity().length();
+			motion_speed = lin_speed + (float)body->get_angular_velocity().length() * body->debug_max_extent();
+		}
+		Color col;
+		if (dynamic && body->get_mass() == 0.0) {
+			col = Color::hex(0xFF0000FF); // red: bad body
+		} else if (!body->is_enabled_now()) {
+			col = Color::hex(0x708090FF); // slate gray: disabled
+		} else if (body->get_is_sensor()) {
+			col = Color::hex(0xF5DEB3FF); // wheat: sensor
+		} else if (body->debug_hit_active()) {
+			col = Color::hex(0x00FF00FF); // lime: recent impact
+		} else if (body->get_continuous() && dynamic && awake) {
+			col = Color::hex(0x40E0D0FF); // turquoise: awake bullet
+		} else if (max_linear_speed > 0.0 && lin_speed >= (float)max_linear_speed * 0.99f) {
+			col = Color::hex(0xFFFF00FF); // yellow: speed capped
+		} else if (dynamic && continuous_collision && motion_speed * (float)last_step_delta > 0.5f * body->debug_min_extent()) {
+			col = Color::hex(0xFFA500FF); // orange: fast (CCD territory)
+		} else if (body->get_body_type() == Box3DBody::STATIC) {
+			col = Color::hex(0xA9A9A9FF); // dark gray: static
+		} else if (body->get_body_type() == Box3DBody::KINEMATIC) {
+			col = awake ? Color::hex(0x4682B4FF) : Color::hex(0xB0C4DEFF); // steel blues
+		} else {
+			col = awake ? Color::hex(0xD2B48CFF) : Color::hex(0x778899FF); // tan / light slate
+		}
+		// Compound bodies: shell each Box3DCollisionShape child. The physics
 		// ignores the body's own shape_type when child shapes exist, so drawing
 		// it would show a collider that isn't there.
 		bool has_child_shapes = false;
@@ -505,21 +566,18 @@ void Box3DWorld::update_debug_draw() {
 			}
 			has_child_shapes = true;
 			Transform3D cxf = cs->get_global_transform();
+			float cr2 = (float)cs->get_capsule_radius();
 			switch (cs->get_shape_type()) {
-				case Box3DCollisionShape::SPHERE:
-					draw_ball(&buffer, cxf.origin, (float)cs->get_sphere_radius(), col);
-					break;
-				case Box3DCollisionShape::CAPSULE: {
-					float cr2 = (float)cs->get_capsule_radius();
-					float ring = (float)cs->get_capsule_height() * 0.5f - cr2;
-					if (ring < 0.0f) {
-						ring = 0.0f;
-					}
-					draw_barrel(buffer, cxf, cr2, ring, col, true);
+				case Box3DCollisionShape::SPHERE: {
+					float r = (float)cs->get_sphere_radius();
+					push_shell(DEBUG_SPHERE, cxf, Vector3(2 * r, 2 * r, 2 * r), col);
 				} break;
+				case Box3DCollisionShape::CAPSULE:
+					push_shell(DEBUG_CAPSULE, cxf, Vector3(2 * cr2, (float)cs->get_capsule_height() * 0.5f, 2 * cr2), col);
+					break;
 				case Box3DCollisionShape::BOX:
 				default:
-					draw_box(buffer, cxf, cs->get_box_size() * 0.5, col);
+					push_shell(DEBUG_BOX, cxf, cs->get_box_size(), col);
 					break;
 			}
 		}
@@ -530,44 +588,48 @@ void Box3DWorld::update_debug_draw() {
 		float cr = (float)body->get_capsule_radius();
 		float ch = (float)body->get_capsule_height();
 		switch (body->get_shape_type()) {
-			case Box3DBody::SPHERE:
-				draw_ball(&buffer, xf.origin, (float)body->get_sphere_radius(), col);
-				break;
-			case Box3DBody::CAPSULE: {
-				float ring = ch * 0.5f - cr;
-				if (ring < 0.0f) {
-					ring = 0.0f;
-				}
-				draw_barrel(buffer, xf, cr, ring, col, true);
+			case Box3DBody::SPHERE: {
+				float r = (float)body->get_sphere_radius();
+				push_shell(DEBUG_SPHERE, xf, Vector3(2 * r, 2 * r, 2 * r), col);
 			} break;
+			case Box3DBody::CAPSULE:
+				push_shell(DEBUG_CAPSULE, xf, Vector3(2 * cr, ch * 0.5f, 2 * cr), col);
+				break;
 			case Box3DBody::CYLINDER:
-				draw_barrel(buffer, xf, cr, ch * 0.5f, col, false);
+				push_shell(DEBUG_CYLINDER, xf, Vector3(2 * cr, ch, 2 * cr), col);
 				break;
 			case Box3DBody::CONE:
-				draw_cone(buffer, xf, cr, ch, col);
+				push_shell(DEBUG_CONE, xf, Vector3(2 * cr, ch, 2 * cr), col);
 				break;
 			case Box3DBody::BOX:
-				draw_box(buffer, xf, body->get_box_size() * 0.5, col);
+				push_shell(DEBUG_BOX, xf, body->get_box_size(), col);
 				break;
 			default:
-				break; // Hull / mesh colliders are not outlined
+				break; // Hull / mesh colliders are not shelled
 		}
 	}
 
-	if (buffer.verts.size() >= 2) {
-		im->surface_begin(Mesh::PRIMITIVE_LINES);
-		for (int64_t i = 0; i < buffer.verts.size(); ++i) {
-			im->surface_set_color(buffer.colors[i]);
-			im->surface_add_vertex(buffer.verts[i]);
+	for (int p = 0; p < DEBUG_PRIM_MAX; ++p) {
+		Ref<MultiMesh> mm = debug_mm[p]->get_multimesh();
+		int n = (int)xforms[p].size();
+		if (mm->get_instance_count() < n) {
+			mm->set_instance_count(n);
 		}
-		im->surface_end();
+		mm->set_visible_instance_count(n);
+		for (int i = 0; i < n; ++i) {
+			mm->set_instance_transform(i, xforms[p][i]);
+			mm->set_instance_color(i, colors[p][i]);
+		}
 	}
 }
 
 void Box3DWorld::set_debug_draw(bool p_enabled) {
 	debug_draw = p_enabled;
-	if (debug_mi != nullptr) {
-		debug_mi->set_visible(p_enabled);
+	debug_last_body_count = -1; // force a rebuild on the next step
+	for (int p = 0; p < DEBUG_PRIM_MAX; ++p) {
+		if (debug_mm[p] != nullptr) {
+			debug_mm[p]->set_visible(p_enabled);
+		}
 	}
 }
 

@@ -567,9 +567,11 @@ func _test_debug_draw() -> void:
 	for i in range(5):
 		await get_tree().physics_frame
 
-	var mi = world.get_node_or_null("Box3DDebugDraw")
-	var ok: bool = mi != null and mi.mesh != null and mi.mesh.get_surface_count() > 0
-	_check("debug draw produces line geometry", ok)
+	# Solid state-colored shells live in per-primitive MultiMeshes; the box
+	# body must occupy an instance in the box shell (node suffix 0 = box).
+	var mi = world.get_node_or_null("Box3DDebugDraw0")
+	var ok: bool = mi != null and mi.multimesh != null and mi.multimesh.visible_instance_count > 0
+	_check("debug draw shells the body (box instance present)", ok)
 
 	world.free()
 
@@ -580,8 +582,8 @@ func _test_debug_draw_compound() -> void:
 	add_child(world)
 
 	# A compound body: its only real collider is a child sphere out at x=3. The
-	# overlay must outline THAT (not the body's own ignored shape_type at the
-	# origin), so the drawn lines have to reach out to the sphere.
+	# debug shells must cover THAT (not the body's own ignored shape_type at
+	# the origin), so the sphere shell instance has to sit out at the child.
 	var body := Box3DBody.new()
 	body.body_type = Box3DBody.STATIC
 	var cs := Box3DCollisionShape.new()
@@ -594,13 +596,15 @@ func _test_debug_draw_compound() -> void:
 	for i in range(5):
 		await get_tree().physics_frame
 
-	var mi = world.get_node_or_null("Box3DDebugDraw")
-	var max_x := -1e9
-	if mi != null and mi.mesh != null and mi.mesh.get_surface_count() > 0:
-		for v in mi.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]:
-			max_x = maxf(max_x, v.x)
-	_check("debug draw outlines a compound body's child shape (max x %.2f)" % max_x,
-		absf(max_x - 3.5) < 0.1)
+	# The headless dummy renderer discards MultiMesh instance data (transforms
+	# read back as identity), so assert prim selection via counts instead: the
+	# child sphere must be shelled, the body's own ignored box type must not.
+	var sphere_mm = world.get_node_or_null("Box3DDebugDraw1") # suffix 1 = sphere
+	var box_mm = world.get_node_or_null("Box3DDebugDraw0") # suffix 0 = box
+	var sphere_n: int = sphere_mm.multimesh.visible_instance_count if sphere_mm != null and sphere_mm.multimesh != null else -1
+	var box_n: int = box_mm.multimesh.visible_instance_count if box_mm != null and box_mm.multimesh != null else -1
+	_check("debug draw shells a compound body's child shape, not its own type (sphere %d, box %d)" % [sphere_n, box_n],
+		sphere_n == 1 and box_n == 0)
 
 	world.free()
 

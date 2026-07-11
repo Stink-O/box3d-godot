@@ -109,6 +109,9 @@ void Box3DBody::create_in_world() {
 	// Enable sensor events on every shape so sensors detect any body (like an
 	// Area3D). Box3D only does work here in proportion to the number of sensors.
 	shape_def.enableSensorEvents = true;
+	// Hit events power the debug draw's impact flash; box3d only reports them
+	// above the world's hit-event speed threshold (default 1 m/s).
+	shape_def.enableHitEvents = true;
 
 	switch (shape_type) {
 		case SPHERE: {
@@ -378,6 +381,7 @@ void Box3DBody::create_child_shape(Box3DCollisionShape *p_shape, const Transform
 	sd.filter.maskBits = collision_mask;
 	sd.isSensor = is_sensor;
 	sd.enableSensorEvents = true;
+	sd.enableHitEvents = true;
 
 	// The shape's transform relative to the body.
 	Transform3D local = p_body_inv * p_shape->get_global_transform();
@@ -467,8 +471,25 @@ void Box3DBody::sync_from_physics() {
 	if (body_type != DYNAMIC || !b3Body_IsValid(body_id)) {
 		return;
 	}
+	// Sleeping bodies don't move, so skip the node update once their final
+	// transform has been written — big scenes idle for free this way.
+	if (b3Body_IsAwake(body_id)) {
+		asleep_synced = false;
+	} else if (asleep_synced) {
+		return;
+	} else {
+		asleep_synced = true;
+	}
 	b3WorldTransform t = b3Body_GetTransform(body_id);
 	set_global_transform(Transform3D(Basis(to_gd(t.q)), to_gd_pos(t.p)));
+}
+
+bool Box3DBody::is_awake_now() const {
+	return b3Body_IsValid(body_id) && b3Body_IsAwake(body_id);
+}
+
+bool Box3DBody::is_enabled_now() const {
+	return b3Body_IsValid(body_id) && b3Body_IsEnabled(body_id);
 }
 
 void Box3DBody::_notification(int p_what) {
@@ -719,6 +740,110 @@ bool Box3DBody::get_is_sensor() const {
 	return is_sensor;
 }
 
+void Box3DBody::set_debug_visualize(bool p_enabled) {
+	debug_visualize = p_enabled;
+}
+
+bool Box3DBody::get_debug_visualize() const {
+	return debug_visualize;
+}
+
+float Box3DBody::debug_max_extent() const {
+	// Distance from the body origin to its farthest collider point, mirroring
+	// upstream's sim->maxExtent (rotation's contribution to the fast check).
+	bool has_child_shapes = false;
+	float max_extent = 0.0f;
+	for (int i = 0; i < get_child_count(); ++i) {
+		Box3DCollisionShape *cs = Object::cast_to<Box3DCollisionShape>(get_child(i));
+		if (cs == nullptr) {
+			continue;
+		}
+		has_child_shapes = true;
+		float e = 0.0f;
+		switch (cs->get_shape_type()) {
+			case Box3DCollisionShape::SPHERE:
+				e = (float)cs->get_sphere_radius();
+				break;
+			case Box3DCollisionShape::CAPSULE:
+				e = (float)cs->get_capsule_height() * 0.5f;
+				break;
+			case Box3DCollisionShape::BOX:
+			default:
+				e = (float)(cs->get_box_size() * 0.5).length();
+				break;
+		}
+		max_extent = MAX(max_extent, (float)cs->get_position().length() + e);
+	}
+	if (has_child_shapes) {
+		return max_extent;
+	}
+	switch (shape_type) {
+		case SPHERE:
+			return (float)sphere_radius;
+		case CAPSULE:
+		case CYLINDER:
+		case CONE: {
+			float half_h = (float)capsule_height * 0.5f;
+			float r = (float)capsule_radius;
+			return Math::sqrt(half_h * half_h + r * r);
+		}
+		case BOX:
+		case FIT_MESH:
+			return (float)(box_size * 0.5).length();
+		default:
+			return 0.0f; // hull/mesh: no rotation contribution
+	}
+}
+
+float Box3DBody::debug_min_extent() const {
+	// Smallest half-extent of the collider, mirroring upstream's sim->minExtent
+	// (used by its "fast body" debug state). Child shapes take over for
+	// compounds, exactly like collision creation does.
+	bool has_child_shapes = false;
+	float min_extent = 1e9f;
+	for (int i = 0; i < get_child_count(); ++i) {
+		Box3DCollisionShape *cs = Object::cast_to<Box3DCollisionShape>(get_child(i));
+		if (cs == nullptr) {
+			continue;
+		}
+		has_child_shapes = true;
+		float e = 1e9f;
+		switch (cs->get_shape_type()) {
+			case Box3DCollisionShape::SPHERE:
+				e = (float)cs->get_sphere_radius();
+				break;
+			case Box3DCollisionShape::CAPSULE:
+				e = (float)cs->get_capsule_radius();
+				break;
+			case Box3DCollisionShape::BOX:
+			default: {
+				Vector3 half = cs->get_box_size() * 0.5;
+				e = (float)MIN(half.x, MIN(half.y, half.z));
+			} break;
+		}
+		min_extent = MIN(min_extent, e);
+	}
+	if (has_child_shapes) {
+		return min_extent;
+	}
+	switch (shape_type) {
+		case SPHERE:
+			return (float)sphere_radius;
+		case CAPSULE:
+			return (float)capsule_radius;
+		case CYLINDER:
+		case CONE:
+			return MIN((float)capsule_radius, (float)capsule_height * 0.5f);
+		case BOX:
+		case FIT_MESH: {
+			Vector3 half = box_size * 0.5;
+			return (float)MIN(half.x, MIN(half.y, half.z));
+		}
+		default:
+			return 1e9f; // hull/mesh: never flagged fast
+	}
+}
+
 void Box3DBody::set_continuous(bool p_enabled) {
 	continuous = p_enabled;
 	if (b3Body_IsValid(body_id)) {
@@ -822,6 +947,8 @@ void Box3DBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_contact_monitor"), &Box3DBody::get_contact_monitor);
 	ClassDB::bind_method(D_METHOD("set_is_sensor", "sensor"), &Box3DBody::set_is_sensor);
 	ClassDB::bind_method(D_METHOD("get_is_sensor"), &Box3DBody::get_is_sensor);
+	ClassDB::bind_method(D_METHOD("set_debug_visualize", "enabled"), &Box3DBody::set_debug_visualize);
+	ClassDB::bind_method(D_METHOD("get_debug_visualize"), &Box3DBody::get_debug_visualize);
 	ClassDB::bind_method(D_METHOD("set_continuous", "enabled"), &Box3DBody::set_continuous);
 	ClassDB::bind_method(D_METHOD("get_continuous"), &Box3DBody::get_continuous);
 	ClassDB::bind_method(D_METHOD("set_allow_fast_rotation", "enabled"), &Box3DBody::set_allow_fast_rotation);
@@ -862,6 +989,7 @@ void Box3DBody::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "gravity_scale", PROPERTY_HINT_RANGE, "-10,10,0.01"), "set_gravity_scale", "get_gravity_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "contact_monitor"), "set_contact_monitor", "get_contact_monitor");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "is_sensor"), "set_is_sensor", "get_is_sensor");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_visualize"), "set_debug_visualize", "get_debug_visualize");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "continuous"), "set_continuous", "get_continuous");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "allow_fast_rotation"), "set_allow_fast_rotation", "get_allow_fast_rotation");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layer", "get_collision_layer");

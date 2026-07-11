@@ -47,6 +47,9 @@ private:
 
 	BodyType body_type = DYNAMIC;
 	ShapeType shape_type = BOX;
+	// True once the node transform was synced after the body fell asleep, so
+	// sleeping bodies cost nothing in the per-step sync loop.
+	bool asleep_synced = false;
 	Vector3 box_size = Vector3(1, 1, 1); // full extents
 	double sphere_radius = 0.5;
 	double capsule_radius = 0.5;
@@ -63,6 +66,8 @@ private:
 	double gravity_scale = 1.0;
 	bool contact_monitor = false;
 	bool is_sensor = false;
+	bool debug_visualize = true; // false = no shell in the world's debug draw
+	int debug_hit_frames = 0; // >0: recent hit event, debug draw flashes lime
 	bool continuous = false; // continuous collision (bullet)
 	bool allow_fast_rotation = false;
 	bool lock_linear_x = false;
@@ -110,6 +115,21 @@ public:
 	void sync_to_physics(double p_delta);
 	void sync_from_physics();
 	bool is_body_valid() const;
+	// Live solver state, for the world's state-colored debug draw.
+	bool is_awake_now() const;
+	bool is_enabled_now() const;
+	float debug_min_extent() const;
+	float debug_max_extent() const;
+	// Hit-event flash: the world marks qualifying impacts, the debug draw
+	// shows them lime, upstream's "had time of impact" look. Upstream's flag
+	// lasts exactly one step; two frames keeps the flash visible at 60 Hz.
+	void debug_hit_mark() { debug_hit_frames = 2; }
+	void debug_hit_decay() {
+		if (debug_hit_frames > 0) {
+			--debug_hit_frames;
+		}
+	}
+	bool debug_hit_active() const { return debug_hit_frames > 0; }
 	b3BodyId get_body_id() const { return body_id; }
 
 	// Called by the world when it dispatches contact / sensor events.
@@ -162,6 +182,8 @@ public:
 	bool get_contact_monitor() const;
 	void set_is_sensor(bool p_sensor);
 	bool get_is_sensor() const;
+	void set_debug_visualize(bool p_enabled);
+	bool get_debug_visualize() const;
 	void set_continuous(bool p_enabled);
 	bool get_continuous() const;
 	void set_allow_fast_rotation(bool p_enabled);

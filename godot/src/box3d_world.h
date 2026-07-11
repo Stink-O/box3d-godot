@@ -14,7 +14,7 @@
 namespace godot {
 
 class Box3DBody;
-class MeshInstance3D;
+class MultiMeshInstance3D;
 
 // A Box3DWorld owns a Box3D simulation. Add Box3DBody nodes anywhere beneath it.
 // The world drives the simulation every physics frame: it pushes kinematic
@@ -38,7 +38,20 @@ private:
 	double contact_damping = 10.0;
 	bool enable_sleep = true;
 	bool enable_warm_starting = true;
-	MeshInstance3D *debug_mi = nullptr;
+	// Debug draw: solid state-colored collider shells, upstream-sample style.
+	// One MultiMesh per primitive keeps huge scenes at a few draw calls.
+	enum DebugPrim {
+		DEBUG_BOX,
+		DEBUG_SPHERE,
+		DEBUG_CAPSULE,
+		DEBUG_CYLINDER,
+		DEBUG_CONE,
+		DEBUG_PRIM_MAX,
+	};
+	MultiMeshInstance3D *debug_mm[DEBUG_PRIM_MAX] = {};
+	bool debug_last_any_awake = false;
+	int debug_last_body_count = -1; // -1 forces a rebuild on the next step
+	double last_step_delta = 1.0 / 60.0; // for the fast-body debug criterion
 	std::vector<Box3DBody *> bodies;
 
 	void ensure_world();
