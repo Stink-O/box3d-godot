@@ -1,0 +1,766 @@
+# Building the Box3D GDExtension for Android
+
+This document explains how to build, package, and verify the Box3D GDExtension
+on Android, and — more importantly — *why* each step is what it is. It is
+written to be read start to finish by someone who has never seen this repo.
+
+Everything marked **verified** below was actually executed and observed. The
+"What is tested and what is not" section at the end is the honest accounting;
+read it before making any claim about this port.
+
+---
+
+## 1. Background: what a GDExtension actually is
+
+### At the binary level
+
+A GDExtension is **a plain native shared library** — `.so` on Linux/Android,
+`.dll` on Windows, a `.framework` on macOS. It is not bytecode, not a plugin
+format, not sandboxed. Godot `dlopen()`s it and calls one exported C function.
+
+That single fact drives this entire port. A shared library is compiled for one
+CPU architecture and one C ABI. It is not portable across them. So:
+
+- Godot's own **export templates are prebuilt** by the Godot project and ship
+  inside the engine distribution. They already contain `libgodot_android.so`
+  for every Android ABI.
+- **Your extension is not in those templates.** Godot has never seen your code.
+  You must compile your own `.so` for *each ABI you intend to run on*, and the
+  export process copies them into the APK next to Godot's.
+
+An Android APK carries native code under `lib/<abi>/`. At install time the
+package manager picks the directory matching the device and extracts (or
+maps) only that one. So an APK supporting arm64 and x86_64 contains two
+complete copies of your library. There is no "fat binary" that adapts at
+runtime, and no JIT fallback — if the `.so` for the device's ABI is missing,
+the class simply does not exist at runtime.
+
+### Why a missing/incorrect entry fails *silently*
+
+This is the single most dangerous property of GDExtension and the reason this
+document exists. When Godot cannot find or load your library:
+
+- The classes it would have registered are **simply absent**.
+- Scenes referencing them load with those nodes **missing or replaced**.
+- You often get **no fatal error** — just "class not found" style breakage, or
+  nothing at all.
+
+A build that compiles, packages, installs, and launches proves *nothing* about
+whether the extension loaded. That is why verification here is done by running
+the actual physics test harness on the device and reading its assertions, not
+by observing that the app started.
+
+### `entry_symbol = "box3d_library_init"`
+
+The manifest (`demo/bin/box3d.gdextension`) names one symbol:
+
+```ini
+entry_symbol = "box3d_library_init"
+```
+
+After `dlopen()`, Godot does `dlsym(handle, "box3d_library_init")` and calls
+it. That function is the *entire* handshake between engine and extension. It
+lives in `src/register_types.cpp`:
+
+```cpp
+extern "C" {
+GDExtensionBool GDE_EXPORT box3d_library_init(
+        GDExtensionInterfaceGetProcAddress p_get_proc_address,
+        const GDExtensionClassLibraryPtr p_library,
+        GDExtensionInitialization *r_initialization) {
+    godot::GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
+    init_obj.register_initializer(initialize_box3d_module);
+    init_obj.register_terminator(uninitialize_box3d_module);
+    init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
+    return init_obj.init();
+}
+}
+```
+
+Three details worth being able to defend:
+
+- **`extern "C"`** — no C++ name mangling, so the symbol is literally
+  `box3d_library_init` in the dynamic symbol table. Without it, `dlsym` fails.
+- **`GDE_EXPORT`** — expands to visibility/export attributes so the symbol is
+  *exported*, not hidden by `-fvisibility=hidden`.
+- **`p_get_proc_address`** — Godot does not link against your library and you
+  do not link against Godot. The engine hands you **one function pointer**, and
+  godot-cpp calls it to look up every other engine function by name. This is
+  why GDExtension survives engine updates: the boundary is a runtime-negotiated
+  function table, not a link-time contract. `compatibility_minimum = "4.7"` is
+  your assertion about which table layout you require.
+
+You can confirm the symbol survived the build:
+
+```sh
+llvm-readelf --dyn-syms demo/bin/libbox3d_godot.android.template_debug.arm64.so | grep box3d_library_init
+#   77: 0000000000096120    96 FUNC    GLOBAL DEFAULT   12 box3d_library_init
+```
+
+`GLOBAL` and `DEFAULT` are what matter. `LOCAL` or `HIDDEN` would mean
+`dlsym` returns null and the extension silently does not load.
+
+### How the C++ classes become Godot nodes, and who owns what
+
+`initialize_box3d_module` runs at `MODULE_INITIALIZATION_LEVEL_SCENE` and calls
+`GDREGISTER_CLASS(Box3DWorld)`, `GDREGISTER_CLASS(Box3DBody)`, and so on. That
+registers each class with Godot's **ClassDB** — the same registry engine-native
+classes use. From that moment `Box3DBody` is a real node type: it appears in
+the editor, `.tscn` files can instantiate it, and GDScript can call its methods.
+
+Memory ownership across the boundary, which is the part people get wrong:
+
+- **Godot owns the node objects.** A `Box3DBody` is a `Node3D` subclass; the
+  scene tree creates and frees it. Your C++ destructor runs when Godot decides.
+- **Box3D owns the simulation objects.** The C core allocates its own worlds,
+  bodies, and shapes in its own arenas. The wrapper holds opaque handles
+  (`b3BodyId` etc.), not pointers into Godot memory.
+- **The wrapper's job is to keep those two lifetimes in sync** — create the
+  Box3D body when the node enters the tree, destroy it when the node leaves,
+  and copy transforms across each physics step.
+- Mapping a Box3D event back to a node goes `b3Shape_GetBody` →
+  `b3Body_GetUserData`, where the user-data pointer is the owning node. This
+  is why nothing may free a node while the world still holds a handle to it.
+
+What crosses the boundary at runtime is therefore small and flat: handles,
+POD structs (vectors, transforms), and the engine function table. No C++
+objects, no exceptions (godot-cpp compiles with exceptions disabled), and no
+allocator sharing.
+
+### How the C core and the C++ wrapper meet
+
+This project compiles **two languages into one library**:
+
+- `src/*.cpp` (this directory) — the C++ wrapper, built as C++17.
+- `../src/*.c` (repo root) — the Box3D C core, built as C17.
+
+`SConstruct` globs both into a single `SharedLibrary`. They meet at link time,
+and the wrapper includes Box3D's headers, which are C. Two flags make that
+work, and neither is optional:
+
+**`-std=gnu17`** (`SConstruct`, non-MSVC branch). godot-cpp configures a C++
+standard but says nothing about C. Without this the NDK's clang compiles the
+Box3D core as its default C dialect, and Box3D genuinely uses C17 features.
+`gnu17` rather than `c17` because the core also uses GNU extensions.
+
+**`-ffp-contract=off`**. This forbids the compiler from contracting `a*b+c`
+into a single fused multiply-add. FMA keeps more intermediate precision, which
+sounds good and is actively harmful here: Box3D is a **deterministic** solver,
+and its scalar and SIMD paths must produce *bit-identical* results. Box3D's own
+NEON code says so out loud — `contact_solver.c` implements `b3MulAddW` as
+`vaddq_f32(a, vmulq_f32(b, c))` with the comment *"Cannot use real FMA because
+it doesn't match the non-SIMD path"*. If the compiler is free to re-fuse that
+back into an FMA, the SIMD and scalar paths diverge and determinism is gone.
+
+**This matters more on ARM than on x86.** AArch64 has cheap, plentiful FMA
+instructions and clang contracts aggressively by default. Removing
+`-ffp-contract=off` to "fix" an Android build would silently break the property
+the library exists to provide, and it would not fail any test loudly.
+
+### Symbol visibility / `B3_API`
+
+`include/box3d/base.h` defines `B3_API` as an export attribute **only** when
+`box3d_EXPORTS` / `BOX3D_DLL` are defined. This build defines neither, so
+`B3_API` is empty and the core's symbols are statically embedded into
+`libbox3d_godot.*.so` rather than re-exported. That is correct and intentional:
+consumers talk to the wrapper, not to Box3D's C API. Relevant only if you ever
+chase a symbol-visibility problem.
+
+---
+
+## 2. Toolchain
+
+### Versions — and why these exact ones
+
+**Do not use "the newest NDK".** Use the one godot-cpp pins. Read it from
+`godot-cpp/tools/android.py` at the commit you have checked out:
+
+```python
+opts.Add("android_api_level", "Target Android API level", "24")
+opts.Add("ndk_version", "Fully qualified version of ndk to use for compilation.", "28.1.13356709")
+```
+
+At the pinned godot-cpp commit `ba0edfe`, that is:
+
+| Component | Version | Why |
+|---|---|---|
+| **NDK** | **28.1.13356709** (r28b) | godot-cpp's own default. Matching it means the toolchain layout and flags godot-cpp assumes are the ones present. |
+| **Min API level** | **24** | godot-cpp's default; it *force-clamps* anything lower and warns. |
+| Godot | 4.7.stable | `compatibility_minimum = "4.7"`. Export templates **must** match the editor build exactly. |
+| SDK platform | android-35 | Any recent platform works; only build-tools/aapt come from it. |
+| build-tools | 35.0.0 | Godot warns "Could not find version of build tools that matches Target SDK, using 35.0.0" — harmless. |
+
+godot-cpp resolves the NDK as **`$ANDROID_HOME/ndk/$ndk_version`**, and only
+falls back to `$ANDROID_NDK_ROOT` if `ANDROID_HOME` is unset:
+
+```python
+def get_android_ndk_root(env):
+    if env["ANDROID_HOME"]:
+        return env["ANDROID_HOME"] + "/ndk/" + env["ndk_version"]
+    else:
+        return os.environ.get("ANDROID_NDK_ROOT")
+```
+
+Set `ANDROID_HOME` and let it derive the path — that is the codepath godot-cpp
+actually exercises.
+
+### Installing from scratch (Linux, no sudo required)
+
+```sh
+# 1. SDK command-line tools
+cd /tmp
+curl -O https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+mkdir -p ~/Android/Sdk/cmdline-tools
+unzip -q commandlinetools-linux-11076708_latest.zip
+mv cmdline-tools ~/Android/Sdk/cmdline-tools/latest
+
+export ANDROID_HOME=$HOME/Android/Sdk
+export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+
+# 2. Licenses, then the exact NDK godot-cpp wants
+yes | sdkmanager --licenses
+sdkmanager --install "ndk;28.1.13356709" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+# 3. Export templates -- MUST match the editor version exactly
+curl -L -O https://github.com/godotengine/godot/releases/download/4.7-stable/Godot_v4.7-stable_export_templates.tpz
+unzip -q Godot_v4.7-stable_export_templates.tpz          # -> templates/
+mkdir -p ~/.local/share/godot/export_templates/4.7.stable
+cp templates/* ~/.local/share/godot/export_templates/4.7.stable/
+
+# 4. Debug keystore, at the path Godot's editor settings expect
+mkdir -p ~/.local/share/godot/keystores
+keytool -genkeypair -v -keystore ~/.local/share/godot/keystores/debug.keystore \
+        -storepass android -alias androiddebugkey -keypass android \
+        -keyalg RSA -keysize 2048 -validity 10000 \
+        -dname "CN=Android Debug,O=Android,C=US"
+```
+
+**Verify the templates version file says `4.7.stable`** (`cat templates/version.txt`)
+and that it matches your editor binary. A mismatch here produces confusing
+export failures unrelated to your extension.
+
+### Godot editor settings
+
+Godot's Android export reads three editor settings
+(`~/.config/godot/editor_settings-4.7.tres`):
+
+```ini
+export/android/android_sdk_path = "/home/<user>/Android/Sdk"
+export/android/java_sdk_path = "/usr/lib/jvm/java-25-openjdk"
+export/android/debug_keystore = "/home/<user>/.local/share/godot/keystores/debug.keystore"
+export/android/debug_keystore_pass = "android"
+```
+
+`debug_keystore_user` is unset and defaults to `androiddebugkey` — which is why
+the `keytool` command above uses exactly that alias and the password `android`.
+
+**A JRE is sufficient; a full JDK is not required.** This build works with
+`java` + `keytool` only (no `javac`), because we use the **prebuilt** export
+templates rather than a Gradle custom build. Verified against OpenJDK 25.
+If you enable `gradle_build/use_gradle_build`, that changes — Gradle needs a
+real JDK and is far pickier about the version.
+
+### Confirm SCons found the NDK and did not fall back to the host compiler
+
+This is worth doing once, because a silent host-compiler fallback would produce
+an x86-64 `.so` with an Android filename that fails at runtime for reasons that
+look nothing like the cause. The check is one command:
+
+```sh
+llvm-readelf -h demo/bin/libbox3d_godot.android.template_debug.arm64.so | grep Machine
+#   Machine:  AArch64        <- if this says X86-64, the NDK was not used
+```
+
+`godot-cpp/tools/android.py` also hard-fails if the toolchain directory is
+absent, so a missing NDK is loud rather than silent:
+
+```
+ERROR: Could not find NDK toolchain at <path>.
+```
+
+---
+
+## 3. Building
+
+```sh
+cd godot
+export ANDROID_HOME=$HOME/Android/Sdk
+
+scons platform=android arch=arm64  target=template_debug   -j$(nproc)
+scons platform=android arch=arm64  target=template_release -j$(nproc)
+scons platform=android arch=x86_64 target=template_debug   -j$(nproc)
+scons platform=android arch=x86_64 target=template_release -j$(nproc)
+```
+
+Valid `arch` values are exactly `arm64`, `x86_64`, `arm32`, `x86_32`
+(`android.py` exits on anything else). See §6 for why `arm32` is not built.
+
+`-j$(nproc)` will saturate every core. Use a smaller `-j` (and `nice`) if you
+need the machine for anything else while building.
+
+### Output filenames — derived, not guessed
+
+The name comes from godot-cpp's `env["suffix"]`, built in
+`godot-cpp/tools/godotcpp.py:518-529`:
+
+```python
+suffix = ".{}.{}".format(env["platform"], env["target"])   # .android.template_debug
+# (.dev / .double inserted here if those options are set)
+suffix += "." + env["arch"]                                # .arm64
+```
+
+`android.py` sets `env["SHLIBSUFFIX"] = ".so"`, and `SConstruct` composes
+`{bindir}/{libname}{suffix}{SHLIBSUFFIX}`. Android takes the generic `else`
+branch (only macOS/iOS are special-cased), giving:
+
+```
+demo/bin/libbox3d_godot.android.template_debug.arm64.so
+demo/bin/libbox3d_godot.android.template_release.arm64.so
+demo/bin/libbox3d_godot.android.template_debug.x86_64.so
+demo/bin/libbox3d_godot.android.template_release.x86_64.so
+```
+
+Note the library is `libbox3d_godot`, **not** `libbox3d`.
+
+### What `android.py` passes to clang
+
+For `arch=arm64`, from `arch_info_table`:
+
+```
+--target=aarch64-linux-android24   -march=armv8-a   -fPIC
+-D ANDROID_ENABLED -D UNIX_ENABLED
+lto: forced to "none" on Android
+```
+
+The `24` suffix on the target triple *is* the min API level — that is how the
+NDK selects which bionic symbols exist.
+
+---
+
+## 4. The manifest (`demo/bin/box3d.gdextension`)
+
+This is the one change Android absolutely requires, and a wrong key here is the
+classic silent failure.
+
+```ini
+android.debug.arm64 = "res://bin/libbox3d_godot.android.template_debug.arm64.so"
+android.release.arm64 = "res://bin/libbox3d_godot.android.template_release.arm64.so"
+android.debug.x86_64 = "res://bin/libbox3d_godot.android.template_debug.x86_64.so"
+android.release.x86_64 = "res://bin/libbox3d_godot.android.template_release.x86_64.so"
+```
+
+Things that are easy to get wrong:
+
+- **The key says `debug`/`release`; the filename says `template_debug`/
+  `template_release`.** They are not the same word, and both appear on the same
+  line. This mismatch is entirely normal and constantly mistyped.
+- The key is `<platform>.<target>.<arch>` and the arch names are Godot's
+  (`arm64`, `x86_64`, `arm32`, `x86_32`) — **not** Android's ABI names
+  (`arm64-v8a`, `armeabi-v7a`, `x86`). The ABI directory inside the APK uses
+  Android's names; the manifest uses Godot's. Both appear in this project.
+- These key names were not guessed. They are copied from godot-cpp's own
+  `test/project/example.gdextension` **at the pinned commit** — the
+  authoritative source for what this exact godot-cpp expects.
+
+**`.gdextension` is a Godot ConfigFile: comments start with `;`, not `#`.**
+A `#` comment is parsed as an identifier and breaks the whole file:
+
+```
+ERROR: ConfigFile parse error at res://bin/box3d.gdextension:18: Unexpected identifier 'arm32'.
+ERROR: Error loading extension: 'res://bin/box3d.gdextension'.
+```
+
+(Hit during this port. See §7.)
+
+Leave `box3d.gdextension.uid` alone — it is Godot's stable resource identity
+for the manifest; regenerating it churns every `.tscn` that references the
+extension's classes.
+
+---
+
+## 5. Exporting
+
+`demo/export_presets.cfg` defines an `Android` preset. The parts that matter:
+
+```ini
+architectures/arm64-v8a=true
+architectures/x86_64=true
+architectures/armeabi-v7a=false
+architectures/x86=false
+gradle_build/use_gradle_build=false      # use the prebuilt templates
+package/unique_name="org.box3d.godot.samples"
+```
+
+```sh
+cd godot/demo
+export ANDROID_HOME=$HOME/Android/Sdk
+godot --headless --path . --export-debug "Android" bin/box3d_demo.apk
+```
+
+`--export-debug` selects the `template_debug` libraries; `--export-release`
+selects `template_release`. The APK is **not** committed (`.gitignore`) — it is
+~60 MB and fully regenerable.
+
+### `project.godot` needed one change
+
+Godot's Android export gate refuses to run without ETC2/ASTC:
+
+```
+ERROR: ETC2/ASTC texture compression is required for Android export.
+```
+
+So `project.godot` gains:
+
+```ini
+textures/vram_compression/import_etc2_astc=true
+```
+
+**This demo ships zero textures** — every mesh is procedural — so this
+compresses nothing, changes no imported asset, and has no effect on the desktop
+demo. It exists purely to satisfy the export check. It is the only rendering-
+related project setting touched by this port, and it is not a degradation.
+
+### Verify the APK actually contains the libraries
+
+```sh
+unzip -l bin/box3d_demo.apk | grep '\.so$'
+```
+
+```
+lib/arm64-v8a/libc++_shared.so                                1374336
+lib/arm64-v8a/libgodot_android.so                            76217912
+lib/arm64-v8a/libbox3d_godot.android.template_debug.arm64.so  1904408
+lib/x86_64/libc++_shared.so                                   1337488
+lib/x86_64/libgodot_android.so                               81167720
+lib/x86_64/libbox3d_godot.android.template_debug.x86_64.so    2009168
+```
+
+Both ABIs present, our library alongside Godot's, and no `armeabi-v7a`/`x86`
+directories (matching the preset).
+
+### `libc++_shared.so` — a dependency that works by Godot's grace
+
+Our library does **not** statically link the C++ runtime on Android:
+
+```sh
+llvm-readelf -d libbox3d_godot.android.template_debug.arm64.so | grep NEEDED
+#   NEEDED  libc++_shared.so
+#   NEEDED  libm.so / libdl.so / libc.so
+```
+
+Compare `godot-cpp/tools/linux.py:47`, which *does* pass
+`-static-libgcc -static-libstdc++`. `android.py` passes no such flag. So on
+Android the extension needs `libc++_shared.so` to exist at load time — and if
+it did not, this would be exactly the silent `dlopen` failure described in §1.
+
+It works because **Godot's own export template already ships
+`libc++_shared.so` for all four ABIs**, and Android resolves it from the same
+`lib/<abi>/` directory. Worth knowing: this is a property of Godot's packaging
+that we depend on, not something this build guarantees. If you ever switch to a
+custom Gradle template that omits it, this breaks with a `dlopen failed:
+library "libc++_shared.so" not found` and no other clue.
+
+---
+
+## 6. Findings on the risk areas
+
+### 16 KB page size — aligned by default, no flag needed (**verified**)
+
+Android 15+ and current Play requirements expect `.so` files aligned for 16 KB
+pages. godot-cpp passes **no** page-size linker flag (`grep -rn
+"max-page-size\|16384" tools/ SConstruct` → nothing). It does not need to:
+**NDK r28 aligns to 16 KB by default.** Measured on the built library:
+
+```sh
+llvm-readelf -l demo/bin/libbox3d_godot.android.template_debug.arm64.so | grep LOAD
+#  LOAD  0x000000 ... R    0x4000
+#  LOAD  0x064890 ... R E  0x4000
+#  LOAD  0x1cbce0 ... RW   0x4000
+#  LOAD  0x1d06c0 ... RW   0x4000
+```
+
+`0x4000` = 16384 on every LOAD segment, matching Godot's own
+`libgodot_android.so`. **`-Wl,-z,max-page-size=16384` is therefore
+unnecessary** — adding it would be cargo cult. If you ever downgrade below NDK
+r28, re-check this; the flag becomes necessary again.
+
+### SIMD / NEON — already correct, no change (**verified**)
+
+Confirmed by preprocessing `core.h` through the actual NDK clang rather than
+by reading the `#if` ladder:
+
+```
+--target=aarch64-linux-android24 -march=armv8-a
+  -> B3_PLATFORM_ANDROID   defined
+  -> B3_PLATFORM_LINUX     NOT defined
+  -> B3_CPU_ARM            defined
+  -> B3_SIMD_NEON          defined
+```
+
+`__aarch64__` → `B3_CPU_ARM` → `B3_SIMD_NEON`, automatically, with
+`B3_SIMD_WIDTH 4`. **`BOX3D_DISABLE_SIMD` is not used and must not be** — it is
+a diagnostic, and forcing `B3_SIMD_NONE` costs real solver performance.
+
+### `timer.c`'s `__linux__` vs `B3_PLATFORM_ANDROID` split — holds (**verified**)
+
+`core.h` checks `__ANDROID__` *before* `__linux__`, so on Android
+`B3_PLATFORM_ANDROID` is defined and `B3_PLATFORM_LINUX` is not. But `timer.c`
+ignores the `B3_PLATFORM_*` macros and branches on raw `__linux__`
+(lines 6, 227, 342). Android **does** define `__linux__`, confirmed under the
+NDK compiler above.
+
+So `timer.c` takes the pthread/POSIX branch, picking up `pthread`,
+`semaphore.h`, `sched.h`, and `pthread_setname_np` — all provided by bionic.
+It compiles and links cleanly, and the `worker_count=4` multithreaded-stepping
+test passes on the device (§8).
+
+The two files still disagree about what Android *is*, and it works by luck
+rather than design. `B3_PLATFORM_LINUX` is defined-but-never-used anywhere in
+the tree. **No guards were changed** — the behaviour is correct today and
+changing it would be churn with real regression risk for zero benefit. It is
+worth knowing this is load-bearing luck if `timer.c` is ever refactored.
+
+### Min API level
+
+API 24, godot-cpp's clamped default. Consistent with `core.c` special-casing
+Android to use `posix_memalign` instead of `aligned_alloc` (the latter is
+absent on older Android API levels) — that special case is Catto's, deliberate,
+and needs nothing from us.
+
+### arm32 does not build — an upstream Box3D limitation (**not fixed; by decision**)
+
+`scons platform=android arch=arm32` **fails**:
+
+```
+src/contact_solver.c:883:9: error: call to undeclared function 'vdivq_f32'
+src/contact_solver.c:888:9: error: call to undeclared function 'vsqrtq_f32'
+```
+
+**Diagnosis.** `core.h:41` groups 32-bit and 64-bit ARM together:
+
+```c
+#elif defined( __aarch64__ ) || defined( _M_ARM64 ) || defined( __arm__ ) || defined( _M_ARM )
+    #define B3_CPU_ARM
+```
+
+and then any `B3_CPU_ARM` selects `B3_SIMD_NEON`. But Box3D's NEON code uses
+`vdivq_f32` and `vsqrtq_f32` — **vector divide and square root, which do not
+exist in ARMv7-A NEON.** They are AArch64-only. ARMv7 NEON offers only
+reciprocal *estimate* instructions. godot-cpp compiles `arch=arm32` as
+`--target=armv7a-linux-androideabi24 -march=armv7-a -mfpu=neon`, which defines
+`__ARM_NEON` but not `__aarch64__` — straight into the gap.
+
+Proven in isolation:
+
+```sh
+echo '#include <arm_neon.h>
+float32x4_t d(float32x4_t a, float32x4_t b){return vdivq_f32(a,b);}' > /tmp/t.c
+clang --target=armv7a-linux-androideabi24 -march=armv7-a -mfpu=neon -c /tmp/t.c   # error
+clang --target=aarch64-linux-android24    -march=armv8-a            -c /tmp/t.c   # OK
+```
+
+This is upstream Box3D's NEON path silently assuming 64-bit ARM. It is not
+caused by this port, and no build flag fixes it.
+
+**Decision: arm32 is not shipped.** arm64 covers every Android device since
+roughly 2017, and Google Play has required 64-bit since 2019. The alternatives
+were considered and rejected:
+
+- *Fix `core.h` so NEON is selected only on `__aarch64__`*, letting arm32 fall
+  back to `B3_SIMD_NONE`. This is arguably the correct upstream fix and worth
+  reporting to Box3D upstream — but it edits vendored upstream source, affects
+  every arm32 platform rather than just Android, and diverges this fork's
+  `src/` from upstream for a target we do not ship.
+- *`BOX3D_DISABLE_SIMD` for the arm32 build only*. Rejected: it is a
+  diagnostic, not a fix; it costs real performance and hides a bug that
+  `core.h` should express properly.
+
+If arm32 is ever needed, the `core.h` guard fix is the right approach, and it
+belongs upstream.
+
+---
+
+## 7. Every problem hit, with diagnosis
+
+| # | Symptom | Diagnosis | Fix |
+|---|---|---|---|
+| 1 | `arch=arm32`: `call to undeclared function 'vdivq_f32'` | Upstream Box3D NEON path uses AArch64-only intrinsics; `core.h` treats `__arm__` and `__aarch64__` alike | Not fixed by decision — arm32 dropped (§6) |
+| 2 | `ConfigFile parse error ... Unexpected identifier 'arm32'`, extension stopped loading entirely | `.gdextension` is a Godot ConfigFile; comments are `;`, not `#`. A `#` comment broke the whole manifest | Use `;` |
+| 3 | `Cannot export ... A valid Java SDK path is required in Editor Settings` | `export/android/java_sdk_path` was empty | Point it at the JRE. A full JDK is *not* needed with prebuilt templates |
+| 4 | `ETC2/ASTC texture compression is required for Android export` | Godot's blanket export gate | `textures/vram_compression/import_etc2_astc=true`. No-op here — the demo has no textures |
+| 5 | Emulator segfaults (rc=139) on boot | `-gpu swiftshader_indirect`, `-gpu guest`, `-gpu off` all crash on this host; emulator's Vulkan loader lib is missing | Use `-gpu host` |
+| 6 | Emulator boots, then vanishes | Launcher process exiting took the emulator with it | Run the emulator *as* the long-lived process, not via `nohup` from a shell that exits |
+| 7 | App launches, Vulkan initialises, **scene never runs**; `ERROR: Couldn't present to Vulkan queue (VkResult error 5)` | Emulator Vulkan (gfxstream) present path is broken — occurs with *and* without a window. **A rendering problem, not an extension problem** | Force `--rendering-method gl_compatibility` for emulator runs, via the preset's `command_line/extra_args`. Not a project change |
+| 8 | `[samples] ALL -> PASS` on device with **zero** per-sample lines | **A false pass.** `test_samples.gd` enumerated `res://samples` filtering `.tscn`, but exported builds contain only `ball_pit.tscn.remap` — so it tested nothing and the empty loop left `_all_ok` true | Strip `.remap` before matching, and fail explicitly when zero scenes are found (§8) |
+| 9 | Demo renders cube sides black; `Too many instances using shader instance variables ... Maximum items supported by this hardware is: 4096` | The GLES3 backend caps instance shader variables at 4096 *in hardware*; the Cube Pile exceeds it. An artifact of the `gl_compatibility` fallback from #7 | **Not fixed, and not fixable via project settings** — verified that a `buffer_size.mobile` override makes it *worse*, since the value is clamped to the hardware max regardless. Renders under Vulkan on real hardware are untested |
+
+### On the harness fix (#8) — the one test-code change
+
+`demo/tests/test_samples.gd` now strips the `.remap` suffix before matching,
+and — importantly — **fails loudly when it finds no scenes** rather than
+reporting a vacuous PASS. Before this, an exported build's sample harness
+claimed success having executed nothing. Linux output is byte-identical to
+before the change (30 lines, all PASS); the fix only affects exported builds,
+where it turned 1 meaningless line into 29 real ones.
+
+---
+
+## 8. Verification
+
+### Linux, before and after (**proof nothing broke**)
+
+```sh
+GODOT=/path/to/Godot_v4.7-stable_linux.x86_64
+DEMO=/path/to/box3d-android/godot/demo
+"$GODOT" --headless --path "$DEMO" --import
+"$GODOT" --headless --path "$DEMO" res://tests/test_features.tscn -- --selftest
+"$GODOT" --headless --path "$DEMO" res://tests/test_samples.tscn  -- --selftest
+```
+
+Both exit 0 and end in `ALL -> PASS`. Output after all changes is **diff-clean
+against the pre-change baseline**: 42 `[test]` lines, 30 `[samples]` lines.
+
+Two notes for whoever runs this next:
+
+- The harness tags lines **`[test]`** and `[samples]`; `--selftest` is the
+  *flag*, not the tag. Grepping for `[selftest]` finds nothing.
+- The **first** `--import` on a clean tree exits 134 (SIGABRT) during editor
+  teardown, *after* "Verifying GDExtensions" succeeds. A second `--import`
+  exits 0. This is pre-existing and unrelated to Android.
+
+### Android — emulator
+
+```sh
+avdmanager create avd -n box3d_x86_64 -k "system-images;android-35;google_apis;x86_64" -d pixel_6
+emulator -avd box3d_x86_64 -no-audio -no-boot-anim -gpu host -cores 4 -memory 2048 -no-snapshot
+```
+
+`-gpu host` is required on this machine; the software rasterizers segfault
+(§7 #5). KVM must be available (`ls /dev/kvm`).
+
+The strongest available check is to make the **existing headless harness** the
+APK's main scene and read its assertions back over `logcat` — this proves the
+physics binding independently of whether anything renders correctly:
+
+```sh
+# temporarily: run/main_scene="res://tests/test_features.tscn"
+#              command_line/extra_args="--rendering-method gl_compatibility"
+godot --headless --path . --export-debug "Android" bin/box3d_test.apk
+adb install -r bin/box3d_test.apk
+adb logcat -c
+adb shell am start -n org.box3d.godot.samples/com.godot.game.GodotAppLauncher
+adb logcat -v brief -s godot:V
+```
+
+(The launcher activity is `com.godot.game.GodotAppLauncher`, **not**
+`GodotApp`. Resolve it with
+`adb shell cmd package resolve-activity --brief <package>`.)
+
+**Result on the emulator (x86_64, API 35), verbatim:**
+
+```
+Godot Engine v4.7.stable.official.5b4e0cb0f
+OpenGL API OpenGL ES 3.1 ... Android Emulator OpenGL ES Translator
+[test] layer/mask: matching body rests on floor -> PASS
+[test] distance joint holds a swinging body at its length (max err 0.003) -> PASS
+[test] continuous on: fast body stopped by thin wall -> PASS
+[test] continuous off: fast body tunnels through wall -> PASS
+[test] wheel joint: suspension carries the chassis (y 0.87) -> PASS
+[test] multithreaded stepping (worker_count=4) simulates correctly -> PASS
+... (42 total)
+[test] ALL -> PASS
+```
+
+and, with the §7 #8 harness fix, all 29 sample scenes:
+
+```
+[samples] ball_pit.tscn -> PASS
+... (29 total)
+[samples] ALL -> PASS
+```
+
+That is not "the app launched". Bodies fall and rest, collide, tunnel or don't
+per the CCD flag, joints hold to 0.003, motors drive, and the multithreaded
+solver steps correctly — **on Android**.
+
+`adb logcat` is clean of GDExtension load errors: no `dlopen` failure, no
+"Can't open GDExtension dynamic library", no missing-class errors.
+
+### Diagnosing a crash
+
+If the extension crashes, symbolize rather than guess:
+
+```sh
+adb logcat | $ANDROID_HOME/ndk/28.1.13356709/prebuilt/linux-x86_64/bin/ndk-stack \
+    -sym godot/demo/bin
+```
+
+---
+
+## 9. What is tested and what is NOT
+
+Read this section before repeating any claim from this document.
+
+### Verified by execution
+
+- **The extension loads and runs on Android.** x86_64, API 35 emulator.
+- **Physics genuinely simulates on Android.** All 42 binding assertions and all
+  29 sample scenes pass on-device, via the project's own harness.
+- **Linux is not broken.** Post-change output is diff-identical to baseline.
+- **All four `.so` files are the intended architecture** (`llvm-readelf -h`:
+  AArch64 / X86-64 as intended) **and 16 KB aligned** (`0x4000` on every LOAD).
+- **The entry symbol is exported** `GLOBAL DEFAULT` in every library.
+- **The APK packages both ABIs correctly** under `lib/arm64-v8a/` and
+  `lib/x86_64/`.
+- **The demo runs on Android** and its UI and 3D scene render.
+
+### NOT tested — be explicit about these
+
+- **No physical Android device was available.** Everything on-device is an
+  **x86_64 emulator**.
+- **The arm64 library has never been executed.** This is the most important
+  gap. An x86_64 emulator runs the **x86_64** build through the **SSE2** path.
+  The arm64 `.so` — the one you would actually ship — is verified only
+  *structurally*: correct machine type, 16 KB alignment, exported entry symbol,
+  correct APK placement. **Its NEON code path has not been run.** The macro
+  analysis in §6 says NEON is selected correctly, and that is well-founded, but
+  it is analysis, not execution. An arm64-v8a emulator image exists but runs
+  under full QEMU translation on an x86 host and was not attempted.
+- **Vulkan on Android is untested.** The emulator's Vulkan present path is
+  broken (§7 #7), so every on-device run used the `gl_compatibility` renderer.
+  Godot selects **Forward Mobile / Vulkan** by default on real hardware — that
+  path is unexercised. This is an emulator limitation, not evidence of a
+  problem, but it is unexercised all the same.
+- **The demo's rendering on real hardware is unknown.** Under the GL fallback,
+  per-instance colors exceed the GLES 4096-item hardware limit and most cubes
+  render black (§7 #9). Physics is provably unaffected. Whether the demo's
+  desktop-oriented settings (Forward+, 8192 shadow maps, MSAA, 256 KB global
+  shader buffer) render acceptably under Vulkan on a real phone is **untested**.
+- **`template_release` has never been run anywhere** — on Android or Linux. It
+  builds cleanly and passes the structural checks; that is all. Every runtime
+  test used `template_debug`.
+- **arm32 does not build at all** (§6).
+- **16 KB pages are verified structurally, not at runtime.** The emulator
+  reports `PAGE_SIZE=4096`, so 16 KB page *loading* was never exercised. The
+  alignment is objectively correct in the binary; no device with 16 KB pages
+  loaded it.
+
+### If someone asks you a question you cannot answer
+
+Be aware these are the honest weak points, in order:
+
+1. *"Have you run the arm64 build?"* — **No.** Only x86_64, on an emulator.
+   The arm64 binary is structurally correct and the NEON selection is verified
+   at the preprocessor level, but no ARM code has executed.
+2. *"Does it work under Vulkan?"* — **Unknown.** Emulator Vulkan is broken, so
+   all runs used OpenGL. Real devices default to Vulkan.
+3. *"Is the release build good?"* — **It compiles and is structurally correct.
+   It has never been run.**
+4. *"Why is `timer.c` allowed to disagree with `core.h` about Android?"* — It
+   works because bionic provides the POSIX APIs the `__linux__` branch wants.
+   It is correct today, and it is luck rather than design (§6).
+5. *"Why no 16 KB page linker flag?"* — Because NDK r28 defaults to it, and the
+   binary was measured rather than assumed. Downgrade the NDK and this changes.
+
+The single highest-value next step is to **run the arm64 build on a real
+device** — it closes gaps 1, 2, and most of the rendering unknown at once.
