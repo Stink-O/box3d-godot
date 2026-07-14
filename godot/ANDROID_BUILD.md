@@ -593,6 +593,7 @@ belongs upstream.
 | 7 | App launches, Vulkan initialises, **scene never runs**; `ERROR: Couldn't present to Vulkan queue (VkResult error 5)` | Emulator Vulkan (gfxstream) present path is broken — occurs with *and* without a window. **A rendering problem, not an extension problem** | Force `--rendering-method gl_compatibility` for emulator runs, via the preset's `command_line/extra_args`. Not a project change |
 | 8 | `[samples] ALL -> PASS` on device with **zero** per-sample lines | **A false pass.** `test_samples.gd` enumerated `res://samples` filtering `.tscn`, but exported builds contain only `ball_pit.tscn.remap` — so it tested nothing and the empty loop left `_all_ok` true | Strip `.remap` before matching, and fail explicitly when zero scenes are found (§8) |
 | 9 | Demo renders cube sides black; `Too many instances using shader instance variables ... Maximum items supported by this hardware is: 4096` | The GLES3 backend caps instance shader variables at 4096 *in hardware*; the Cube Pile exceeds it. An artifact of the `gl_compatibility` fallback from #7 | **Not fixed, and not fixable via project settings** — verified that a `buffer_size.mobile` override makes it *worse*, since the value is clamped to the hardware max regardless. Renders under Vulkan on real hardware are untested |
+| 10 | `FATAL: Avd's CPU Architecture 'arm64' is not supported by the QEMU2 emulator on x86_64 host` | Google's emulator refuses arm64 images on x86 hosts. It *ships* `qemu-system-aarch64`, but gates it to ARM hosts (Apple Silicon) | No workaround. arm64 AArch64 code was executed via `qemu-user` instead (§8) |
 
 ### On the harness fix (#8) — the one test-code change
 
@@ -686,6 +687,87 @@ solver steps correctly — **on Android**.
 `adb logcat` is clean of GDExtension load errors: no `dlopen` failure, no
 "Can't open GDExtension dynamic library", no missing-class errors.
 
+### Android — arm64 (AArch64/NEON), via `qemu-user`
+
+No physical arm64 device was available, and **an arm64 emulator is impossible on
+an x86_64 host** — Google's emulator refuses outright (§7 #10). So the arm64
+code path was exercised a different way: by compiling **Box3D's own unit test
+suite** (`test/`, which upstream ships) for `aarch64-linux-android` as a
+**static** binary and running it under `qemu-user`.
+
+Why this is meaningful rather than a stunt: the test binary is compiled by the
+**same NDK clang, with the same `--target=aarch64-...`, `-march=armv8-a`,
+`-std=gnu17` and `-ffp-contract=off`**, over the **same `src/*.c`** that goes
+into the shipped `.so`. It contains 5529 NEON vector instructions
+(`llvm-objdump -d | grep -cE "fdiv\s+v|fsqrt\s+v|fmul\s+v"`). It is the same
+NEON code, genuinely executing.
+
+`qemu-user` needs no root and no install — extract Fedora's own signed package:
+
+```sh
+dnf download qemu-user-static-aarch64          # no sudo required
+rpm2cpio qemu-user-static-aarch64-*.rpm | cpio -idm
+QEMU=./usr/bin/qemu-aarch64-static
+
+CLANG=$ANDROID_HOME/ndk/28.1.13356709/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
+$CLANG --target=aarch64-linux-android24 -march=armv8-a \
+       -std=gnu17 -ffp-contract=off -static -O2 \
+       -Iinclude -Isrc -Ishared -Iextern \
+       test/*.c src/*.c shared/*.c -lm -o box3d_test_arm64
+
+$QEMU ./box3d_test_arm64
+```
+
+**Result: all 22 tests / 193 subtests pass on AArch64**, including
+`DeterminismTest`, `MathTest`, `ManifoldTest`, `CreateHullDeterminismTest`,
+`JointTest`, and `WorldTest`:
+
+```
+All Box3D tests passed!
+Test duration = 19.81 s        (vs 0.85 s native x86_64 -- ~23x, TCG overhead)
+```
+
+#### The determinism result — the strongest single piece of evidence
+
+`test/test_determinism.c` hardcodes a **bit-exact cross-platform expectation**:
+
+```c
+#define EXPECTED_SLEEP_STEP 308
+#define EXPECTED_HASH 0x1E5EDD79
+...
+ENSURE( data.sleepStep == EXPECTED_SLEEP_STEP );
+ENSURE( data.hash == EXPECTED_HASH );
+```
+
+It simulates 500 steps of falling ragdolls and hashes the resulting world
+state. Building the identical suite for both Android ABIs gives:
+
+| Build | SIMD path | Hash after 500 steps | Sleep step |
+|---|---|---|---|
+| aarch64-linux-android (qemu) | **NEON** (`vdivq_f32`, `vsqrtq_f32`) | **`0x1E5EDD79`** | 308 |
+| x86_64-linux-android (native) | **SSE2** | **`0x1E5EDD79`** | 308 |
+
+**The NEON and SSE2 builds produce bit-identical simulation state.** This is
+direct evidence that:
+
+- The NEON path is not merely "compiles and doesn't crash" — it is numerically
+  correct to the bit.
+- **`-ffp-contract=off` is doing its job on ARM.** If clang had contracted any
+  `a*b+c` into an FMA on AArch64, this hash would diverge and the assertion
+  would fail. This is the flag's entire purpose, and here is the proof it
+  matters — it is not decoration.
+
+**What this does not prove.** Be precise about this:
+
+- `qemu-user` *emulates* AArch64. It is not real silicon. QEMU's NEON
+  implementation is accurate and the bit-exact hash match is strong evidence,
+  but a physical CPU has not run this code.
+- This exercises the **Box3D C core only**. The C++ wrapper in `godot/src/` and
+  Godot's `dlopen` of the arm64 `.so` are *not* covered.
+- The test binary is **statically linked**; the shipped artifact is a dynamic
+  `.so` resolving `libc++_shared.so` through bionic. Dynamic loading on arm64
+  is not exercised here.
+
 ### Diagnosing a crash
 
 If the extension crashes, symbolize rather than guess:
@@ -713,19 +795,33 @@ Read this section before repeating any claim from this document.
 - **The APK packages both ABIs correctly** under `lib/arm64-v8a/` and
   `lib/x86_64/`.
 - **The demo runs on Android** and its UI and 3D scene render.
+- **The AArch64/NEON code path executes correctly** — Box3D's own suite, 22
+  tests / 193 subtests, built by the NDK for `aarch64-linux-android` and run
+  under `qemu-user` (§8).
+- **NEON and SSE2 are bit-identical.** Both Android builds produce state hash
+  `0x1E5EDD79` after 500 ragdoll steps, proving `-ffp-contract=off` holds on
+  ARM (§8).
+- **`template_release` runs.** The Linux release library passes all 42 + 30
+  assertions (tested by temporarily pointing the manifest's debug key at it).
 
 ### NOT tested — be explicit about these
 
 - **No physical Android device was available.** Everything on-device is an
-  **x86_64 emulator**.
-- **The arm64 library has never been executed.** This is the most important
-  gap. An x86_64 emulator runs the **x86_64** build through the **SSE2** path.
-  The arm64 `.so` — the one you would actually ship — is verified only
-  *structurally*: correct machine type, 16 KB alignment, exported entry symbol,
-  correct APK placement. **Its NEON code path has not been run.** The macro
-  analysis in §6 says NEON is selected correctly, and that is well-founded, but
-  it is analysis, not execution. An arm64-v8a emulator image exists but runs
-  under full QEMU translation on an x86 host and was not attempted.
+  **x86_64 emulator**, which runs the **x86_64** build through the **SSE2**
+  path.
+- **An arm64 emulator is impossible on this host** — not merely slow. Google's
+  emulator refuses: `FATAL: Avd's CPU Architecture 'arm64' is not supported by
+  the QEMU2 emulator on x86_64 host`. There is also no `qemu-user` binfmt
+  handler installed, so cross-arch containers fail with `Exec format error`.
+- **The arm64 `.so` itself has never been loaded by Godot.** This remains the
+  headline gap, though it is now much narrower than "arm64 is unverified":
+  - Its **NEON C core is verified by execution** and bit-exact against x86_64
+    (§8) — same toolchain, same flags, same sources.
+  - The **library** is verified *structurally*: AArch64 machine type, 16 KB
+    alignment, `GLOBAL DEFAULT` entry symbol, correct `lib/arm64-v8a/` placement.
+  - **Not covered:** the C++ wrapper in `godot/src/` on arm64, Godot's `dlopen`
+    of the arm64 `.so`, bionic dynamic linking of `libc++_shared.so` on arm64,
+    and execution on real silicon rather than QEMU.
 - **Vulkan on Android is untested.** The emulator's Vulkan present path is
   broken (§7 #7), so every on-device run used the `gl_compatibility` renderer.
   Godot selects **Forward Mobile / Vulkan** by default on real hardware — that
@@ -736,9 +832,9 @@ Read this section before repeating any claim from this document.
   render black (§7 #9). Physics is provably unaffected. Whether the demo's
   desktop-oriented settings (Forward+, 8192 shadow maps, MSAA, 256 KB global
   shader buffer) render acceptably under Vulkan on a real phone is **untested**.
-- **`template_release` has never been run anywhere** — on Android or Linux. It
-  builds cleanly and passes the structural checks; that is all. Every runtime
-  test used `template_debug`.
+- **The Android `template_release` libraries have never been run.** The *Linux*
+  release library passes the full suite, so the release build configuration is
+  not untested in general — but no release APK was launched.
 - **arm32 does not build at all** (§6).
 - **16 KB pages are verified structurally, not at runtime.** The emulator
   reports `PAGE_SIZE=4096`, so 16 KB page *loading* was never exercised. The
@@ -749,18 +845,30 @@ Read this section before repeating any claim from this document.
 
 Be aware these are the honest weak points, in order:
 
-1. *"Have you run the arm64 build?"* — **No.** Only x86_64, on an emulator.
-   The arm64 binary is structurally correct and the NEON selection is verified
-   at the preprocessor level, but no ARM code has executed.
-2. *"Does it work under Vulkan?"* — **Unknown.** Emulator Vulkan is broken, so
-   all runs used OpenGL. Real devices default to Vulkan.
-3. *"Is the release build good?"* — **It compiles and is structurally correct.
-   It has never been run.**
-4. *"Why is `timer.c` allowed to disagree with `core.h` about Android?"* — It
+1. *"Have you run the arm64 build?"* — **The `.so` itself, no.** But the
+   AArch64/NEON code inside it *has* executed: Box3D's full suite, built with
+   the same NDK toolchain and flags over the same sources, passes under
+   `qemu-user`, and its determinism hash is **bit-identical to x86_64**. What
+   remains unrun on arm64 is the C++ wrapper and Godot's `dlopen` of the
+   library. An arm64 emulator is *impossible* on an x86 host — Google's
+   emulator refuses (§7 #10) — so this was the strongest route available
+   without hardware.
+2. *"So NEON might still be wrong on a real phone?"* — Possible but unlikely.
+   QEMU is emulation, not silicon. However the NEON path is not merely
+   "compiles": it reproduces a bit-exact 500-step simulation hash matching the
+   SSE2 build. A silicon-level divergence would have to be a QEMU NEON
+   inaccuracy that happens to land on the same hash — implausible.
+3. *"Does it work under Vulkan?"* — **Unknown.** Emulator Vulkan present is
+   broken (§7 #7), so all runs used OpenGL. Real devices default to Vulkan.
+   This is the largest genuine unknown.
+4. *"Is the release build good?"* — The **Linux** release library passes the
+   full suite. No **Android** release APK has been launched.
+5. *"Why is `timer.c` allowed to disagree with `core.h` about Android?"* — It
    works because bionic provides the POSIX APIs the `__linux__` branch wants.
    It is correct today, and it is luck rather than design (§6).
-5. *"Why no 16 KB page linker flag?"* — Because NDK r28 defaults to it, and the
+6. *"Why no 16 KB page linker flag?"* — Because NDK r28 defaults to it, and the
    binary was measured rather than assumed. Downgrade the NDK and this changes.
 
-The single highest-value next step is to **run the arm64 build on a real
-device** — it closes gaps 1, 2, and most of the rendering unknown at once.
+The single highest-value next step is still to **run the arm64 build on a real
+device** — it closes the remaining wrapper/`dlopen` gap and the Vulkan unknown
+at once. Nothing short of hardware will close those two.
