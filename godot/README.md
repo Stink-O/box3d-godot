@@ -368,9 +368,15 @@ git submodule update --init
 Install the toolchain:
 
 ```sh
-sudo dnf install gcc gcc-c++ scons git      # Fedora
-sudo apt install build-essential scons git  # Debian / Ubuntu / Mint
+sudo dnf install gcc gcc-c++ libstdc++-static scons git  # Fedora
+sudo apt install build-essential scons git               # Debian / Ubuntu / Mint
 ```
+
+godot-cpp links libstdc++ statically by default (so the extension is
+self-contained), which needs the static library. Debian/Ubuntu ship it inside
+`build-essential`, but on Fedora it's the separate `libstdc++-static` package —
+without it the link fails with `cannot find -lstdc++`. (Alternatively, build
+with `use_static_cpp=no` to link it dynamically instead.)
 
 Build both targets from this `godot/` folder:
 
