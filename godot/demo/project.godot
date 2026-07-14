@@ -31,3 +31,7 @@ common/physics_interpolation=true
 anti_aliasing/quality/msaa_3d=2
 lights_and_shadows/directional_shadow/size=8192
 limits/global_shader_variables/buffer_size=262144
+; Required by Godot's Android export gate. The demo ships no textures (all
+; meshes are procedural), so this compresses nothing and does not affect the
+; desktop demo -- it only satisfies the export check. See ANDROID_BUILD.md.
+textures/vram_compression/import_etc2_astc=true
