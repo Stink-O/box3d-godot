@@ -14,3 +14,12 @@ linux.release.x86_64 = "res://bin/libbox3d_godot.linux.template_release.x86_64.s
 
 macos.debug = "res://bin/libbox3d_godot.macos.template_debug.framework"
 macos.release = "res://bin/libbox3d_godot.macos.template_release.framework"
+
+; Android. Only 64-bit ABIs are listed: Box3D's NEON path uses AArch64-only
+; intrinsics (vdivq_f32/vsqrtq_f32), so arch=arm32 does not compile. See
+; ANDROID_BUILD.md. 64-bit has been required by Google Play since 2019.
+android.debug.arm64 = "res://bin/libbox3d_godot.android.template_debug.arm64.so"
+android.release.arm64 = "res://bin/libbox3d_godot.android.template_release.arm64.so"
+
+android.debug.x86_64 = "res://bin/libbox3d_godot.android.template_debug.x86_64.so"
+android.release.x86_64 = "res://bin/libbox3d_godot.android.template_release.x86_64.so"
