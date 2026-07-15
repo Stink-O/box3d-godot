@@ -872,3 +872,40 @@ Be aware these are the honest weak points, in order:
 The single highest-value next step is still to **run the arm64 build on a real
 device** — it closes the remaining wrapper/`dlopen` gap and the Vulkan unknown
 at once. Nothing short of hardware will close those two.
+
+### Closing the gap without owning a phone: Firebase Test Lab
+
+`godot/tools/testlab_arm64.sh` runs the harness APK on **real arm64 hardware**
+via Firebase Test Lab and greps the result out of logcat. Firebase's free
+(Spark) tier includes a small daily quota of physical-device runs, which is
+enough for this.
+
+```sh
+~/google-cloud-sdk/bin/gcloud auth login
+~/google-cloud-sdk/bin/gcloud config set project <your-firebase-project-id>
+./godot/tools/testlab_arm64.sh                  # or: ./testlab_arm64.sh oriole 33
+```
+
+Two things that matter and are easy to get wrong:
+
+- **Use `--device model=<PHYSICAL>`, never a virtual device.** Test Lab's
+  virtual devices are **x86** — they would run the x86_64 `.so` we already
+  test locally and touch the arm64 library not at all, while looking like a
+  green Android result. The script filters `form=PHYSICAL` for this reason.
+- The APK's main scene is `res://tests/test_features.tscn`, so it runs the 42
+  assertions on launch and quits. The Robo test is only a launcher; **Robo may
+  report the run as "failed" because the app exits by itself within seconds.**
+  That is expected. The logcat is the result — look for `[test] ALL -> PASS`.
+
+The APK is built with the **default renderer** (no `gl_compatibility`
+override), so a successful run also exercises **Vulkan / Forward Mobile** on a
+real GPU and closes that unknown too.
+
+Rebuild the APK with:
+
+```sh
+cd godot/demo
+sed -i 's|run/main_scene="res://main.tscn"|run/main_scene="res://tests/test_features.tscn"|' project.godot
+godot --headless --path . --export-debug "Android" bin/box3d_testlab.apk
+git checkout project.godot        # <- do not forget
+```
