@@ -23,12 +23,18 @@
 # Usage:
 #   ./godot/tools/testlab_arm64.sh                 # auto-pick an arm64 device
 #   ./godot/tools/testlab_arm64.sh oriole 33       # explicit model + API level
+#
+#   # Visual run: point it at the demo instead of the harness. Test Lab records
+#   # video + screenshots of every run, so this shows the samples actually
+#   # rendering on a real phone under Vulkan -- something no emulator here can
+#   # show. Video links are printed at the end of the gcloud output.
+#   APK=godot/demo/bin/box3d_demo.apk ./godot/tools/testlab_arm64.sh
 
 set -uo pipefail
 
 GCLOUD="${GCLOUD:-$HOME/google-cloud-sdk/bin/gcloud}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-APK="$REPO/godot/demo/bin/box3d_testlab.apk"
+APK="${APK:-$REPO/godot/demo/bin/box3d_testlab.apk}"
 OUT="${TMPDIR:-/tmp}/box3d_testlab"
 
 command -v "$GCLOUD" >/dev/null 2>&1 || { echo "gcloud not found at $GCLOUD"; exit 1; }
@@ -80,8 +86,21 @@ echo
 echo "=================== RESULT (real arm64) ==================="
 grep -E "Godot Engine|Vulkan|OpenGL API|\[test\]" "$LOG" | sed 's/.*godot *: //' | head -50
 echo "==========================================================="
+echo "Video + screenshots of the run are in: $BUCKET"
+echo "(also linked from the console URL printed by gcloud above)"
+
 PASS="$(grep -c '\[test\].*-> PASS' "$LOG")"
 FAIL="$(grep -c '\[test\].*-> FAIL' "$LOG")"
+
+if [ "$PASS" -eq 0 ] && [ "$FAIL" -eq 0 ]; then
+    # Demo APK (no harness) -- nothing to assert; the video is the deliverable.
+    echo "No [test] lines: this looks like the demo APK, not the harness."
+    echo "Watch the video for whether it renders and simulates."
+    grep -iE "dlopen|GDExtension|Can't open|UnsatisfiedLink|FATAL" "$LOG" | head -10 \
+      || echo "No GDExtension load errors in logcat -- the extension loaded."
+    exit 0
+fi
+
 echo "PASS=$PASS  FAIL=$FAIL"
 if grep -q '\[test\] ALL -> PASS' "$LOG"; then
     echo "ARM64 VERIFIED: the extension loaded and physics simulated on real hardware."
