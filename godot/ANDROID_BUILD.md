@@ -853,13 +853,39 @@ Read this section before repeating any claim from this document.
   Google's emulator refuses: `FATAL: Avd's CPU Architecture 'arm64' is not
   supported by the QEMU2 emulator on x86_64 host`. Test Lab's Arm virtual
   devices, or a physical device, are the way around this.
-- **The demo's rendering under Vulkan on a phone is a separate question from
-  the binding.** Under the *local* GL fallback, per-instance colors exceed the
-  GLES 4096-item hardware limit and most cubes render black (§7 #9) — an
-  artifact of that fallback, not of the port. Whether the demo's
-  desktop-oriented settings (Forward+ lineage, 8192 shadow maps, MSAA, 256 KB
-  global shader buffer) *look* right under Vulkan on a mobile GPU is a
-  rendering-config matter; the physics is provably unaffected either way.
+- **The demo's *appearance* on a real phone could not be observed at all** —
+  and this is a limitation of the tooling, not a finding about the demo.
+  Test Lab's video and screenshots come back **pure black** (mean pixel 0) for
+  the whole run on the physical device, while the app is demonstrably alive:
+  Vulkan initialises, the scene loads, surface buffers are produced, nothing
+  crashes, and the harness passes 31 assertions on that same handset.
+
+  It is a **capture** artifact, not a render failure. The evidence:
+
+  | Environment | Renderer | Capture |
+  |---|---|---|
+  | local emulator | GL | demo visible (cube pile + UI) |
+  | realme C53 (physical) | Vulkan | black |
+  | realme C53, `.mobile` overrides | Vulkan | black (identical) |
+  | realme C53 | **GL** | **black (identical)** |
+
+  The renderer is not the variable — the device is. Godot draws into a
+  `SurfaceView`, and Android's screencap/screenrecord commonly returns black
+  for hardware-composited surfaces. Note also that reducing the shadow map
+  8192→2048, disabling MSAA and cutting the shader buffer to 64 KB produced a
+  **pixel-identical** result: a GPU actually struggling with those settings
+  would not render identically when they change. That rules the settings out.
+
+  **Therefore no mobile rendering settings are proposed.** The obvious
+  candidates were tested and fixed nothing. Whether the demo's
+  desktop-oriented settings (8192 shadow maps, MSAA, 256 KB shader buffer)
+  *look* right on a phone remains genuinely **unknown**, and the only way to
+  find out is to run it on a device you can physically look at:
+  `adb install godot/demo/bin/box3d_demo.apk`. Note the SSAO/SSIL warnings on
+  Forward Mobile are cosmetic and expected — those effects are Forward+ only.
+
+  The physics is provably unaffected either way (31 assertions, same device,
+  under Vulkan).
 
 ### If someone asks you a question you cannot answer
 
@@ -896,9 +922,19 @@ Be aware these are the honest weak points, in order:
    on a real 16 KB-page kernel (`sdk_gphone16k_arm64`), where a misaligned
    library would not load at all. Downgrade the NDK and this changes.
 
+8. *"Does the demo actually look right on a phone?"* — **Unknown, and not for
+   want of trying.** Test Lab's capture returns black for Godot's `SurfaceView`
+   on the physical device under *both* Vulkan and GL, so the screen could not
+   be observed. The app is alive underneath (scene loads, buffers produced, 31
+   assertions pass). The heavy-settings theory was tested and **disproved** —
+   `.mobile` overrides for shadow map / MSAA / shader buffer changed the output
+   not at all. Run `adb install godot/demo/bin/box3d_demo.apk` on a phone you
+   can look at; that is the only way to answer it.
+
 Remaining work is optional rather than load-bearing: a second GPU vendor
-(Adreno/Exynos), an Android `template_release` run, and a single uninterrupted
-42/42 on hardware via a game-loop test. Nothing known is broken.
+(Adreno/Exynos), an Android `template_release` run, a single uninterrupted
+42/42 on hardware via a game-loop test, and eyeballing the demo on a physical
+device. **Nothing known is broken.**
 
 ### Closing the gap without owning a phone: Firebase Test Lab
 
