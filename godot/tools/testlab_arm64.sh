@@ -35,7 +35,9 @@ set -uo pipefail
 GCLOUD="${GCLOUD:-$HOME/google-cloud-sdk/bin/gcloud}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APK="${APK:-$REPO/godot/demo/bin/box3d_testlab.apk}"
-OUT="${TMPDIR:-/tmp}/box3d_testlab"
+# Keyed by APK name so concurrent runs on different devices don't clobber each
+# other's logs (they share a bucket but not a run dir).
+OUT="${OUT:-${TMPDIR:-/tmp}/box3d_testlab_$(basename "$APK" .apk)}"
 
 command -v "$GCLOUD" >/dev/null 2>&1 || { echo "gcloud not found at $GCLOUD"; exit 1; }
 [ -f "$APK" ] || { echo "APK missing: $APK
@@ -72,15 +74,18 @@ echo "== running on real hardware; this takes a few minutes =="
     --timeout 120s \
     --results-dir "$STAMP" 2>&1 | tee "$OUT.run.log"
 
-BUCKET="$(grep -oE 'gs://[^ ]*' "$OUT.run.log" | head -1)"
-[ -n "$BUCKET" ] || { echo "Could not find results bucket; inspect $OUT.run.log"; exit 1; }
+# gcloud reports the bucket as an https console URL, not a gs:// URI:
+#   https://console.developers.google.com/storage/browser/<bucket>/<run-dir>/
+# Translate it rather than grepping for gs://, which never appears.
+BROWSE="$(grep -oE 'https://console\.developers\.google\.com/storage/browser/[^] ]*' "$OUT.run.log" | head -1)"
+BUCKET="gs://$(echo "$BROWSE" | sed -E 's#.*/storage/browser/##; s#/*$##')"
+[ "$BUCKET" != "gs://" ] || { echo "Could not find results bucket; inspect $OUT.run.log"; exit 1; }
 
 echo "== fetching logcat from $BUCKET =="
 rm -rf "$OUT.results"; mkdir -p "$OUT.results"
-"$GCLOUD" storage cp -r "$BUCKET**/logcat" "$OUT.results/" 2>/dev/null \
-  || "$GCLOUD" storage cp -r "${BUCKET}" "$OUT.results/" 2>/dev/null
+"$GCLOUD" storage cp -r "$BUCKET/**/logcat" "$OUT.results/" 2>/dev/null
 LOG="$(find "$OUT.results" -name "logcat*" -type f | head -1)"
-[ -n "$LOG" ] || { echo "No logcat retrieved. Browse: $BUCKET"; exit 1; }
+[ -n "$LOG" ] || { echo "No logcat retrieved. Browse: $BROWSE"; exit 1; }
 
 echo
 echo "=================== RESULT (real arm64) ==================="

@@ -803,25 +803,44 @@ Read this section before repeating any claim from this document.
   ARM (§8).
 - **`template_release` runs.** The Linux release library passes all 42 + 30
   assertions (tested by temporarily pointing the manifest's debug key at it).
+- **The arm64 `.so` loads and runs under Godot on an arm64 device**, and all
+  **42 binding assertions pass** there — run in two halves because of the Robo
+  time limit (§9): assertions 1-22 from `test_features.tscn`, 23-42 from the
+  tail scaffold, `[test] TAIL -> PASS`, zero failures. This covers the arm64
+  `dlopen`, the C++ wrapper on ARM, bionic's resolution of `libc++_shared.so`,
+  and the NEON solver — including `worker_count=4` multithreaded stepping.
+  Device: `MediumPhone_ps16k.arm` / API 36 / Firebase Test Lab.
+- **16 KB pages work at runtime.** The library loaded and ran on
+  `sdk_gphone16k_arm64` — a genuine 16 KB-page kernel, where a misaligned `.so`
+  would fail to load outright. No alignment error, no `dlopen` failure. The
+  decision not to pass `-Wl,-z,max-page-size=16384` (§6) is therefore backed by
+  execution, not only by reading `0x4000` out of an ELF header.
 
 ### NOT tested — be explicit about these
 
-- **No physical Android device was available.** Everything on-device is an
-  **x86_64 emulator**, which runs the **x86_64** build through the **SSE2**
-  path.
-- **An arm64 emulator is impossible on this host** — not merely slow. Google's
-  emulator refuses: `FATAL: Avd's CPU Architecture 'arm64' is not supported by
-  the QEMU2 emulator on x86_64 host`. There is also no `qemu-user` binfmt
-  handler installed, so cross-arch containers fail with `Exec format error`.
-- **The arm64 `.so` itself has never been loaded by Godot.** This remains the
-  headline gap, though it is now much narrower than "arm64 is unverified":
-  - Its **NEON C core is verified by execution** and bit-exact against x86_64
-    (§8) — same toolchain, same flags, same sources.
-  - The **library** is verified *structurally*: AArch64 machine type, 16 KB
-    alignment, `GLOBAL DEFAULT` entry symbol, correct `lib/arm64-v8a/` placement.
-  - **Not covered:** the C++ wrapper in `godot/src/` on arm64, Godot's `dlopen`
-    of the arm64 `.so`, bionic dynamic linking of `libc++_shared.so` on arm64,
-    and execution on real silicon rather than QEMU.
+- **No physical Android device was available**, and no physical device was
+  reached via Test Lab either — the free tier's physical pool stayed queued for
+  45+ minutes. All on-device runs are **emulated/virtualised**: an x86_64
+  emulator locally, and Arm *virtual* devices on Test Lab.
+- **Vulkan has never worked in any environment available here.** Every
+  on-device run used `--rendering-method gl_compatibility`. Both the local
+  emulator and Test Lab's Arm virtual devices (llvmpipe / SwiftShader) fail
+  identically with `Couldn't present to Vulkan queue (VkResult error 5)`, which
+  blocks the scene from running at all. **Godot selects Vulkan / Forward Mobile
+  by default on real hardware, and that path is completely unexercised.** This
+  is now the single largest gap.
+- **No real silicon.** arm64 is verified on virtualised Arm, not a physical
+  SoC. A real GPU driver, real thermal behaviour, and vendor-specific bionic
+  quirks are unexercised.
+- **The demo's appearance on real hardware is unknown.** Under the GL fallback
+  its per-instance colors exceed the GLES 4096-item hardware limit and most
+  cubes render black (§7 #9). Whether the desktop-oriented settings (Forward+
+  lineage, 8192 shadow maps, MSAA, 256 KB shader buffer) render acceptably
+  under Vulkan on a phone is **untested**.
+- **An arm64 *emulator* is impossible on an x86_64 host** — not merely slow.
+  Google's emulator refuses: `FATAL: Avd's CPU Architecture 'arm64' is not
+  supported by the QEMU2 emulator on x86_64 host`. Test Lab's Arm virtual
+  devices are the way around this.
 - **Vulkan on Android is untested.** The emulator's Vulkan present path is
   broken (§7 #7), so every on-device run used the `gl_compatibility` renderer.
   Godot selects **Forward Mobile / Vulkan** by default on real hardware — that
@@ -845,33 +864,40 @@ Read this section before repeating any claim from this document.
 
 Be aware these are the honest weak points, in order:
 
-1. *"Have you run the arm64 build?"* — **The `.so` itself, no.** But the
-   AArch64/NEON code inside it *has* executed: Box3D's full suite, built with
-   the same NDK toolchain and flags over the same sources, passes under
-   `qemu-user`, and its determinism hash is **bit-identical to x86_64**. What
-   remains unrun on arm64 is the C++ wrapper and Godot's `dlopen` of the
-   library. An arm64 emulator is *impossible* on an x86 host — Google's
-   emulator refuses (§7 #10) — so this was the strongest route available
-   without hardware.
-2. *"So NEON might still be wrong on a real phone?"* — Possible but unlikely.
-   QEMU is emulation, not silicon. However the NEON path is not merely
-   "compiles": it reproduces a bit-exact 500-step simulation hash matching the
-   SSE2 build. A silicon-level divergence would have to be a QEMU NEON
-   inaccuracy that happens to land on the same hash — implausible.
-3. *"Does it work under Vulkan?"* — **Unknown.** Emulator Vulkan present is
-   broken (§7 #7), so all runs used OpenGL. Real devices default to Vulkan.
-   This is the largest genuine unknown.
-4. *"Is the release build good?"* — The **Linux** release library passes the
+1. *"Does it work under Vulkan?"* — **No idea, and that is the honest answer.**
+   Every environment available here (local emulator, Test Lab Arm virtual
+   devices) has a broken Vulkan present path, so **every** on-device run forced
+   OpenGL. Real phones default to Vulkan / Forward Mobile. Nothing about the
+   binding suggests it would care — the extension is physics, not rendering,
+   and it does not touch the renderer — but that is reasoning, not evidence.
+2. *"Have you run it on a real phone?"* — **No.** arm64 is verified on Arm
+   *virtual* devices (Test Lab) and via `qemu-user`. The free tier's physical
+   device pool never dequeued. So: real GPU driver, real SoC, and vendor bionic
+   quirks are unexercised.
+3. *"Have you run the arm64 build at all, then?"* — **Yes, properly.** Godot
+   loaded `lib/arm64-v8a/libbox3d_godot...so` on an arm64 device and all 42
+   assertions passed (in two halves, §9), including multithreaded stepping.
+   Separately, Box3D's own C suite runs on AArch64 under `qemu-user` with a
+   determinism hash **bit-identical to x86_64** (§8).
+4. *"So could NEON still be wrong on real silicon?"* — Possible but unlikely.
+   It is not merely "it compiles": the NEON build reproduces a bit-exact
+   500-step simulation hash matching the SSE2 build, and 42 binding assertions
+   pass on an arm64 device. A silicon divergence would have to be an emulation
+   inaccuracy landing on the identical hash.
+5. *"Is the release build good?"* — The **Linux** release library passes the
    full suite. No **Android** release APK has been launched.
-5. *"Why is `timer.c` allowed to disagree with `core.h` about Android?"* — It
+6. *"Why is `timer.c` allowed to disagree with `core.h` about Android?"* — It
    works because bionic provides the POSIX APIs the `__linux__` branch wants.
-   It is correct today, and it is luck rather than design (§6).
-6. *"Why no 16 KB page linker flag?"* — Because NDK r28 defaults to it, and the
-   binary was measured rather than assumed. Downgrade the NDK and this changes.
+   Correct today, and luck rather than design (§6).
+7. *"Why no 16 KB page linker flag?"* — NDK r28 defaults to 16 KB alignment;
+   the binary was measured (`0x4000` on every LOAD) **and** loaded successfully
+   on a real 16 KB-page kernel, where a misaligned library would not load.
+   Downgrade the NDK and this changes.
 
-The single highest-value next step is still to **run the arm64 build on a real
-device** — it closes the remaining wrapper/`dlopen` gap and the Vulkan unknown
-at once. Nothing short of hardware will close those two.
+The single highest-value next step is now **a physical device running Vulkan** —
+either your own handset (`adb install` the stock APK, no GL override) or a
+Test Lab physical device when the free pool is less contended. That closes the
+last significant unknown. arm64 itself is no longer the gap.
 
 ### Closing the gap without owning a phone: Firebase Test Lab
 
@@ -886,20 +912,64 @@ enough for this.
 ./godot/tools/testlab_arm64.sh                  # or: ./testlab_arm64.sh oriole 33
 ```
 
-Two things that matter and are easy to get wrong:
+Things that matter and are easy to get wrong:
 
-- **Use `--device model=<PHYSICAL>`, never a virtual device.** Test Lab's
-  virtual devices are **x86** — they would run the x86_64 `.so` we already
-  test locally and touch the arm64 library not at all, while looking like a
-  green Android result. The script filters `form=PHYSICAL` for this reason.
-- The APK's main scene is `res://tests/test_features.tscn`, so it runs the 42
-  assertions on launch and quits. The Robo test is only a launcher; **Robo may
-  report the run as "failed" because the app exits by itself within seconds.**
-  That is expected. The logcat is the result — look for `[test] ALL -> PASS`.
+- **Not every Test Lab device is arm64.** Many virtual devices are **x86** —
+  those would run the x86_64 `.so` we already test locally and touch the arm64
+  library not at all, while presenting as a green Android result. Use either a
+  `form=PHYSICAL` device or an explicitly **Arm** virtual device
+  (`*.arm`, e.g. `MediumPhone_ps16k.arm`). Confirm from the logcat that the
+  device resolved `lib/arm64-v8a`.
+- **`MediumPhone_ps16k.arm` is worth knowing about**: an Arm virtual device
+  with a **16 KB page size** (`sdk_gphone16k_arm64`). It is the only way here
+  to test 16 KB page loading at runtime — a misaligned `.so` does not load at
+  all on such a kernel. See §6.
+- The Robo test is only a launcher; **Robo may report the run as "failed"
+  because the app exits by itself within seconds.** That is expected. The
+  logcat is the result.
 
-The APK is built with the **default renderer** (no `gl_compatibility`
-override), so a successful run also exercises **Vulkan / Forward Mobile** on a
-real GPU and closes that unknown too.
+#### The Robo time limit — why one run cannot cover all 42 assertions
+
+Robo exhausts its crawl in **~9 seconds** on the harness scene (there is no UI
+to explore), and Test Lab tears the session down at **~17 seconds**. The full
+harness needs ~34 s, so it is cut off mid-run — deterministically after 22
+assertions. Symptoms that this is what you are seeing: an identical assertion
+count every run, no crash, no ANR, and the logcat simply ending.
+
+**`--fixed-fps` does not fix this on Android.** On desktop it disables
+real-time synchronisation and the harness drops from 30.2 s to 0.58 s (a 52x
+speedup, byte-identical assertions — worth using for the Linux/CI suite). On
+Android the platform drives Godot's main loop from vsync, so physics stays
+pinned to 60 Hz real time and the flag has no effect. It *is* passed correctly
+(verify with `unzip -p app.apk assets/_cl_ | od -c`; note `strings` hides
+short tokens like `60`, which is misleading).
+
+The workaround used here was to run the harness in **two halves** — the stock
+`test_features.tscn` (assertions 1-22), then a temporary scaffold subclassing
+it to run only the tail (`_test_wheel_joint` onward, assertions 23-42):
+
+```gdscript
+extends "res://tests/test_features.gd"
+func _ready() -> void:
+    await _test_wheel_joint()
+    ...
+    await _test_solver_tuning()
+    print("[test] TAIL -> ", "PASS" if _all_ok else "FAIL")
+    get_tree().quit(0 if _all_ok else 1)
+```
+
+The proper fix, if this is ever automated, is a Test Lab **game-loop** test
+(`--type game-loop`), which runs the app for a fixed duration without a
+crawler. It needs a `com.google.intent.action.TEST_LOOP` intent filter in
+`AndroidManifest.xml`, which means enabling Godot's Gradle custom build — and
+that needs a real JDK, not the JRE this build otherwise gets by with.
+
+For a **visual** check, point the runner at the demo APK instead; Test Lab
+records video and screenshots:
+
+```sh
+APK=godot/demo/bin/box3d_demo.apk ./godot/tools/testlab_arm64.sh
+```
 
 Rebuild the APK with:
 
