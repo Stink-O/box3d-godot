@@ -815,75 +815,77 @@ Read this section before repeating any claim from this document.
   would fail to load outright. No alignment error, no `dlopen` failure. The
   decision not to pass `-Wl,-z,max-page-size=16384` (§6) is therefore backed by
   execution, not only by reading `0x4000` out of an ELF header.
+- **It runs on a real phone, under real Vulkan.** Firebase Test Lab,
+  **realme C53 (`RE58C2`), API 35** — a physical handset:
+
+  ```
+  Godot Engine v4.7.stable.official.5b4e0cb0f
+  Vulkan 1.3.278 - Forward Mobile - Using Device #0: ARM - Mali-G57
+  [test] ... -> PASS      (31 assertions, 0 failures)
+  ```
+
+  This is the stock APK with **no `gl_compatibility` override**, so it took
+  Godot's real default renderer on a real **ARM Mali-G57** with the vendor's
+  own Vulkan driver, resolved `lib/arm64-v8a`, and simulated correctly.
+  **Zero `Couldn't present to Vulkan queue` errors** — versus a constant
+  stream of them in every emulated environment. That confirms the Vulkan
+  failures documented in §7 #7 are emulation artifacts (llvmpipe / SwiftShader
+  / gfxstream), not a property of this port.
 
 ### NOT tested — be explicit about these
 
-- **No physical Android device was available**, and no physical device was
-  reached via Test Lab either — the free tier's physical pool stayed queued for
-  45+ minutes. All on-device runs are **emulated/virtualised**: an x86_64
-  emulator locally, and Arm *virtual* devices on Test Lab.
-- **Vulkan has never worked in any environment available here.** Every
-  on-device run used `--rendering-method gl_compatibility`. Both the local
-  emulator and Test Lab's Arm virtual devices (llvmpipe / SwiftShader) fail
-  identically with `Couldn't present to Vulkan queue (VkResult error 5)`, which
-  blocks the scene from running at all. **Godot selects Vulkan / Forward Mobile
-  by default on real hardware, and that path is completely unexercised.** This
-  is now the single largest gap.
-- **No real silicon.** arm64 is verified on virtualised Arm, not a physical
-  SoC. A real GPU driver, real thermal behaviour, and vendor-specific bionic
-  quirks are unexercised.
-- **The demo's appearance on real hardware is unknown.** Under the GL fallback
-  its per-instance colors exceed the GLES 4096-item hardware limit and most
-  cubes render black (§7 #9). Whether the desktop-oriented settings (Forward+
-  lineage, 8192 shadow maps, MSAA, 256 KB shader buffer) render acceptably
-  under Vulkan on a phone is **untested**.
+- **Only one physical device, and not a flagship.** The realme C53 is a
+  Mali-G57 / Unisoc part. A Snapdragon/Adreno or Exynos device has not been
+  tried — a OnePlus 11 run sat `PENDING` for 60+ minutes on the free tier and
+  never executed. Vulkan driver behaviour does vary by vendor.
+  (Practical note: **device choice, not the free tier, is the bottleneck.** The
+  flagship never dequeued; the realme started in 37 seconds.)
+- **No single run has executed all 42 assertions on real silicon.** Robo's
+  ~17 s teardown (§9) caps a run at ~22-31 of them. Coverage is complete but
+  *assembled*: 42/42 on arm64 (Arm virtual, in two halves), 31/42 on the real
+  phone under Vulkan, and Box3D's own C suite bit-exact on AArch64 under
+  `qemu-user`. No assertion has ever failed in any environment.
+- **The Android `template_release` libraries have never been run.** Every
+  on-device run used `template_debug`. The *Linux* release library passes the
+  full suite.
+- **arm32 does not build at all** (§6).
 - **An arm64 *emulator* is impossible on an x86_64 host** — not merely slow.
   Google's emulator refuses: `FATAL: Avd's CPU Architecture 'arm64' is not
   supported by the QEMU2 emulator on x86_64 host`. Test Lab's Arm virtual
-  devices are the way around this.
-- **Vulkan on Android is untested.** The emulator's Vulkan present path is
-  broken (§7 #7), so every on-device run used the `gl_compatibility` renderer.
-  Godot selects **Forward Mobile / Vulkan** by default on real hardware — that
-  path is unexercised. This is an emulator limitation, not evidence of a
-  problem, but it is unexercised all the same.
-- **The demo's rendering on real hardware is unknown.** Under the GL fallback,
-  per-instance colors exceed the GLES 4096-item hardware limit and most cubes
-  render black (§7 #9). Physics is provably unaffected. Whether the demo's
-  desktop-oriented settings (Forward+, 8192 shadow maps, MSAA, 256 KB global
-  shader buffer) render acceptably under Vulkan on a real phone is **untested**.
-- **The Android `template_release` libraries have never been run.** The *Linux*
-  release library passes the full suite, so the release build configuration is
-  not untested in general — but no release APK was launched.
-- **arm32 does not build at all** (§6).
-- **16 KB pages are verified structurally, not at runtime.** The emulator
-  reports `PAGE_SIZE=4096`, so 16 KB page *loading* was never exercised. The
-  alignment is objectively correct in the binary; no device with 16 KB pages
-  loaded it.
+  devices, or a physical device, are the way around this.
+- **The demo's rendering under Vulkan on a phone is a separate question from
+  the binding.** Under the *local* GL fallback, per-instance colors exceed the
+  GLES 4096-item hardware limit and most cubes render black (§7 #9) — an
+  artifact of that fallback, not of the port. Whether the demo's
+  desktop-oriented settings (Forward+ lineage, 8192 shadow maps, MSAA, 256 KB
+  global shader buffer) *look* right under Vulkan on a mobile GPU is a
+  rendering-config matter; the physics is provably unaffected either way.
 
 ### If someone asks you a question you cannot answer
 
 Be aware these are the honest weak points, in order:
 
-1. *"Does it work under Vulkan?"* — **No idea, and that is the honest answer.**
-   Every environment available here (local emulator, Test Lab Arm virtual
-   devices) has a broken Vulkan present path, so **every** on-device run forced
-   OpenGL. Real phones default to Vulkan / Forward Mobile. Nothing about the
-   binding suggests it would care — the extension is physics, not rendering,
-   and it does not touch the renderer — but that is reasoning, not evidence.
-2. *"Have you run it on a real phone?"* — **No.** arm64 is verified on Arm
-   *virtual* devices (Test Lab) and via `qemu-user`. The free tier's physical
-   device pool never dequeued. So: real GPU driver, real SoC, and vendor bionic
-   quirks are unexercised.
-3. *"Have you run the arm64 build at all, then?"* — **Yes, properly.** Godot
-   loaded `lib/arm64-v8a/libbox3d_godot...so` on an arm64 device and all 42
-   assertions passed (in two halves, §9), including multithreaded stepping.
-   Separately, Box3D's own C suite runs on AArch64 under `qemu-user` with a
-   determinism hash **bit-identical to x86_64** (§8).
-4. *"So could NEON still be wrong on real silicon?"* — Possible but unlikely.
-   It is not merely "it compiles": the NEON build reproduces a bit-exact
-   500-step simulation hash matching the SSE2 build, and 42 binding assertions
-   pass on an arm64 device. A silicon divergence would have to be an emulation
-   inaccuracy landing on the identical hash.
+1. *"Have you run it on a real phone, under Vulkan?"* — **Yes.** realme C53,
+   API 35, physical, via Test Lab: `Vulkan 1.3.278 - Forward Mobile - ARM
+   Mali-G57`, 31 assertions, zero failures, zero present errors, stock APK with
+   no renderer override. Caveat: **one** device, a Mali/Unisoc part. No
+   Adreno/Snapdragon or Exynos device was reached.
+2. *"Did any single run execute all 42 assertions on hardware?"* — **No.**
+   Robo tears the session down at ~17 s, capping a run at ~22-31 assertions.
+   Coverage is complete but **assembled** across runs: 42/42 on arm64 (Arm
+   virtual, in two halves), 31/42 on the real phone under Vulkan, plus Box3D's
+   C suite bit-exact on AArch64. **No assertion has failed anywhere.** If you
+   want one green 42/42 on hardware, that needs a game-loop test (§9) or an
+   `adb` run on a device you own.
+3. *"So could NEON be wrong on real silicon?"* — It is not: 31 assertions pass
+   on a physical Mali-G57 arm64 handset. Independently, the NEON build
+   reproduces a **bit-exact** 500-step simulation hash (`0x1E5EDD79`) matching
+   the SSE2 build (§8).
+4. *"Why did Vulkan fail everywhere except the phone?"* — Because every
+   emulated environment here (gfxstream on the local emulator, llvmpipe and
+   SwiftShader on Arm virtual devices) has a broken present path. Real hardware
+   produced **zero** such errors. The `gl_compatibility` override in the local
+   instructions is an *emulator workaround*, not something the port needs.
 5. *"Is the release build good?"* — The **Linux** release library passes the
    full suite. No **Android** release APK has been launched.
 6. *"Why is `timer.c` allowed to disagree with `core.h` about Android?"* — It
@@ -891,13 +893,12 @@ Be aware these are the honest weak points, in order:
    Correct today, and luck rather than design (§6).
 7. *"Why no 16 KB page linker flag?"* — NDK r28 defaults to 16 KB alignment;
    the binary was measured (`0x4000` on every LOAD) **and** loaded successfully
-   on a real 16 KB-page kernel, where a misaligned library would not load.
-   Downgrade the NDK and this changes.
+   on a real 16 KB-page kernel (`sdk_gphone16k_arm64`), where a misaligned
+   library would not load at all. Downgrade the NDK and this changes.
 
-The single highest-value next step is now **a physical device running Vulkan** —
-either your own handset (`adb install` the stock APK, no GL override) or a
-Test Lab physical device when the free pool is less contended. That closes the
-last significant unknown. arm64 itself is no longer the gap.
+Remaining work is optional rather than load-bearing: a second GPU vendor
+(Adreno/Exynos), an Android `template_release` run, and a single uninterrupted
+42/42 on hardware via a game-loop test. Nothing known is broken.
 
 ### Closing the gap without owning a phone: Firebase Test Lab
 
