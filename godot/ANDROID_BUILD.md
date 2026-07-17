@@ -779,7 +779,36 @@ adb logcat | $ANDROID_HOME/ndk/28.1.13356709/prebuilt/linux-x86_64/bin/ndk-stack
 
 ---
 
-## 9. What is tested and what is NOT
+## 9. Mobile performance: measure before believing
+
+The Cube Pile (4096 bodies) ran at ~10-16 fps under load on the emulator. Two
+rounds of optimization, both measured with the same protocol — export with
+`--print-fps`, charge a shot into the pile, grab-drag a cube, average 12
+one-second FPS samples from logcat:
+
+| Build | Mean | Min (during burst) |
+|---|---|---|
+| baseline | 23.6 fps | 9 |
+| + shadow 2048 / MSAA off / 3D scale 0.75 (mobile tags) | 24.1 fps | 10 |
+| + **MultiMesh cube pile** | **48.8 fps** | **38** |
+
+The lesson: the sample was **draw-call bound, not fragment bound**. Cutting
+shadow resolution, MSAA and render scale — the standard mobile knobs — moved
+nothing measurably, because 4096 per-cube MeshInstance3Ds cost 4096 draw calls
+before a single fragment shades. Rendering the pile through one MultiMesh
+(`common/cube_grid_multimesh.gd`; physics bodies untouched) doubled the mean
+and cut worst-case frame time ~4x. The GDScript sync loop (4096
+`set_instance_transform` per frame) is included in those numbers.
+
+The conservative `.mobile` overrides (shadow size 2048, MSAA off, cheaper
+shadow filter) are kept — minimal visual cost and they plausibly help real
+tile-based phone GPUs — but note honestly: **their benefit was not measurable
+in the emulator**, whose bottlenecks are not a phone's. A
+`scaling_3d/scale.mobile=0.75` override was tried, measured useless here, and
+dropped because it visibly softens the image. Re-add it only with a
+real-device measurement in hand.
+
+## 10. What is tested and what is NOT
 
 Read this section before repeating any claim from this document.
 
@@ -805,7 +834,7 @@ Read this section before repeating any claim from this document.
   assertions (tested by temporarily pointing the manifest's debug key at it).
 - **The arm64 `.so` loads and runs under Godot on an arm64 device**, and all
   **42 binding assertions pass** there — run in two halves because of the Robo
-  time limit (§9): assertions 1-22 from `test_features.tscn`, 23-42 from the
+  time limit (§10): assertions 1-22 from `test_features.tscn`, 23-42 from the
   tail scaffold, `[test] TAIL -> PASS`, zero failures. This covers the arm64
   `dlopen`, the C++ wrapper on ARM, bionic's resolution of `libc++_shared.so`,
   and the NEON solver — including `worker_count=4` multithreaded stepping.
@@ -841,7 +870,7 @@ Read this section before repeating any claim from this document.
   (Practical note: **device choice, not the free tier, is the bottleneck.** The
   flagship never dequeued; the realme started in 37 seconds.)
 - **No single run has executed all 42 assertions on real silicon.** Robo's
-  ~17 s teardown (§9) caps a run at ~22-31 of them. Coverage is complete but
+  ~17 s teardown (§10) caps a run at ~22-31 of them. Coverage is complete but
   *assembled*: 42/42 on arm64 (Arm virtual, in two halves), 31/42 on the real
   phone under Vulkan, and Box3D's own C suite bit-exact on AArch64 under
   `qemu-user`. No assertion has ever failed in any environment.
@@ -901,7 +930,7 @@ Be aware these are the honest weak points, in order:
    Coverage is complete but **assembled** across runs: 42/42 on arm64 (Arm
    virtual, in two halves), 31/42 on the real phone under Vulkan, plus Box3D's
    C suite bit-exact on AArch64. **No assertion has failed anywhere.** If you
-   want one green 42/42 on hardware, that needs a game-loop test (§9) or an
+   want one green 42/42 on hardware, that needs a game-loop test (§10) or an
    `adb` run on a device you own.
 3. *"So could NEON be wrong on real silicon?"* — It is not: 31 assertions pass
    on a physical Mali-G57 arm64 handset. Independently, the NEON build
