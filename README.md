@@ -24,6 +24,9 @@ upstream engine sources are unchanged; everything Godot-specific lives in
   live solver tuning.
 - Ships a **sample browser** demo (~28 samples stacks, ragdoll, a drivable
   car, joints, queries, and toys).
+- Runs on **Android** (arm64 + x86_64), verified on real hardware under
+  Vulkan, with touch controls and a mobile-scaled UI in the demo. Build and
+  toolchain walkthrough: **[`godot/ANDROID_BUILD.md`](godot/ANDROID_BUILD.md)**.
 
 
 
