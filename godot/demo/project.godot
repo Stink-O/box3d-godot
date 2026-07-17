@@ -29,7 +29,14 @@ common/physics_interpolation=true
 [rendering]
 
 anti_aliasing/quality/msaa_3d=2
+; Mobile overrides (the ".mobile" feature tag only applies on phones/tablets;
+; desktop reads the plain keys above/below and is unaffected). The desktop
+; values are heavy for a mobile GPU -- an 8192 shadow map alone is a large
+; slice of frame time on a phone -- and were the main source of low FPS on
+; device. Same scenes, same cube counts; only shadow resolution and MSAA drop.
+anti_aliasing/quality/msaa_3d.mobile=0
 lights_and_shadows/directional_shadow/size=8192
+lights_and_shadows/directional_shadow/size.mobile=2048
 limits/global_shader_variables/buffer_size=262144
 ; Required by Godot's Android export gate. The demo ships no textures (all
 ; meshes are procedural), so this compresses nothing and does not affect the
