@@ -12,9 +12,10 @@ BASE_Y = 0.55    # bottom layer centre height above the floor
 lines = []
 A = lines.append
 
-A('[gd_scene load_steps=4 format=3]')
+A('[gd_scene load_steps=5 format=3]')
 A('')
 A('[ext_resource type="PackedScene" path="res://common/cube.tscn" id="1_cube"]')
+A('[ext_resource type="Script" path="res://common/cube_grid_multimesh.gd" id="2_mm"]')
 A('')
 A('[sub_resource type="BoxMesh" id="FloorMesh_1"]')
 A('size = Vector3(120, 1, 120)')
@@ -39,7 +40,9 @@ A('[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]'
 A('mesh = SubResource("FloorMesh_1")')
 A('material_override = SubResource("FloorMat_1")')
 A('')
+# One MultiMesh draws the whole grid (4096 draw calls -> 1); see the script.
 A('[node name="CubeGrid" type="Node3D" parent="Box3DWorld"]')
+A('script = ExtResource("2_mm")')
 A('')
 
 half = (N - 1) * SPACING / 2.0
