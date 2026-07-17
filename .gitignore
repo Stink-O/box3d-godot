@@ -45,5 +45,11 @@ godot/msvc_capture.log
 # ...but ship the prebuilt Windows demo binaries so a fresh clone plays out of the box
 !godot/demo/bin/libbox3d_godot.windows.*.dll
 
+# Exported Android packages (rebuild with: godot --headless --path godot/demo \
+# --export-debug "Android" bin/box3d_demo.apk). ~60 MB each -- not worth tracking.
+*.apk
+*.aab
+*.idsig
+
 # Godot editor cache
 godot/demo/.godot/

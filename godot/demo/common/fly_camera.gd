@@ -49,6 +49,19 @@ var _charging := false
 var _charge := 0.0
 var _charge_bar: ProgressBar = null
 
+## --- Touch (phones/tablets; see common/touch_controls.gd for the buttons) ---
+## One-finger drag that DIDN'T land on a body looks around (the grab raycast
+## runs first, exactly like desktop left-click, so touching a body still grabs
+## it). Two fingers: pinch to dolly along the view, drag to pan. All of it is
+## keyed off _touch_mode, so none of these paths exist on desktop.
+var _touch_mode := false
+var _touches := {}                ## raw touch index -> screen position
+var _touch_looking := false       ## one-finger look drag in progress
+var _pinch_last_dist := 0.0
+var _pan_last_mid := Vector2.ZERO
+@export var touch_dolly_speed := 0.02   ## world units per pixel of pinch
+@export var touch_pan_speed := 0.008    ## world units per pixel of two-finger drag
+
 ## Third-person follow (samples opt in through the shell's toggle button).
 ## A standard orbit rig: the camera sits EXACTLY on an orbit sphere around a
 ## smoothed pivot and is hard-aimed at it, so HOLD-RIGHT-MOUSE orbiting is
@@ -86,7 +99,27 @@ func set_bomb_mode(on: bool) -> void:
 
 
 func _ready() -> void:
+	_touch_mode = DisplayServer.is_touchscreen_available()
 	_reset_pose()
+
+
+## Touch-layer twin of holding / releasing F (see touch_controls.gd's SHOOT).
+func begin_charge() -> void:
+	_start_charge()
+
+
+func end_charge() -> void:
+	_release_charge()
+
+
+## The virtual joystick's camera mode: fly like desktop WASD, analog. Stick up
+## flies toward where you're looking (pitch included, same as W), stick
+## sideways strafes. Called every frame while the stick is deflected.
+func touch_move(v: Vector2, delta: float) -> void:
+	if _follow != null or _returning:
+		return  # third person / glide-home owns the camera
+	var dir := -transform.basis.z * -v.y + transform.basis.x * v.x
+	position += dir * move_speed * delta
 
 
 # Point the camera at a newly loaded sample's world and reset to the default
@@ -112,6 +145,7 @@ func _end_follow_states() -> void:
 	_orbiting = false
 	_orbit_yaw = 0.0
 	_orbit_pitch = 0.0
+	_touch_looking = false  # sample switch mid-drag: don't carry the look over
 
 
 # True while the third-person follow owns the camera. Samples use this to
@@ -184,6 +218,34 @@ func _reset_pose() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Raw touches, tracked ahead of the emulated-mouse handlers below (Godot
+	# mirrors the FIRST finger as a mouse, which is what drives grab & look;
+	# the second finger only exists here, as pinch/pan).
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			# A finger resting on the touch overlay (stick, SHOOT, ...) is
+			# operating a control, not the camera: if it were tracked here, a
+			# world-drag while holding SHOOT would read as a two-finger pinch.
+			if TouchControls.active != null and TouchControls.active.owns_point(event.position):
+				return
+			_touches[event.index] = event.position
+			if _touches.size() == 2:
+				# Second finger down: the gesture is now pinch/pan, not a
+				# look or a grab.
+				_touch_looking = false
+				_end_grab()
+				var pts := _touch_points()
+				_pinch_last_dist = pts[0].distance_to(pts[1])
+				_pan_last_mid = (pts[0] + pts[1]) / 2.0
+		else:
+			_touches.erase(event.index)
+		return
+	elif event is InputEventScreenDrag:
+		_touches[event.index] = event.position
+		if _touches.size() >= 2:
+			_update_pinch_pan()
+		return
+
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			if _follow != null:
@@ -200,13 +262,29 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_LEFT and not _flying:
 			if event.pressed:
 				_try_grab()
+				# Touch: a press that landed on nothing becomes a look (or,
+				# in third person, an orbit) — the finger version of holding
+				# the right mouse button.
+				if _touch_mode and _grabbed == null and _touches.size() < 2:
+					if _follow != null:
+						_orbiting = true  # no pointer capture on a touchscreen
+					else:
+						_touch_looking = true
 			else:
 				_end_grab()
+				_touch_looking = false
+				if _touch_mode:
+					_orbiting = false
 	elif event is InputEventMouseMotion and _follow != null and _orbiting:
 		# Vertical inverted (flight-style): push the mouse up to dip the
 		# camera and look up at the target.
 		_orbit_yaw -= event.relative.x * look_sensitivity
 		_orbit_pitch = clampf(_orbit_pitch + event.relative.y * look_sensitivity, -0.6, 1.3)
+	elif event is InputEventMouseMotion and _touch_looking and _touches.size() < 2:
+		# One-finger look: same math as fly-look, no pointer capture.
+		_yaw -= event.relative.x * look_sensitivity
+		_pitch = clampf(_pitch - event.relative.y * look_sensitivity, -1.5, 1.5)
+		rotation = Vector3(_pitch, _yaw, 0.0)
 	elif event is InputEventMouseMotion and _flying:
 		_yaw -= event.relative.x * look_sensitivity
 		_pitch = clampf(_pitch - event.relative.y * look_sensitivity, -1.5, 1.5)
@@ -216,6 +294,29 @@ func _unhandled_input(event: InputEvent) -> void:
 			_start_charge()
 		else:
 			_release_charge()
+
+
+# The two lowest-index touches define the pinch/pan gesture.
+func _touch_points() -> Array:
+	var idx := _touches.keys()
+	idx.sort()
+	return [_touches[idx[0]], _touches[idx[1]]]
+
+
+func _update_pinch_pan() -> void:
+	var pts := _touch_points()
+	var dist: float = pts[0].distance_to(pts[1])
+	var mid: Vector2 = (pts[0] + pts[1]) / 2.0
+
+	# Pinch: spread to dolly in, squeeze to back away.
+	position += -transform.basis.z * (dist - _pinch_last_dist) * touch_dolly_speed
+	# Pan: drag both fingers to slide the view (drag right = look at what's
+	# left of you, i.e. the camera moves the other way -- map style).
+	var delta := mid - _pan_last_mid
+	position += (-transform.basis.x * delta.x + transform.basis.y * delta.y) * touch_pan_speed
+
+	_pinch_last_dist = dist
+	_pan_last_mid = mid
 
 
 func _set_flying(active: bool) -> void:
@@ -438,6 +539,13 @@ func _shoot(charge: float = 0.0) -> void:
 	if _flying:
 		origin = global_position
 		dir = -global_transform.basis.z
+	elif _touch_mode:
+		# Touch: the emulated "mouse" sits wherever the finger last was --
+		# usually the SHOOT button itself. Aim through the screen centre
+		# instead (the crosshair the touch layer draws): shoot where you look.
+		var centre := get_viewport().get_visible_rect().size / 2.0
+		origin = project_ray_origin(centre)
+		dir = project_ray_normal(centre)
 	else:
 		var mouse := get_viewport().get_mouse_position()
 		origin = project_ray_origin(mouse)

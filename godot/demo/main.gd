@@ -104,8 +104,11 @@ var _updating_sidebar := false  ## guard while pushing values into the controls
 var _worker_override := -1
 var _debug_hidden: Array = []  ## MeshInstance3Ds hidden while the debug view is on
 
+var _touch: TouchControls = null  ## touch overlay, only on touchscreen devices
+
 
 func _ready() -> void:
+	_setup_touch()
 	_build_menu()
 
 	# Keep keyboard focus off every shell button so a click doesn't leave it
@@ -170,6 +173,28 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
 		_sidebar_toggle.button_pressed = not _sidebar_toggle.button_pressed
+
+
+## Phones/tablets: scale the whole UI up to a readable physical size, and add
+## the touch overlay (virtual joystick / SHOOT / JUMP -- touch_controls.gd).
+## Desktop has no touchscreen, so none of this runs there and the demo is
+## exactly what it always was.
+func _setup_touch() -> void:
+	if not DisplayServer.is_touchscreen_available():
+		return
+	# The project lays the UI out for a 1080p desktop monitor. On a ~6 inch
+	# 400+ dpi phone that UI is physically tiny, so scale the canvas by DPI:
+	# 160 dpi (Android's mdpi baseline) keeps scale 1; a 420 dpi phone gets
+	# ~2x. Capped so the top bar still fits a landscape phone's width.
+	var dpi := DisplayServer.screen_get_dpi()
+	get_window().content_scale_factor = clampf(dpi / 160.0, 1.0, 2.0)
+	# At 2x the bar can outgrow the screen on samples with extra buttons; trim
+	# the hint text with an ellipsis instead of letting it run under the
+	# right-anchored Settings/Debug/Reset cluster.
+	_info.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_touch = TouchControls.new()
+	_touch.setup(_camera)
+	add_child(_touch)
 
 
 func _physics_process(_delta: float) -> void:
@@ -355,7 +380,10 @@ func _flash_info(msg: String) -> void:
 
 
 func _show_controls_hint() -> void:
-	_info.text = "%s      Right-click: fly (WASD / Q E, Shift boost)   ·   Left-drag: grab   ·   Hold F: charge shot" % _current_name
+	if _touch != null:
+		_info.text = "%s      Stick: move   ·   Drag: look   ·   Touch a body: grab   ·   Two fingers: zoom / pan" % _current_name
+	else:
+		_info.text = "%s      Right-click: fly (WASD / Q E, Shift boost)   ·   Left-drag: grab   ·   Hold F: charge shot" % _current_name
 
 
 func _on_contact_hertz_changed(value: float) -> void:
@@ -515,5 +543,7 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	_sample_toggle.set_pressed_no_signal(false)
 	if has_toggle and _current.has_method("get_toggle_label"):
 		_sample_toggle.text = _current.get_toggle_label()
+	if _touch != null:
+		_touch.set_sample(path)  # joystick/JUMP/key pills for samples that use them
 	_info_flash_id += 1  # cancel any pending flash from the previous sample
 	_show_controls_hint()

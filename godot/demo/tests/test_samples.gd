@@ -12,9 +12,21 @@ func _ready() -> void:
 	var dir := DirAccess.open("res://samples")
 	if dir != null:
 		for f in dir.get_files():
+			# In an exported build, scenes are converted to binary and appear as
+			# "foo.tscn.remap" pointing at the packed .scn. Only the source tree
+			# has bare .tscn. Strip the suffix so both cases enumerate; load()
+			# resolves the remap for us.
+			if f.ends_with(".remap"):
+				f = f.trim_suffix(".remap")
 			if f.ends_with(".tscn"):
 				paths.append("res://samples/" + f)
 	paths.sort()
+
+	# A run that found no scenes must not report PASS -- an empty loop would
+	# leave _all_ok true and silently "pass" having tested nothing.
+	if paths.is_empty():
+		print("[samples] no sample scenes found under res://samples")
+		_all_ok = false
 
 	for p in paths:
 		await _smoke(p)
