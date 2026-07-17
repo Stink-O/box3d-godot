@@ -1,3 +1,4 @@
+class_name TouchControls
 extends CanvasLayer
 
 ## Touch-control overlay for the sample browser, shown only on touchscreen devices
@@ -29,12 +30,18 @@ const SAMPLE_CONTROLS := {
 	"res://samples/bullets.tscn": {"keys": [["CCD on/off", KEY_C], ["Fire volley", KEY_B]]},
 }
 
+## The live overlay, so fly_camera can ask "is this touch on the UI?" without
+## the two scripts holding references to each other. Null on desktop.
+static var active: TouchControls = null
+
 var _camera: Camera3D = null
 
 var _joy: Control = null
 var _joy_active := false           ## a finger owns the stick
 var _joy_pointer := -1             ## which touch index owns it
 var _joy_vector := Vector2.ZERO    ## current stick deflection, -1..1 per axis
+var _joy_drives_sample := false    ## true: stick -> keys (character/car);
+                                   ## false: stick -> fly the camera
 var _held_keys := {}               ## keycode -> true while synthetically held
 
 var _shoot_btn: Button = null
@@ -44,6 +51,10 @@ var _keys_box: HBoxContainer = null
 
 func setup(camera: Camera3D) -> void:
 	_camera = camera
+
+
+func _enter_tree() -> void:
+	active = self
 
 
 func _ready() -> void:
@@ -62,7 +73,6 @@ func _ready() -> void:
 	_joy.offset_bottom = 0.0
 	_joy.draw.connect(_draw_joystick)
 	_joy.gui_input.connect(_on_joy_input)
-	_joy.visible = false
 	add_child(_joy)
 
 	# --- Action buttons, bottom-right column: SHOOT under JUMP. Big hit
@@ -117,12 +127,14 @@ func _make_button(label: String, offset: Vector2, size: Vector2) -> Button:
 	return b
 
 
-# main.gd calls this on every sample load: show only the controls this sample
-# can actually use.
+# main.gd calls this on every sample load. The joystick is ALWAYS there --
+# in samples that read movement keys (character, car) it drives the sample by
+# synthesizing those keys; everywhere else it flies the camera, the touch twin
+# of desktop's right-mouse + WASD. Extra buttons appear per sample.
 func set_sample(path: String) -> void:
 	var cfg: Dictionary = SAMPLE_CONTROLS.get(path, {})
 	_release_all_keys()
-	_joy.visible = cfg.get("joystick", false)
+	_joy_drives_sample = cfg.get("joystick", false)
 	_jump_btn.visible = cfg.get("jump", false)
 	for child in _keys_box.get_children():
 		child.queue_free()
@@ -190,7 +202,8 @@ func _update_joy_vector(local_pos: Vector2) -> void:
 		v = v.normalized()
 	_joy_vector = v
 	_joy.queue_redraw()
-	_apply_joy_keys()
+	if _joy_drives_sample:
+		_apply_joy_keys()
 
 
 func _reset_joystick() -> void:
@@ -198,7 +211,25 @@ func _reset_joystick() -> void:
 	_joy_pointer = -1
 	_joy_vector = Vector2.ZERO
 	_joy.queue_redraw()
-	_apply_joy_keys()
+	if _joy_drives_sample:
+		_apply_joy_keys()
+
+
+func _process(delta: float) -> void:
+	# Camera mode: feed the stick straight into the fly camera every frame
+	# (analog -- deflection scales speed), like holding WASD on desktop.
+	if not _joy_drives_sample and _joy_active and _joy_vector != Vector2.ZERO \
+			and _camera != null and _camera.has_method("touch_move"):
+		_camera.touch_move(_joy_vector, delta)
+
+
+## fly_camera asks this before tracking a raw touch for pinch/pan, so a finger
+## resting on the stick or a button never becomes half of a "pinch".
+func owns_point(p: Vector2) -> bool:
+	for c in [_joy, _shoot_btn, _jump_btn, _keys_box]:
+		if c != null and c.visible and c.get_global_rect().has_point(p):
+			return true
+	return false
 
 
 # Deflection -> keys, with a dead zone so a resting thumb holds nothing.
@@ -248,6 +279,8 @@ func _release_all_keys() -> void:
 
 func _exit_tree() -> void:
 	_release_all_keys()  # never leave a synthetic key latched
+	if active == self:
+		active = null
 
 
 func _draw_joystick() -> void:

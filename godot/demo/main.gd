@@ -104,8 +104,7 @@ var _updating_sidebar := false  ## guard while pushing values into the controls
 var _worker_override := -1
 var _debug_hidden: Array = []  ## MeshInstance3Ds hidden while the debug view is on
 
-const TouchControls := preload("res://common/touch_controls.gd")
-var _touch: CanvasLayer = null  ## touch overlay, only on touchscreen devices
+var _touch: TouchControls = null  ## touch overlay, only on touchscreen devices
 
 
 func _ready() -> void:
@@ -382,7 +381,7 @@ func _flash_info(msg: String) -> void:
 
 func _show_controls_hint() -> void:
 	if _touch != null:
-		_info.text = "%s      Drag: look   ·   Touch a body: grab   ·   Two fingers: zoom / pan" % _current_name
+		_info.text = "%s      Stick: move   ·   Drag: look   ·   Touch a body: grab   ·   Two fingers: zoom / pan" % _current_name
 	else:
 		_info.text = "%s      Right-click: fly (WASD / Q E, Shift boost)   ·   Left-drag: grab   ·   Hold F: charge shot" % _current_name
 

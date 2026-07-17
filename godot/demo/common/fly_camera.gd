@@ -112,6 +112,16 @@ func end_charge() -> void:
 	_release_charge()
 
 
+## The virtual joystick's camera mode: fly like desktop WASD, analog. Stick up
+## flies toward where you're looking (pitch included, same as W), stick
+## sideways strafes. Called every frame while the stick is deflected.
+func touch_move(v: Vector2, delta: float) -> void:
+	if _follow != null or _returning:
+		return  # third person / glide-home owns the camera
+	var dir := -transform.basis.z * -v.y + transform.basis.x * v.x
+	position += dir * move_speed * delta
+
+
 # Point the camera at a newly loaded sample's world and reset to the default
 # framing. A sample can override the framing afterwards via frame_view().
 func set_world(world: Box3DWorld) -> void:
@@ -213,6 +223,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	# the second finger only exists here, as pinch/pan).
 	if event is InputEventScreenTouch:
 		if event.pressed:
+			# A finger resting on the touch overlay (stick, SHOOT, ...) is
+			# operating a control, not the camera: if it were tracked here, a
+			# world-drag while holding SHOOT would read as a two-finger pinch.
+			if TouchControls.active != null and TouchControls.active.owns_point(event.position):
+				return
 			_touches[event.index] = event.position
 			if _touches.size() == 2:
 				# Second finger down: the gesture is now pinch/pan, not a
