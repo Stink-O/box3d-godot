@@ -37,6 +37,7 @@ anti_aliasing/quality/msaa_3d=2
 anti_aliasing/quality/msaa_3d.mobile=0
 lights_and_shadows/directional_shadow/size=8192
 lights_and_shadows/directional_shadow/size.mobile=2048
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile=1
 limits/global_shader_variables/buffer_size=262144
 ; Required by Godot's Android export gate. The demo ships no textures (all
 ; meshes are procedural), so this compresses nothing and does not affect the
