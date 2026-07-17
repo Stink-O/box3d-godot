@@ -17,6 +17,7 @@ var _bodies: Array[Box3DBody] = []
 var _mm: MultiMesh
 var _mmi: MultiMeshInstance3D
 var _world: Node = null
+var _last: Array[Transform3D] = []  ## last transform written per instance
 
 
 func _ready() -> void:
@@ -42,11 +43,13 @@ func _ready() -> void:
 	_mm.use_colors = true
 	_mm.mesh = box
 	_mm.instance_count = _bodies.size()
+	_last.resize(_bodies.size())
 	for i in _bodies.size():
 		_mm.set_instance_color(i, Color.from_hsv(randf(), 0.5, 0.95))
 		# Bodies and the MultiMeshInstance are siblings under this node, so
 		# body-local transforms are already in the right space.
-		_mm.set_instance_transform(i, _bodies[i].transform)
+		_last[i] = _bodies[i].transform
+		_mm.set_instance_transform(i, _last[i])
 
 	_mmi = MultiMeshInstance3D.new()
 	_mmi.multimesh = _mm
@@ -58,5 +61,17 @@ func _process(_delta: float) -> void:
 	# keep debug_visualize, so the world shells them); hide our visual then.
 	if _world != null and "debug_draw" in _world:
 		_mmi.visible = not _world.debug_draw
+	# Interpolated transforms, not raw ones: the bodies move in 60 Hz physics
+	# steps, and the project renders with physics_interpolation=true. The old
+	# per-cube MeshInstance3Ds inherited the engine-interpolated node
+	# transform for free; copying the raw physics transform here made every
+	# awake cube visibly step at tick rate on high-refresh displays.
+	var inv := global_transform.affine_inverse()
 	for i in _bodies.size():
-		_mm.set_instance_transform(i, _bodies[i].transform)
+		var t := inv * _bodies[i].get_global_transform_interpolated()
+		# Sleeping bodies converge to a constant transform; skipping the
+		# write keeps the MultiMesh buffer clean so an idle pile uploads
+		# nothing (mirrors the extension's asleep_synced sync skip).
+		if t != _last[i]:
+			_last[i] = t
+			_mm.set_instance_transform(i, t)
