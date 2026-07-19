@@ -24,6 +24,7 @@ var _lines: PackedStringArray = []
 var _fps_text := ""
 var _font: Font
 var _dragging := false
+var _hover := false
 
 
 func _ready() -> void:
@@ -31,14 +32,12 @@ func _ready() -> void:
 	# also grab bodies / fly the camera underneath) and advertise movability
 	# with the omnidirectional cursor.
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	mouse_default_cursor_shape = Control.CURSOR_MOVE
-	# Belt and braces: the per-Control hover shape above doesn't show on every
-	# display stack, so force the omnidirectional cursor at the Input level
-	# while the pointer is over the panel.
-	mouse_entered.connect(func() -> void:
-		Input.set_default_cursor_shape(Input.CURSOR_MOVE))
-	mouse_exited.connect(func() -> void:
-		Input.set_default_cursor_shape(Input.CURSOR_ARROW))
+	# OS cursor shapes (Control.mouse_default_cursor_shape / Input defaults)
+	# don't reliably show on every display stack, so the panel draws its own
+	# omnidirectional cursor: hide the system pointer while it's over the
+	# panel and render the move-cross at the mouse position in _draw.
+	mouse_entered.connect(_set_hover.bind(true))
+	mouse_exited.connect(_set_hover.bind(false))
 	tooltip_text = "Drag to move"
 	_times.resize(WINDOW)
 	_font = get_theme_default_font()
@@ -51,11 +50,27 @@ func _ready() -> void:
 	_on_visibility_changed()
 
 
+func _set_hover(on: bool) -> void:
+	_hover = on
+	_update_cursor()
+
+
+## The system pointer is hidden exactly while it is over (or dragging) the
+## visible panel; the drawn cursor in _draw stands in for it.
+func _update_cursor() -> void:
+	var hide_os_cursor := visible and (_hover or _dragging)
+	if hide_os_cursor and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+	elif not hide_os_cursor and Input.mouse_mode == Input.MOUSE_MODE_HIDDEN:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
 func _on_visibility_changed() -> void:
 	set_process(visible)
 	if not visible:
-		# Never leave the move cursor stuck if the panel hides under the mouse.
-		Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+		# Never leave the pointer hidden if the panel disappears under it.
+		_hover = false
+		_update_cursor()
 	if visible:
 		# Fresh window: a stale buffer would graph the time we spent hidden.
 		_count = 0
@@ -68,6 +83,7 @@ func _on_visibility_changed() -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		_dragging = event.pressed
+		_update_cursor()
 		if not event.pressed:
 			var layout := ConfigFile.new()
 			layout.load(LAYOUT_PATH)  # keep other sections if the file exists
@@ -166,6 +182,19 @@ func _rebuild_text() -> void:
 	])
 
 
+## Omnidirectional move cross: four arrows out from a centre dot. Used for the
+## corner grip hint and as the drawn cursor while hovering the panel.
+func _draw_move_icon(center: Vector2, r: float, color: Color) -> void:
+	for d: Vector2 in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+		var tip := center + d * r
+		var perp := Vector2(d.y, -d.x)
+		draw_line(center, tip - d * (r * 0.4), color, maxf(r * 0.18, 1.5))
+		draw_colored_polygon(PackedVector2Array([
+			tip, tip - d * (r * 0.45) + perp * (r * 0.32),
+			tip - d * (r * 0.45) - perp * (r * 0.32)]), color)
+	draw_circle(center, maxf(r * 0.14, 1.2), color)
+
+
 ## Text with a 1 px drop shadow so it stays readable over bright scenes even
 ## through the translucent panel.
 func _shadowed(pos: Vector2, text: String, px: int, color: Color) -> void:
@@ -181,8 +210,9 @@ func _draw() -> void:
 
 	var y := PAD + 24.0
 	_shadowed(Vector2(PAD, y), _fps_text, 24, Color(1, 1, 1, 0.95))
-	# Move-grip glyph in the corner: a quiet reminder the panel is draggable.
-	_shadowed(Vector2(w - PAD - 18.0, y), "✥", 18, Color(1, 1, 1, 0.4))
+	# Move-grip icon in the corner: a quiet reminder the panel is draggable.
+	# (Drawn, not a font glyph — the default font has no ✥ character.)
+	_draw_move_icon(Vector2(w - PAD - 10.0, PAD + 14.0), 9.0, Color(1, 1, 1, 0.4))
 	y += 10.0
 	for line in _lines:
 		y += LINE_H
@@ -223,3 +253,11 @@ func _draw() -> void:
 				color = Color(0.90, 0.88, 0.35, 0.9)
 			var x := PAD + gw - (_count - i) * bar_w
 			draw_rect(Rect2(x, gy + GRAPH_H * (1.0 - frac), bar_w, GRAPH_H * frac), color)
+
+	# The panel's own cursor: the OS pointer is hidden while hovering (system
+	# cursor shapes don't show reliably everywhere), so draw the move cross at
+	# the mouse position — dark halo first so it reads on any background.
+	if _hover or _dragging:
+		var mp := get_local_mouse_position()
+		_draw_move_icon(mp + Vector2.ONE, 11.0, Color(0, 0, 0, 0.8))
+		_draw_move_icon(mp, 11.0, Color(1, 1, 1, 0.95))
