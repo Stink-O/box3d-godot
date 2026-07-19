@@ -92,6 +92,8 @@ void Box3DBody::create_in_world() {
 	body_id = b3CreateBody(world_id, &body_def);
 	snap_prev = b3Body_GetTransform(body_id);
 	snap_curr = snap_prev;
+	snap_awake = b3Body_IsAwake(body_id);
+	debug_enabled = b3Body_IsEnabled(body_id);
 
 	// Compound bodies: if there are Box3DCollisionShape children, build a shape
 	// for each and skip the body's own shape_type.
@@ -106,6 +108,10 @@ void Box3DBody::create_in_world() {
 			}
 		}
 		if (has_child_shapes) {
+			debug_mass = b3Body_GetMass(body_id);
+			debug_has_child_shapes = true;
+			debug_min_ext = debug_min_extent();
+			debug_max_ext = debug_max_extent();
 			world->register_body(this);
 			return;
 		}
@@ -270,6 +276,10 @@ void Box3DBody::create_in_world() {
 		} break;
 	}
 
+	debug_mass = b3Body_GetMass(body_id);
+	debug_has_child_shapes = false;
+	debug_min_ext = debug_min_extent();
+	debug_max_ext = debug_max_extent();
 	update_auto_visual();
 	world->register_body(this);
 }
@@ -488,9 +498,12 @@ void Box3DBody::sync_from_physics() {
 	// transform has been written — big scenes idle for free this way.
 	if (b3Body_IsAwake(body_id)) {
 		asleep_synced = false;
-	} else if (asleep_synced) {
-		return;
+		snap_awake = true;
 	} else {
+		snap_awake = false;
+		if (asleep_synced) {
+			return;
+		}
 		asleep_synced = true;
 	}
 	b3WorldTransform t = b3Body_GetTransform(body_id);

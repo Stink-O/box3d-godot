@@ -267,6 +267,10 @@ theme_override_font_sizes/font_size = 11
 autowrap_mode = 2
 text = "May improve smoothness on some systems (e.g. high-refresh displays) in heavy scenes."
 
+[node name="VsyncOption" type="OptionButton" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+tooltip_text = "Display V-Sync mode (global, not per sample). Mailbox = uncapped FPS without tearing, at higher GPU/power use."
+
 [node name="ContactHertzRow" type="HBoxContainer" parent="UI/Sidebar/Margin/VBox" unique_id=527305418]
 visible = false
 layout_mode = 2

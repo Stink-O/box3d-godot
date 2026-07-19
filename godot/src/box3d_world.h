@@ -58,6 +58,11 @@ private:
 	PackedFloat32Array debug_buffer[DEBUG_PRIM_MAX]; // reused bulk upload buffers
 	bool debug_last_any_awake = false;
 	int debug_last_body_count = -1; // -1 forces a rebuild on the next step
+	// Synchronous mode only refreshes the shells after a step actually ran:
+	// between ticks the solver data is frozen, so re-reading it every rendered
+	// frame (144+ Hz vs 60 Hz physics) was pure waste. Async mode refreshes
+	// from apply_step_results and never reads this flag.
+	bool debug_step_dirty = true;
 	double last_step_delta = 1.0 / 60.0; // for the fast-body debug criterion
 	std::vector<Box3DBody *> bodies;
 

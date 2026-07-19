@@ -59,6 +59,22 @@ private:
 	bool sync_node_transform = true;
 	b3WorldTransform snap_prev = {}; // last two tick transforms, for render
 	b3WorldTransform snap_curr = {}; // interpolation without node reads
+	// Solver state mirrored at the last sync, so the world's debug draw can
+	// read 16k bodies per refresh without one b3 lookup per field per body.
+	bool snap_awake = false; // b3Body_IsAwake at the last sync_from_physics
+	float debug_mass = 0.0f; // b3Body_GetMass, cached at (re)creation
+	// b3Body_IsEnabled, cached at (re)creation. The binding exposes no way to
+	// disable a body, so this cannot go stale; if an enable/disable API is ever
+	// added, its setter must update this flag.
+	bool debug_enabled = true;
+	// Shape topology mirrors, cached at (re)creation: reading them live means
+	// get_child_count()/get_child() engine calls through the extension
+	// boundary for every body every refresh. Any shape change (own setters or
+	// a child Box3DCollisionShape's request_rebuild) recreates the body and
+	// recomputes these.
+	bool debug_has_child_shapes = false;
+	float debug_min_ext = 0.5f;
+	float debug_max_ext = 0.5f;
 	Vector3 box_size = Vector3(1, 1, 1); // full extents
 	double sphere_radius = 0.5;
 	double capsule_radius = 0.5;
@@ -151,6 +167,17 @@ public:
 		r_prev = snap_prev;
 		r_curr = snap_curr;
 	}
+	// Cached solver state for the debug draw's per-refresh scan (no b3 calls).
+	// snap_awake is only maintained for DYNAMIC bodies (sync_from_physics skips
+	// the rest); the debug draw queries b3 directly for kinematic bodies.
+	bool get_snap_awake() const { return snap_awake; }
+	const b3WorldTransform &get_snap_curr() const { return snap_curr; }
+	const b3WorldTransform &get_snap_prev() const { return snap_prev; }
+	float get_cached_mass() const { return debug_mass; }
+	bool get_cached_enabled() const { return debug_enabled; }
+	bool has_cached_child_shapes() const { return debug_has_child_shapes; }
+	float get_cached_min_extent() const { return debug_min_ext; }
+	float get_cached_max_extent() const { return debug_max_ext; }
 
 	// Called by the world when it dispatches contact / sensor events.
 	void emit_contact_begin(Box3DBody *p_other);

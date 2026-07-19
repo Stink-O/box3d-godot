@@ -17,8 +17,9 @@
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/sphere_mesh.hpp>
-#include <godot_cpp/templates/local_vector.hpp>
 #include <godot_cpp/core/class_db.hpp>
+
+#include <cmath>
 #include <godot_cpp/core/math.hpp>
 
 using namespace godot;
@@ -220,6 +221,7 @@ void Box3DWorld::step(double p_delta) {
 	}
 	dispatch_contact_events();
 	dispatch_sensor_events();
+	debug_step_dirty = true; // the shells refresh from NOTIFICATION_PROCESS
 }
 
 Box3DBody *Box3DWorld::body_from_shape(b3ShapeId p_shape) {
@@ -313,13 +315,16 @@ void Box3DWorld::_notification(int p_what) {
 			}
 		} break;
 		case NOTIFICATION_PROCESS: {
-			// Synchronous mode refreshes the debug shells once per frame here,
-			// never per tick — updating inside step() made every catch-up tick
+			// Synchronous mode refreshes the debug shells here, at most once
+			// per frame AND only after a step actually ran (the solver data is
+			// frozen between ticks, so re-reading it at render rate was pure
+			// waste; updating inside step() instead made every catch-up tick
 			// pay the full rebuild, which spiraled heavy scenes to a
-			// standstill. Async mode updates from apply_step_results instead:
+			// standstill). Async mode updates from apply_step_results instead:
 			// a step is in flight during most process callbacks, and joining
 			// here would stall the rendering async exists to protect.
-			if (debug_draw && !async_step && !Engine::get_singleton()->is_editor_hint()) {
+			if (debug_draw && !async_step && debug_step_dirty && !Engine::get_singleton()->is_editor_hint()) {
+				debug_step_dirty = false;
 				update_debug_draw();
 			}
 		} break;
@@ -630,6 +635,10 @@ void fragment() {
 			mm->set_transform_format(MultiMesh::TRANSFORM_3D);
 			mm->set_use_colors(true);
 			mm->set_mesh(meshes[p]);
+			// Without a custom AABB every buffer upload makes the renderer
+			// recompute the bounds over all instances — half the refresh cost
+			// at 16k bodies. Debug shells don't need accurate culling.
+			mm->set_custom_aabb(AABB(Vector3(-100000, -100000, -100000), Vector3(200000, 200000, 200000)));
 			mi->set_multimesh(mm);
 			mi->set_material_override(mat);
 			mi->set_visible(debug_draw);
@@ -638,15 +647,29 @@ void fragment() {
 		}
 	}
 
+	// Callers are already post-join (sync step done, or async post-apply), so
+	// this is a single atomic load; it guards any stray toggle-time path. The
+	// per-body loops below therefore call the raw b3 API on cached ids instead
+	// of the guarded wrappers — at 16k bodies the wrappers' per-call join +
+	// revalidation dominated the whole refresh.
+	join_async_step();
+
 	// While every body sleeps nothing moves or changes color, so skip the
 	// instance rewrite entirely. The first quiet frame still rebuilds, which
-	// is what paints the pile in its sleeping colors.
+	// is what paints the pile in its sleeping colors. Members only: even one
+	// b3 lookup per body here is measurable at this scale.
 	bool any_awake = false;
 	int body_count = 0;
 	for (Box3DBody *body : bodies) {
-		if (body != nullptr && body->is_body_valid()) {
-			++body_count;
-			if (!any_awake && body->is_awake_now()) {
+		if (body == nullptr) {
+			continue;
+		}
+		++body_count;
+		if (!any_awake) {
+			int type = body->get_body_type();
+			// Kinematic bodies count as awake: scripts move them without the
+			// cached dynamic-body sleep state ever seeing it.
+			if (type == Box3DBody::KINEMATIC || (type == Box3DBody::DYNAMIC && body->get_snap_awake())) {
 				any_awake = true;
 			}
 		}
@@ -659,20 +682,53 @@ void fragment() {
 
 	const float INFLATE = 1.02f; // shells cover the samples' own visuals
 
-	LocalVector<Transform3D> xforms[DEBUG_PRIM_MAX];
-	LocalVector<Color> colors[DEBUG_PRIM_MAX];
-	auto push_shell = [&](int prim, Transform3D xf, Vector3 scale, const Color &col) {
+	// Shells are written straight into the persistent upload buffers (grown
+	// geometrically, never shrunk); the old intermediate Transform3D/Color
+	// vectors doubled the memory traffic for nothing.
+	int shell_count[DEBUG_PRIM_MAX] = {};
+	float *shell_w[DEBUG_PRIM_MAX];
+	for (int p = 0; p < DEBUG_PRIM_MAX; ++p) {
+		shell_w[p] = debug_buffer[p].ptrw();
+	}
+	auto push_shell = [&](int prim, const Basis &basis, const Vector3 &origin, Vector3 scale, const Color &col) {
+		PackedFloat32Array &buf = debug_buffer[prim];
+		const int64_t need = ((int64_t)shell_count[prim] + 1) * 16;
+		if (buf.size() < need) {
+			const int64_t grow = buf.size() * 2;
+			buf.resize(grow < need ? need : grow);
+			shell_w[prim] = buf.ptrw();
+		}
 		scale *= INFLATE;
+		float *inst = shell_w[prim] + (int64_t)shell_count[prim] * 16;
+		++shell_count[prim];
 		// Right-multiply the basis by diag(scale): component-scale each row.
-		xf.basis[0] = xf.basis[0] * scale;
-		xf.basis[1] = xf.basis[1] * scale;
-		xf.basis[2] = xf.basis[2] * scale;
-		xforms[prim].push_back(xf);
-		colors[prim].push_back(col);
+		inst[0] = (float)(basis.rows[0][0] * scale.x);
+		inst[1] = (float)(basis.rows[0][1] * scale.y);
+		inst[2] = (float)(basis.rows[0][2] * scale.z);
+		inst[3] = (float)origin.x;
+		inst[4] = (float)(basis.rows[1][0] * scale.x);
+		inst[5] = (float)(basis.rows[1][1] * scale.y);
+		inst[6] = (float)(basis.rows[1][2] * scale.z);
+		inst[7] = (float)origin.y;
+		inst[8] = (float)(basis.rows[2][0] * scale.x);
+		inst[9] = (float)(basis.rows[2][1] * scale.y);
+		inst[10] = (float)(basis.rows[2][2] * scale.z);
+		inst[11] = (float)origin.z;
+		inst[12] = col.r;
+		inst[13] = col.g;
+		inst[14] = col.b;
+		inst[15] = col.a;
 	};
 
 	for (Box3DBody *body : bodies) {
-		if (body == nullptr || !body->is_body_valid() || !body->get_debug_visualize()) {
+		if (body == nullptr || !body->get_debug_visualize()) {
+			continue;
+		}
+		// A registered body's id is live by construction (bodies register only
+		// after successful creation and unregister on destroy), so a null check
+		// replaces a 16k-times-per-refresh b3Body_IsValid lookup.
+		const b3BodyId id = body->get_body_id();
+		if (B3_IS_NULL(id)) {
 			continue;
 		}
 		// State colors: upstream box3d's exact palette and priority order
@@ -681,18 +737,35 @@ void fragment() {
 		// turquoise awake bullet, yellow speed-capped, orange fast (moves
 		// over half its min extent per step, the CCD criterion), dark gray
 		// static, steel blues kinematic, tan awake / light slate asleep.
-		bool awake = body->is_awake_now();
-		bool dynamic = body->get_body_type() == Box3DBody::DYNAMIC;
+		const int type = body->get_body_type();
+		const bool dynamic = type == Box3DBody::DYNAMIC;
+		const bool awake = dynamic ? body->get_snap_awake() : (type == Box3DBody::KINEMATIC && b3Body_IsAwake(id));
 		float lin_speed = 0.0f;
 		float motion_speed = 0.0f; // upstream: |v| + |w| * maxExtent (farthest point)
-		if (dynamic && awake) {
-			lin_speed = (float)body->get_linear_velocity().length();
-			motion_speed = lin_speed + (float)body->get_angular_velocity().length() * body->debug_max_extent();
+		// Computed only when a branch below can use them (speed cap or CCD on),
+		// and from the render snapshots rather than b3 velocity lookups: the
+		// per-step transform delta over the step time IS the step's effective
+		// velocity, and two more validated b3 calls per body are measurable
+		// at 16k bodies.
+		if (dynamic && awake && (max_linear_speed > 0.0 || continuous_collision)) {
+			const b3WorldTransform &sp = body->get_snap_prev();
+			const b3WorldTransform &sc = body->get_snap_curr();
+			const float inv_dt = last_step_delta > 0.0 ? (float)(1.0 / last_step_delta) : 0.0f;
+			const float dx = (float)(sc.p.x - sp.p.x);
+			const float dy = (float)(sc.p.y - sp.p.y);
+			const float dz = (float)(sc.p.z - sp.p.z);
+			lin_speed = std::sqrt(dx * dx + dy * dy + dz * dz) * inv_dt;
+			if (continuous_collision) {
+				// Rotation delta angle between the two snapshots.
+				float qd = std::abs(b3DotQuat(sp.q, sc.q));
+				float ang = 2.0f * std::acos(qd < 1.0f ? qd : 1.0f);
+				motion_speed = lin_speed + ang * inv_dt * body->get_cached_max_extent();
+			}
 		}
 		Color col;
-		if (dynamic && body->get_mass() == 0.0) {
+		if (dynamic && body->get_cached_mass() == 0.0f) {
 			col = Color::hex(0xFF0000FF); // red: bad body
-		} else if (!body->is_enabled_now()) {
+		} else if (!body->get_cached_enabled()) {
 			col = Color::hex(0x708090FF); // slate gray: disabled
 		} else if (body->get_is_sensor()) {
 			col = Color::hex(0xF5DEB3FF); // wheat: sensor
@@ -702,66 +775,68 @@ void fragment() {
 			col = Color::hex(0x40E0D0FF); // turquoise: awake bullet
 		} else if (max_linear_speed > 0.0 && lin_speed >= (float)max_linear_speed * 0.99f) {
 			col = Color::hex(0xFFFF00FF); // yellow: speed capped
-		} else if (dynamic && continuous_collision && motion_speed * (float)last_step_delta > 0.5f * body->debug_min_extent()) {
+		} else if (dynamic && continuous_collision && motion_speed * (float)last_step_delta > 0.5f * body->get_cached_min_extent()) {
 			col = Color::hex(0xFFA500FF); // orange: fast (CCD territory)
-		} else if (body->get_body_type() == Box3DBody::STATIC) {
+		} else if (type == Box3DBody::STATIC) {
 			col = Color::hex(0xA9A9A9FF); // dark gray: static
-		} else if (body->get_body_type() == Box3DBody::KINEMATIC) {
+		} else if (type == Box3DBody::KINEMATIC) {
 			col = awake ? Color::hex(0x4682B4FF) : Color::hex(0xB0C4DEFF); // steel blues
 		} else {
 			col = awake ? Color::hex(0xD2B48CFF) : Color::hex(0x778899FF); // tan / light slate
 		}
 		// Compound bodies: shell each Box3DCollisionShape child. The physics
 		// ignores the body's own shape_type when child shapes exist, so drawing
-		// it would show a collider that isn't there.
-		bool has_child_shapes = false;
-		for (int i = 0; i < body->get_child_count(); ++i) {
-			Box3DCollisionShape *cs = Object::cast_to<Box3DCollisionShape>(body->get_child(i));
-			if (cs == nullptr) {
-				continue;
+		// it would show a collider that isn't there. The cached flag keeps the
+		// common single-shape body from paying a get_child_count engine call.
+		if (body->has_cached_child_shapes()) {
+			for (int i = 0; i < body->get_child_count(); ++i) {
+				Box3DCollisionShape *cs = Object::cast_to<Box3DCollisionShape>(body->get_child(i));
+				if (cs == nullptr) {
+					continue;
+				}
+				Transform3D cxf = cs->get_global_transform();
+				float cr2 = (float)cs->get_capsule_radius();
+				switch (cs->get_shape_type()) {
+					case Box3DCollisionShape::SPHERE: {
+						float r = (float)cs->get_sphere_radius();
+						push_shell(DEBUG_SPHERE, cxf.basis, cxf.origin, Vector3(2 * r, 2 * r, 2 * r), col);
+					} break;
+					case Box3DCollisionShape::CAPSULE:
+						push_shell(DEBUG_CAPSULE, cxf.basis, cxf.origin, Vector3(2 * cr2, (float)cs->get_capsule_height() * 0.5f, 2 * cr2), col);
+						break;
+					case Box3DCollisionShape::BOX:
+					default:
+						push_shell(DEBUG_BOX, cxf.basis, cxf.origin, cs->get_box_size(), col);
+						break;
+				}
 			}
-			has_child_shapes = true;
-			Transform3D cxf = cs->get_global_transform();
-			float cr2 = (float)cs->get_capsule_radius();
-			switch (cs->get_shape_type()) {
-				case Box3DCollisionShape::SPHERE: {
-					float r = (float)cs->get_sphere_radius();
-					push_shell(DEBUG_SPHERE, cxf, Vector3(2 * r, 2 * r, 2 * r), col);
-				} break;
-				case Box3DCollisionShape::CAPSULE:
-					push_shell(DEBUG_CAPSULE, cxf, Vector3(2 * cr2, (float)cs->get_capsule_height() * 0.5f, 2 * cr2), col);
-					break;
-				case Box3DCollisionShape::BOX:
-				default:
-					push_shell(DEBUG_BOX, cxf, cs->get_box_size(), col);
-					break;
-			}
-		}
-		if (has_child_shapes) {
 			continue;
 		}
 		// From the solver, not the node: renderer-managed bodies (with
-		// sync_node_transform off) keep a stale node pose.
-		b3WorldTransform bxf = b3Body_GetTransform(body->get_body_id());
-		Transform3D xf(Basis(to_gd(bxf.q)), to_gd_pos(bxf.p));
+		// sync_node_transform off) keep a stale node pose. Dynamic bodies read
+		// the snapshot sync_from_physics already recorded this tick; kinematic
+		// and static bodies (few, and not snapshotted) ask b3 directly.
+		const b3WorldTransform bxf = dynamic ? body->get_snap_curr() : b3Body_GetTransform(id);
+		const Basis basis(to_gd(bxf.q));
+		const Vector3 origin = to_gd_pos(bxf.p);
 		float cr = (float)body->get_capsule_radius();
 		float ch = (float)body->get_capsule_height();
 		switch (body->get_shape_type()) {
 			case Box3DBody::SPHERE: {
 				float r = (float)body->get_sphere_radius();
-				push_shell(DEBUG_SPHERE, xf, Vector3(2 * r, 2 * r, 2 * r), col);
+				push_shell(DEBUG_SPHERE, basis, origin, Vector3(2 * r, 2 * r, 2 * r), col);
 			} break;
 			case Box3DBody::CAPSULE:
-				push_shell(DEBUG_CAPSULE, xf, Vector3(2 * cr, ch * 0.5f, 2 * cr), col);
+				push_shell(DEBUG_CAPSULE, basis, origin, Vector3(2 * cr, ch * 0.5f, 2 * cr), col);
 				break;
 			case Box3DBody::CYLINDER:
-				push_shell(DEBUG_CYLINDER, xf, Vector3(2 * cr, ch, 2 * cr), col);
+				push_shell(DEBUG_CYLINDER, basis, origin, Vector3(2 * cr, ch, 2 * cr), col);
 				break;
 			case Box3DBody::CONE:
-				push_shell(DEBUG_CONE, xf, Vector3(2 * cr, ch, 2 * cr), col);
+				push_shell(DEBUG_CONE, basis, origin, Vector3(2 * cr, ch, 2 * cr), col);
 				break;
 			case Box3DBody::BOX:
-				push_shell(DEBUG_BOX, xf, body->get_box_size(), col);
+				push_shell(DEBUG_BOX, basis, origin, body->get_box_size(), col);
 				break;
 			default:
 				break; // Hull / mesh colliders are not shelled
@@ -770,51 +845,31 @@ void fragment() {
 
 	for (int p = 0; p < DEBUG_PRIM_MAX; ++p) {
 		Ref<MultiMesh> mm = debug_mm[p]->get_multimesh();
-		int n = (int)xforms[p].size();
-		if (mm->get_instance_count() < n) {
-			mm->set_instance_count(n);
-		}
-		mm->set_visible_instance_count(n);
+		const int n = shell_count[p];
 		// One bulk buffer upload instead of two RenderingServer calls per
-		// instance — per-instance writes cost ~160 ms/frame at 16k bodies.
-		int alloc = mm->get_instance_count();
+		// instance — per-instance writes cost ~160 ms/frame at 16k bodies. The
+		// multimesh is kept sized to the whole (grow-only) buffer; instances
+		// past n are zeroed and invisible.
+		const int alloc = (int)(debug_buffer[p].size() / 16);
 		if (alloc == 0) {
+			mm->set_visible_instance_count(0);
 			continue; // no shells of this primitive; 0-size uploads error out
 		}
-		PackedFloat32Array &buf = debug_buffer[p];
-		buf.resize((int64_t)alloc * 16);
-		float *w = buf.ptrw();
-		for (int i = 0; i < n; ++i) {
-			const Transform3D &xf = xforms[p][i];
-			const Color &col = colors[p][i];
-			float *inst = w + (int64_t)i * 16;
-			inst[0] = (float)xf.basis.rows[0][0];
-			inst[1] = (float)xf.basis.rows[0][1];
-			inst[2] = (float)xf.basis.rows[0][2];
-			inst[3] = (float)xf.origin.x;
-			inst[4] = (float)xf.basis.rows[1][0];
-			inst[5] = (float)xf.basis.rows[1][1];
-			inst[6] = (float)xf.basis.rows[1][2];
-			inst[7] = (float)xf.origin.y;
-			inst[8] = (float)xf.basis.rows[2][0];
-			inst[9] = (float)xf.basis.rows[2][1];
-			inst[10] = (float)xf.basis.rows[2][2];
-			inst[11] = (float)xf.origin.z;
-			inst[12] = col.r;
-			inst[13] = col.g;
-			inst[14] = col.b;
-			inst[15] = col.a;
+		if (mm->get_instance_count() != alloc) {
+			mm->set_instance_count(alloc);
 		}
+		mm->set_visible_instance_count(n);
 		if (alloc > n) {
-			memset(w + (int64_t)n * 16, 0, ((int64_t)alloc - n) * 16 * sizeof(float));
+			memset(shell_w[p] + (int64_t)n * 16, 0, ((int64_t)alloc - n) * 16 * sizeof(float));
 		}
-		RenderingServer::get_singleton()->multimesh_set_buffer(mm->get_rid(), buf);
+		RenderingServer::get_singleton()->multimesh_set_buffer(mm->get_rid(), debug_buffer[p]);
 	}
 }
 
 void Box3DWorld::set_debug_draw(bool p_enabled) {
 	debug_draw = p_enabled;
 	debug_last_body_count = -1; // force a rebuild on the next step
+	debug_step_dirty = true; // even without a step (paused / standstill scene)
 	for (int p = 0; p < DEBUG_PRIM_MAX; ++p) {
 		if (debug_mm[p] != nullptr) {
 			debug_mm[p]->set_visible(p_enabled);

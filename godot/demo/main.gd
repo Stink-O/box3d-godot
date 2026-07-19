@@ -86,6 +86,7 @@ const SAMPLES := {
 @onready var _stats_check: CheckBox = $UI/Sidebar/Margin/VBox/StatsCheck
 @onready var _async_check: CheckBox = $UI/Sidebar/Margin/VBox/AsyncCheck
 @onready var _async_hint: Label = $UI/Sidebar/Margin/VBox/AsyncHint
+@onready var _vsync_option: OptionButton = $UI/Sidebar/Margin/VBox/VsyncOption
 @onready var _stats_overlay: Control = $UI/StatsOverlay
 @onready var _contact_hertz_row: Control = $UI/Sidebar/Margin/VBox/ContactHertzRow
 @onready var _contact_hertz_spin: SpinBox = $UI/Sidebar/Margin/VBox/ContactHertzRow/ContactHertzSpin
@@ -117,6 +118,7 @@ var _worker_override := -1
 var _contact_hertz_override := -1.0
 var _contact_damping_override := -1.0
 var _debug_hidden: Array = []  ## MeshInstance3Ds hidden while the debug view is on
+var _debug_hidden_node_count := -1  ## tree size at the last hide walk (skip cheaply when unchanged)
 ## Off by default; sticky across sample loads and resets once turned on.
 var _async_step := false
 
@@ -192,6 +194,17 @@ func _ready() -> void:
 	_async_check.focus_mode = Control.FOCUS_NONE
 	_async_check.toggled.connect(_on_async_toggled)
 
+	# V-Sync mode: a global display setting (never reset on sample load). The
+	# control starts from whatever mode the window actually has, and after each
+	# change reads the mode back — the platform may refuse one (e.g. mailbox),
+	# and the dropdown should show reality, not the request.
+	_vsync_option.focus_mode = Control.FOCUS_NONE
+	_vsync_option.add_item("VSync: On")
+	_vsync_option.add_item("VSync: Off")
+	_vsync_option.add_item("VSync: Mailbox")
+	_vsync_option.select(_vsync_index(DisplayServer.window_get_vsync_mode()))
+	_vsync_option.item_selected.connect(_on_vsync_selected)
+
 	# `-- --sample=Ragdoll` (case-insensitive) opens straight to that sample.
 	var wanted := ""
 	for arg in OS.get_cmdline_user_args():
@@ -242,11 +255,16 @@ func _physics_process(_delta: float) -> void:
 	if _stats_overlay.visible and _step_count % 60 == 0:
 		_push_stats_bodies()
 	# Catch bodies spawned after the toggle (emitters, shots): re-hide their
-	# visuals every half second while the debug view is on.
+	# visuals every half second while the debug view is on. The walk touches
+	# every node (16k+ in the big samples), so skip it while the tree hasn't
+	# changed size — nothing new can need hiding then.
 	if _debug_draw and _step_count % 30 == 0 and _current != null:
-		var world = _current.get_node_or_null("Box3DWorld")
-		if world != null:
-			_hide_shelled_visuals(world)
+		var node_count := get_tree().get_node_count()
+		if node_count != _debug_hidden_node_count:
+			_debug_hidden_node_count = node_count
+			var world = _current.get_node_or_null("Box3DWorld")
+			if world != null:
+				_hide_shelled_visuals(world)
 
 
 func _on_reset() -> void:
@@ -307,11 +325,13 @@ func _apply_debug() -> void:
 	if _debug_draw:
 		if world != null:
 			_hide_shelled_visuals(world)
+			_debug_hidden_node_count = get_tree().get_node_count()
 	else:
 		for mi in _debug_hidden:
 			if is_instance_valid(mi):
 				mi.visible = true
 		_debug_hidden.clear()
+		_debug_hidden_node_count = -1
 
 
 ## Bodies the world shells (primitive shape types or compound children) get
@@ -410,6 +430,27 @@ func _on_async_toggled(pressed: bool) -> void:
 		return
 	_async_step = pressed
 	_apply_async()
+
+
+## Dropdown order for the V-Sync control; indices match the items added in
+## _ready. Adaptive isn't offered (it behaves like On above the refresh rate),
+## so an externally-set adaptive mode just displays as On until changed here.
+const _VSYNC_MODES: Array = [
+	DisplayServer.VSYNC_ENABLED,
+	DisplayServer.VSYNC_DISABLED,
+	DisplayServer.VSYNC_MAILBOX,
+]
+
+
+func _vsync_index(mode: int) -> int:
+	var i: int = _VSYNC_MODES.find(mode)
+	return i if i >= 0 else 0
+
+
+func _on_vsync_selected(index: int) -> void:
+	DisplayServer.window_set_vsync_mode(_VSYNC_MODES[index])
+	# Reflect what the platform actually granted (select() doesn't re-signal).
+	_vsync_option.select(_vsync_index(DisplayServer.window_get_vsync_mode()))
 
 
 ## async_step toggles live (the world absorbs any in-flight step when turned
