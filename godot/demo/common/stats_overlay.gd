@@ -32,6 +32,13 @@ func _ready() -> void:
 	# with the omnidirectional cursor.
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	mouse_default_cursor_shape = Control.CURSOR_MOVE
+	# Belt and braces: the per-Control hover shape above doesn't show on every
+	# display stack, so force the omnidirectional cursor at the Input level
+	# while the pointer is over the panel.
+	mouse_entered.connect(func() -> void:
+		Input.set_default_cursor_shape(Input.CURSOR_MOVE))
+	mouse_exited.connect(func() -> void:
+		Input.set_default_cursor_shape(Input.CURSOR_ARROW))
 	tooltip_text = "Drag to move"
 	_times.resize(WINDOW)
 	_font = get_theme_default_font()
@@ -46,6 +53,9 @@ func _ready() -> void:
 
 func _on_visibility_changed() -> void:
 	set_process(visible)
+	if not visible:
+		# Never leave the move cursor stuck if the panel hides under the mouse.
+		Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 	if visible:
 		# Fresh window: a stale buffer would graph the time we spent hidden.
 		_count = 0

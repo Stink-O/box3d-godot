@@ -143,8 +143,25 @@ void Box3DJoint::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_READY: {
 			if (!Engine::get_singleton()->is_editor_hint()) {
-				// Deferred so every referenced body has finished _ready and exists.
-				callable_mp(this, &Box3DJoint::create_joint).call_deferred();
+				// Create NOW if the referenced bodies already exist. A deferred
+				// create leaves a window where a physics tick steps the bodies
+				// unjointed — for a ragdoll spawned at runtime mid-session the
+				// bones scatter for that tick and the late joint then freezes
+				// the scattered pose in as its rest frame. Bodies earlier in
+				// tree order (the common case) are ready before the joint, so
+				// this path is immediate; only when a referenced body has not
+				// been created yet (scene-load order places it after the
+				// joint) fall back to the deferred retry the old behavior
+				// existed for.
+				Box3DBody *a = resolve_body(body_a_path);
+				Box3DBody *b = resolve_body(body_b_path);
+				bool a_ready = a != nullptr && a->is_body_valid();
+				bool b_ready = body_b_path.is_empty() || (b != nullptr && b->is_body_valid());
+				if (a_ready && b_ready) {
+					create_joint();
+				} else {
+					callable_mp(this, &Box3DJoint::create_joint).call_deferred();
+				}
 			}
 		} break;
 		case NOTIFICATION_EXIT_TREE: {
