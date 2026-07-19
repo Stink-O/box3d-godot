@@ -4,11 +4,13 @@ extends Control
 ## from the Settings sidebar. Self-measured wall-clock frame deltas drive the
 ## graph (Godot's TIME_* monitors only refresh once a second, so those lines
 ## are labelled as 1 s averages). Draws itself; no children, no theme deps.
+## Drag anywhere on the panel to move it (the position is remembered).
 
 const WINDOW := 240  ## frames kept in the graph / percentile window
 const GRAPH_H := 64.0
 const PAD := 10.0
-const LINE_H := 19.0
+const LINE_H := 20.0
+const LAYOUT_PATH := "user://ui.cfg"  ## remembers the dragged position
 
 ## Pushed by the shell once a second (recursive node count); -1 hides the line.
 var bodies := -1
@@ -21,14 +23,23 @@ var _text_timer := 0.0
 var _lines: PackedStringArray = []
 var _fps_text := ""
 var _font: Font
-var _font_big: Font
+var _dragging := false
 
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# The panel is a drag target: catch its mouse events (so a drag doesn't
+	# also grab bodies / fly the camera underneath) and advertise movability
+	# with the omnidirectional cursor.
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_default_cursor_shape = Control.CURSOR_MOVE
+	tooltip_text = "Drag to move"
 	_times.resize(WINDOW)
 	_font = get_theme_default_font()
-	_font_big = _font
+	var layout := ConfigFile.new()
+	if layout.load(LAYOUT_PATH) == OK:
+		var saved = layout.get_value("stats_overlay", "position", null)
+		if saved is Vector2:
+			position = saved
 	visibility_changed.connect(_on_visibility_changed)
 	_on_visibility_changed()
 
@@ -41,6 +52,28 @@ func _on_visibility_changed() -> void:
 		_head = 0
 		_last_usec = 0
 		_text_timer = 0.0
+		_clamp_to_screen()
+
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		_dragging = event.pressed
+		if not event.pressed:
+			var layout := ConfigFile.new()
+			layout.load(LAYOUT_PATH)  # keep other sections if the file exists
+			layout.set_value("stats_overlay", "position", position)
+			layout.save(LAYOUT_PATH)
+		accept_event()
+	elif event is InputEventMouseMotion and _dragging:
+		position += event.relative
+		_clamp_to_screen()
+		accept_event()
+
+
+## Keep the panel reachable: never let it leave the visible viewport.
+func _clamp_to_screen() -> void:
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	position = position.clamp(Vector2.ZERO, (view - size).max(Vector2.ZERO))
 
 
 func _process(delta: float) -> void:
@@ -54,6 +87,8 @@ func _process(delta: float) -> void:
 	if _text_timer <= 0.0:
 		_text_timer = 0.25
 		_rebuild_text()
+		# The hit/drag area tracks the drawn content exactly.
+		size.y = PAD * 2.0 + (_lines.size() + 1) * LINE_H + 30.0 + GRAPH_H
 	queue_redraw()
 
 
@@ -121,20 +156,27 @@ func _rebuild_text() -> void:
 	])
 
 
+## Text with a 1 px drop shadow so it stays readable over bright scenes even
+## through the translucent panel.
+func _shadowed(pos: Vector2, text: String, px: int, color: Color) -> void:
+	draw_string(_font, pos + Vector2.ONE, text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, px, Color(0, 0, 0, 0.7))
+	draw_string(_font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, px, color)
+
+
 func _draw() -> void:
 	var w := size.x
-	var text_h := (_lines.size() + 1) * LINE_H + 30.0
-	var h := PAD * 2.0 + text_h + GRAPH_H
-	draw_rect(Rect2(0, 0, w, h), Color(0.05, 0.06, 0.08, 0.82))
+	var h := PAD * 2.0 + (_lines.size() + 1) * LINE_H + 30.0 + GRAPH_H
+	draw_rect(Rect2(0, 0, w, h), Color(0.05, 0.06, 0.08, 0.85))
 
 	var y := PAD + 24.0
-	draw_string(_font_big, Vector2(PAD, y), _fps_text,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(1, 1, 1, 0.95))
+	_shadowed(Vector2(PAD, y), _fps_text, 24, Color(1, 1, 1, 0.95))
+	# Move-grip glyph in the corner: a quiet reminder the panel is draggable.
+	_shadowed(Vector2(w - PAD - 18.0, y), "✥", 18, Color(1, 1, 1, 0.4))
 	y += 10.0
 	for line in _lines:
 		y += LINE_H
-		draw_string(_font, Vector2(PAD, y), line,
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.85, 0.88, 0.92, 0.9))
+		_shadowed(Vector2(PAD, y), line, 14, Color(0.88, 0.91, 0.95, 0.95))
 
 	# --- Frame-time graph: one bar per frame, newest at the right edge. ---
 	var gy := h - PAD - GRAPH_H
