@@ -50,6 +50,15 @@ private:
 	// True once the node transform was synced after the body fell asleep, so
 	// sleeping bodies cost nothing in the per-step sync loop.
 	bool asleep_synced = false;
+	// When false, sync_from_physics still records the render snapshots but
+	// leaves the Godot node transform alone. Box3DMultiMeshRenderer turns
+	// this off for its bodies: at tens of thousands of nodes, per-tick
+	// set_global_transform plus the engine's own per-frame interpolation
+	// bookkeeping costs more than the solver. Scripts reading such a body's
+	// node position see its spawn pose.
+	bool sync_node_transform = true;
+	b3WorldTransform snap_prev = {}; // last two tick transforms, for render
+	b3WorldTransform snap_curr = {}; // interpolation without node reads
 	Vector3 box_size = Vector3(1, 1, 1); // full extents
 	double sphere_radius = 0.5;
 	double capsule_radius = 0.5;
@@ -69,6 +78,9 @@ private:
 	bool debug_visualize = true; // false = no shell in the world's debug draw
 	int debug_hit_frames = 0; // >0: recent hit event, debug draw flashes lime
 	bool continuous = false; // continuous collision (bullet)
+	// Upstream stabilizer for big stacks: matching contacts are reused between
+	// steps while a pair barely moves, keeping warm-start impulses intact.
+	bool contact_recycling = true; // mirrors b3BodyDef.enableContactRecycling
 	bool allow_fast_rotation = false;
 	bool lock_linear_x = false;
 	bool lock_linear_y = false;
@@ -133,6 +145,12 @@ public:
 	}
 	bool debug_hit_active() const { return debug_hit_frames > 0; }
 	b3BodyId get_body_id() const { return body_id; }
+	// Previous/current tick transforms, kept by sync_from_physics for
+	// Box3DMultiMeshRenderer to interpolate between at render rate.
+	void get_render_snapshots(b3WorldTransform &r_prev, b3WorldTransform &r_curr) const {
+		r_prev = snap_prev;
+		r_curr = snap_curr;
+	}
 
 	// Called by the world when it dispatches contact / sensor events.
 	void emit_contact_begin(Box3DBody *p_other);
@@ -188,6 +206,10 @@ public:
 	bool get_debug_visualize() const;
 	void set_continuous(bool p_enabled);
 	bool get_continuous() const;
+	void set_contact_recycling(bool p_enabled);
+	bool get_contact_recycling() const;
+	void set_sync_node_transform(bool p_enabled);
+	bool get_sync_node_transform() const;
 	void set_allow_fast_rotation(bool p_enabled);
 	bool get_allow_fast_rotation() const;
 	void set_lock_linear_x(bool p_v);

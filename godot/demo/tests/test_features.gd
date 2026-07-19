@@ -34,6 +34,8 @@ func _ready() -> void:
 	await _test_auto_visual()
 	await _test_solver_tuning()
 	await _test_async_step()
+	await _test_contact_recycling()
+	await _test_sync_node_transform_off()
 	print("[test] ALL -> ", "PASS" if _all_ok else "FAIL")
 	get_tree().quit(0 if _all_ok else 1)
 
@@ -907,5 +909,67 @@ func _test_async_step() -> void:
 	var after: float = bodies[1].position.y
 	_check("async_step: toggling off mid-run stays consistent",
 		not world.async_step and not is_nan(after) and absf(after - before) < 5.0)
+
+	world.free()
+
+
+func _test_contact_recycling() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+
+	var floor := Box3DBody.new()
+	floor.body_type = Box3DBody.STATIC
+	floor.box_size = Vector3(20, 1, 20)
+	floor.position = Vector3(0, -0.5, 0)
+	world.add_child(floor)
+
+	# Default mirrors Box3D (recycling on); a live toggle round-trips and the
+	# body keeps simulating normally either way.
+	var box := Box3DBody.new()
+	box.position = Vector3(0, 2, 0)
+	world.add_child(box)
+	var default_on: bool = box.contact_recycling
+	box.contact_recycling = false
+	var toggled_off: bool = not box.contact_recycling
+	box.contact_recycling = true
+
+	for i in range(90):
+		await get_tree().physics_frame
+
+	_check("contact_recycling: default on, live toggle round-trips, body rests",
+		default_on and toggled_off and box.contact_recycling
+		and box.position.y > 0.2 and box.position.y < 2.0)
+
+	world.free()
+
+
+func _test_sync_node_transform_off() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+
+	var floor := Box3DBody.new()
+	floor.body_type = Box3DBody.STATIC
+	floor.box_size = Vector3(20, 1, 20)
+	floor.position = Vector3(0, -0.5, 0)
+	world.add_child(floor)
+
+	# With node sync off the body still simulates (the solver moves it, world
+	# queries see it fall) but the Godot node stays at its spawn pose — the
+	# contract Box3DMultiMeshRenderer relies on at 16k bodies.
+	var box := Box3DBody.new()
+	box.position = Vector3(0, 4, 0)
+	box.sync_node_transform = false
+	world.add_child(box)
+
+	for i in range(90):
+		await get_tree().physics_frame
+
+	var found_at_floor := false
+	for hit in world.overlap_sphere(Vector3(0, 0.5, 0), 1.0):
+		if hit == box:
+			found_at_floor = true
+	_check("sync_node_transform off: solver moves body (query hits it at floor), node stays at spawn",
+		not box.sync_node_transform and found_at_floor
+		and box.position.is_equal_approx(Vector3(0, 4, 0)))
 
 	world.free()

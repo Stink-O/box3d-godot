@@ -7,6 +7,7 @@
 #include "box3d_character.h"
 #include "box3d_collision_shape.h"
 #include "box3d_joint.h"
+#include "box3d_multimesh_renderer.h"
 #include "box3d_world.h"
 
 #include <gdextension_interface.h>
@@ -34,6 +35,7 @@ void initialize_box3d_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(Box3DMotorJoint);
 	GDREGISTER_CLASS(Box3DWheelJoint);
 	GDREGISTER_CLASS(Box3DParallelJoint);
+	GDREGISTER_CLASS(Box3DMultiMeshRenderer);
 }
 
 void uninitialize_box3d_module(ModuleInitializationLevel p_level) {

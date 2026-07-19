@@ -79,7 +79,12 @@ void Box3DJoint::create_joint() {
 		return;
 	}
 	b3BodyId id_a = body_a->get_body_id();
-	Transform3D xf_a = body_a->get_global_transform();
+	// Body frames come from the solver, not the Godot nodes: a node can lag a
+	// tick behind (async stepping) or be frozen at its spawn pose entirely
+	// (sync_node_transform off under Box3DMultiMeshRenderer), and a joint
+	// anchored to a stale frame grabs the body in the wrong place.
+	b3WorldTransform b3_xf_a = b3Body_GetTransform(id_a);
+	Transform3D xf_a(Basis(to_gd(b3_xf_a.q)), to_gd_pos(b3_xf_a.p));
 
 	Transform3D joint_xf = get_global_transform();
 
@@ -88,7 +93,8 @@ void Box3DJoint::create_joint() {
 	Box3DBody *body_b = resolve_body(body_b_path);
 	if (body_b != nullptr && b3Body_IsValid(body_b->get_body_id())) {
 		id_b = body_b->get_body_id();
-		xf_b = body_b->get_global_transform();
+		b3WorldTransform b3_xf_b = b3Body_GetTransform(id_b);
+		xf_b = Transform3D(Basis(to_gd(b3_xf_b.q)), to_gd_pos(b3_xf_b.p));
 	} else {
 		// No body_b: anchor to the world with a static body at the joint origin.
 		b3BodyDef def = b3DefaultBodyDef();

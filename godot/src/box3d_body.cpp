@@ -80,6 +80,7 @@ void Box3DBody::create_in_world() {
 	body_def.angularDamping = (float)angular_damping;
 	body_def.gravityScale = (float)gravity_scale;
 	body_def.isBullet = continuous;
+	body_def.enableContactRecycling = contact_recycling;
 	body_def.allowFastRotation = allow_fast_rotation;
 	body_def.motionLocks.linearX = lock_linear_x;
 	body_def.motionLocks.linearY = lock_linear_y;
@@ -89,6 +90,8 @@ void Box3DBody::create_in_world() {
 	body_def.motionLocks.angularZ = lock_angular_z;
 	body_def.userData = this;
 	body_id = b3CreateBody(world_id, &body_def);
+	snap_prev = b3Body_GetTransform(body_id);
+	snap_curr = snap_prev;
 
 	// Compound bodies: if there are Box3DCollisionShape children, build a shape
 	// for each and skip the body's own shape_type.
@@ -491,7 +494,11 @@ void Box3DBody::sync_from_physics() {
 		asleep_synced = true;
 	}
 	b3WorldTransform t = b3Body_GetTransform(body_id);
-	set_global_transform(Transform3D(Basis(to_gd(t.q)), to_gd_pos(t.p)));
+	snap_prev = snap_curr;
+	snap_curr = t;
+	if (sync_node_transform) {
+		set_global_transform(Transform3D(Basis(to_gd(t.q)), to_gd_pos(t.p)));
+	}
 }
 
 bool Box3DBody::is_awake_now() const {
@@ -594,6 +601,10 @@ void Box3DBody::teleport(const Transform3D &p_xform) {
 	// across the render frame.
 	reset_physics_interpolation();
 	if (body_live()) {
+		// The render snapshots must jump too, not smear the teleport.
+		snap_curr.p = to_b3_pos(p_xform.origin);
+		snap_curr.q = to_b3(p_xform.basis.get_rotation_quaternion());
+		snap_prev = snap_curr;
 		b3Body_SetTransform(body_id, to_b3_pos(p_xform.origin),
 				to_b3(p_xform.basis.get_rotation_quaternion()));
 		b3Body_SetLinearVelocity(body_id, to_b3(Vector3()));
@@ -865,6 +876,27 @@ bool Box3DBody::get_continuous() const {
 	return continuous;
 }
 
+void Box3DBody::set_contact_recycling(bool p_enabled) {
+	contact_recycling = p_enabled;
+	if (body_live()) {
+		b3Body_EnableContactRecycling(body_id, p_enabled);
+	}
+}
+
+bool Box3DBody::get_contact_recycling() const {
+	return contact_recycling;
+}
+
+void Box3DBody::set_sync_node_transform(bool p_enabled) {
+	sync_node_transform = p_enabled;
+	// Turning it back on catches the node up on the next tick.
+	asleep_synced = false;
+}
+
+bool Box3DBody::get_sync_node_transform() const {
+	return sync_node_transform;
+}
+
 void Box3DBody::set_allow_fast_rotation(bool p_enabled) {
 	allow_fast_rotation = p_enabled;
 	rebuild_if_alive();
@@ -960,6 +992,10 @@ void Box3DBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_debug_visualize", "enabled"), &Box3DBody::set_debug_visualize);
 	ClassDB::bind_method(D_METHOD("get_debug_visualize"), &Box3DBody::get_debug_visualize);
 	ClassDB::bind_method(D_METHOD("set_continuous", "enabled"), &Box3DBody::set_continuous);
+	ClassDB::bind_method(D_METHOD("set_contact_recycling", "enabled"), &Box3DBody::set_contact_recycling);
+	ClassDB::bind_method(D_METHOD("get_contact_recycling"), &Box3DBody::get_contact_recycling);
+	ClassDB::bind_method(D_METHOD("set_sync_node_transform", "enabled"), &Box3DBody::set_sync_node_transform);
+	ClassDB::bind_method(D_METHOD("get_sync_node_transform"), &Box3DBody::get_sync_node_transform);
 	ClassDB::bind_method(D_METHOD("get_continuous"), &Box3DBody::get_continuous);
 	ClassDB::bind_method(D_METHOD("set_allow_fast_rotation", "enabled"), &Box3DBody::set_allow_fast_rotation);
 	ClassDB::bind_method(D_METHOD("get_allow_fast_rotation"), &Box3DBody::get_allow_fast_rotation);
@@ -1001,6 +1037,8 @@ void Box3DBody::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "is_sensor"), "set_is_sensor", "get_is_sensor");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_visualize"), "set_debug_visualize", "get_debug_visualize");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "continuous"), "set_continuous", "get_continuous");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "contact_recycling"), "set_contact_recycling", "get_contact_recycling");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sync_node_transform"), "set_sync_node_transform", "get_sync_node_transform");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "allow_fast_rotation"), "set_allow_fast_rotation", "get_allow_fast_rotation");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layer", "get_collision_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");

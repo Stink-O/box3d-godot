@@ -6,6 +6,7 @@
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/packed_float32_array.hpp>
 
 #include <box3d/box3d.h>
 
@@ -53,6 +54,7 @@ private:
 		DEBUG_PRIM_MAX,
 	};
 	MultiMeshInstance3D *debug_mm[DEBUG_PRIM_MAX] = {};
+	PackedFloat32Array debug_buffer[DEBUG_PRIM_MAX]; // reused bulk upload buffers
 	bool debug_last_any_awake = false;
 	int debug_last_body_count = -1; // -1 forces a rebuild on the next step
 	double last_step_delta = 1.0 / 60.0; // for the fast-body debug criterion

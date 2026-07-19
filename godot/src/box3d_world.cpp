@@ -13,6 +13,7 @@
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/multi_mesh.hpp>
 #include <godot_cpp/classes/multi_mesh_instance3d.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/sphere_mesh.hpp>
@@ -86,6 +87,9 @@ void Box3DWorld::apply_step_results() {
 	}
 	dispatch_contact_events();
 	dispatch_sensor_events();
+	// Async mode refreshes the debug shells here: we are post-join, and apply
+	// runs at most once per physics frame so it cannot catch-up-spiral like
+	// the old per-tick update in the synchronous path could.
 	if (debug_draw) {
 		update_debug_draw();
 	}
@@ -216,9 +220,6 @@ void Box3DWorld::step(double p_delta) {
 	}
 	dispatch_contact_events();
 	dispatch_sensor_events();
-	if (debug_draw) {
-		update_debug_draw();
-	}
 }
 
 Box3DBody *Box3DWorld::body_from_shape(b3ShapeId p_shape) {
@@ -308,6 +309,18 @@ void Box3DWorld::_notification(int p_what) {
 			if (!Engine::get_singleton()->is_editor_hint()) {
 				ensure_world();
 				set_physics_process(true);
+				set_process(true);
+			}
+		} break;
+		case NOTIFICATION_PROCESS: {
+			// Synchronous mode refreshes the debug shells once per frame here,
+			// never per tick — updating inside step() made every catch-up tick
+			// pay the full rebuild, which spiraled heavy scenes to a
+			// standstill. Async mode updates from apply_step_results instead:
+			// a step is in flight during most process callbacks, and joining
+			// here would stall the rendering async exists to protect.
+			if (debug_draw && !async_step && !Engine::get_singleton()->is_editor_hint()) {
+				update_debug_draw();
 			}
 		} break;
 		case NOTIFICATION_EXIT_TREE: {
@@ -606,6 +619,9 @@ void fragment() {
 			MultiMeshInstance3D *mi = memnew(MultiMeshInstance3D);
 			mi->set_name(String("Box3DDebugDraw") + String::num_int64(p));
 			mi->set_as_top_level(true); // draw in world space
+			// Bulk multimesh_set_buffer uploads bypass the engine's own
+			// multimesh physics interpolation; opt out so they render as-is.
+			mi->set_physics_interpolation_mode(Node::PHYSICS_INTERPOLATION_MODE_OFF);
 			// The shells are rewritten every physics tick already; interpolating
 			// them too would just smear the debug view a frame behind.
 			mi->set_physics_interpolation_mode(Node::PHYSICS_INTERPOLATION_MODE_OFF);
@@ -724,7 +740,10 @@ void fragment() {
 		if (has_child_shapes) {
 			continue;
 		}
-		Transform3D xf = body->get_global_transform();
+		// From the solver, not the node: renderer-managed bodies (with
+		// sync_node_transform off) keep a stale node pose.
+		b3WorldTransform bxf = b3Body_GetTransform(body->get_body_id());
+		Transform3D xf(Basis(to_gd(bxf.q)), to_gd_pos(bxf.p));
 		float cr = (float)body->get_capsule_radius();
 		float ch = (float)body->get_capsule_height();
 		switch (body->get_shape_type()) {
@@ -756,10 +775,40 @@ void fragment() {
 			mm->set_instance_count(n);
 		}
 		mm->set_visible_instance_count(n);
-		for (int i = 0; i < n; ++i) {
-			mm->set_instance_transform(i, xforms[p][i]);
-			mm->set_instance_color(i, colors[p][i]);
+		// One bulk buffer upload instead of two RenderingServer calls per
+		// instance — per-instance writes cost ~160 ms/frame at 16k bodies.
+		int alloc = mm->get_instance_count();
+		if (alloc == 0) {
+			continue; // no shells of this primitive; 0-size uploads error out
 		}
+		PackedFloat32Array &buf = debug_buffer[p];
+		buf.resize((int64_t)alloc * 16);
+		float *w = buf.ptrw();
+		for (int i = 0; i < n; ++i) {
+			const Transform3D &xf = xforms[p][i];
+			const Color &col = colors[p][i];
+			float *inst = w + (int64_t)i * 16;
+			inst[0] = (float)xf.basis.rows[0][0];
+			inst[1] = (float)xf.basis.rows[0][1];
+			inst[2] = (float)xf.basis.rows[0][2];
+			inst[3] = (float)xf.origin.x;
+			inst[4] = (float)xf.basis.rows[1][0];
+			inst[5] = (float)xf.basis.rows[1][1];
+			inst[6] = (float)xf.basis.rows[1][2];
+			inst[7] = (float)xf.origin.y;
+			inst[8] = (float)xf.basis.rows[2][0];
+			inst[9] = (float)xf.basis.rows[2][1];
+			inst[10] = (float)xf.basis.rows[2][2];
+			inst[11] = (float)xf.origin.z;
+			inst[12] = col.r;
+			inst[13] = col.g;
+			inst[14] = col.b;
+			inst[15] = col.a;
+		}
+		if (alloc > n) {
+			memset(w + (int64_t)n * 16, 0, ((int64_t)alloc - n) * 16 * sizeof(float));
+		}
+		RenderingServer::get_singleton()->multimesh_set_buffer(mm->get_rid(), buf);
 	}
 }
 

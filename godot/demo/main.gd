@@ -18,6 +18,7 @@ const SAMPLES := {
 		"Friction Ramp": "res://samples/friction_ramp.tscn",
 		"Pyramid": "res://samples/pyramid.tscn",
 		"Large Pyramid": "res://samples/large_pyramid.tscn",
+		"Huge Pyramid": "res://samples/huge_pyramid.tscn",
 		"Mixed Stacks": "res://samples/mixed_stacks.tscn",
 	},
 	"Constraints": {
@@ -476,16 +477,22 @@ func _refresh_sidebar_from_world(world) -> void:
 	_update_readout()
 
 
+## Body counting walks the whole sample tree, which is real work at 16k+
+## bodies — refresh the cached count at most once a second.
+var _body_count_cache := -1
+var _body_count_step := -999
+
+
 func _update_readout() -> void:
-	if _current == null:
-		_readout.text = "Physics Steps: %d\nBodies: --" % _step_count
-		return
-	var world = _current.get_node_or_null("Box3DWorld")
+	var world = null if _current == null else _current.get_node_or_null("Box3DWorld")
 	if world == null:
 		_readout.text = "Physics Steps: %d\nBodies: --" % _step_count
 		return
-	# Samples nest bodies under sub-nodes (e.g. Blocks), so count all descendants.
-	_readout.text = "Physics Steps: %d\nBodies: %d" % [_step_count, _count_bodies(world)]
+	if _step_count - _body_count_step >= 60 or _body_count_cache < 0:
+		# Samples nest bodies under sub-nodes (e.g. Blocks): count descendants.
+		_body_count_cache = _count_bodies(world)
+		_body_count_step = _step_count
+	_readout.text = "Physics Steps: %d\nBodies: %d" % [_step_count, _body_count_cache]
 
 
 func _count_bodies(node: Node) -> int:
@@ -544,6 +551,7 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 			override_world.worker_count = _worker_override
 	_host.add_child(_current)
 	_step_count = 0
+	_body_count_cache = -1
 	var world = _current.get_node_or_null("Box3DWorld")
 	if world != null and _camera.has_method("set_world"):
 		if keep_camera:
