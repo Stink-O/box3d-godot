@@ -490,7 +490,11 @@ func _begin_grab(body: Box3DBody, hit_pos: Vector3, distance: float) -> void:
 	_grab_mouse_body.position = to_world_local * hit_pos  # BEFORE add_child
 	_world.add_child(_grab_mouse_body)
 
-	var mg: float = body.get_mass() * _world.gravity.length()
+	# Upstream's grab strength scales with weight (100 mg). Floor the
+	# reference acceleration at standard gravity: in a zero-g world (the
+	# sidebar allows it) weight is zero and the grab spring would cap at
+	# zero force - grabbing would silently do nothing.
+	var mg: float = body.get_mass() * maxf(_world.gravity.length(), 9.8)
 	_grab_joint = Box3DMotorJoint.new()
 	_grab_joint.position = to_world_local * hit_pos  # joint frame = grab point
 	_grab_joint.max_force = 0.0  # no velocity drive; the position spring pulls

@@ -209,6 +209,8 @@ func _ready() -> void:
 	_vsync_option.select(_vsync_index(DisplayServer.window_get_vsync_mode()))
 	_vsync_option.item_selected.connect(_on_vsync_selected)
 
+	_setup_reverts()
+
 	# `-- --sample=Ragdoll` (case-insensitive) opens straight to that sample.
 	var wanted := ""
 	for arg in OS.get_cmdline_user_args():
@@ -641,7 +643,8 @@ func _on_menu_id(id: int) -> void:
 
 
 func _load(path: String, sample_name: String, keep_camera := false) -> void:
-	if path != _current_path:
+	var fresh_sample := path != _current_path
+	if fresh_sample:
 		_worker_override = -1
 		_contact_hertz_override = -1.0
 		_contact_damping_override = -1.0
@@ -713,6 +716,12 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	if _stats_overlay.visible:
 		_push_stats_bodies()
 	_refresh_sidebar_from_world(world)
+	# A newly picked sample defines fresh "original" values for the world
+	# rows; a Reset of the same sample keeps them (so sticky tuning that
+	# survived the reload still shows its revert button).
+	if fresh_sample and not _reverts.is_empty():
+		_capture_world_baselines()
+	_update_all_reverts()
 	# Show the Activate button only for samples that expose an activate() action.
 	_activate.visible = _current != null and _current.has_method("activate")
 	# Same idea for the sample toggle (set_toggled + get_toggle_label). A fresh
@@ -726,3 +735,105 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 		_touch.set_sample(path)  # joystick/JUMP/key pills for samples that use them
 	_info_flash_id += 1  # cancel any pending flash from the previous sample
 	_show_controls_hint()
+
+
+# --- Settings revert buttons: a small "⟲" appears next to any sidebar
+# control whose value differs from its baseline (what the sample loaded
+# with, or the shell's startup default) and puts it back on click. ---
+
+var _reverts := {}  ## Control -> {"btn": Button, "baseline": Variant}
+
+
+func _revert_value(ctrl: Control) -> Variant:
+	if ctrl is SpinBox:
+		return (ctrl as SpinBox).value
+	if ctrl is OptionButton:
+		return (ctrl as OptionButton).selected
+	return (ctrl as BaseButton).button_pressed  # CheckBox / CheckButton
+
+
+func _revert_apply(ctrl: Control, value: Variant) -> void:
+	# Set THROUGH the signal so the normal handler applies the change.
+	if ctrl is SpinBox:
+		(ctrl as SpinBox).value = value
+	elif ctrl is OptionButton:
+		(ctrl as OptionButton).selected = value
+		(ctrl as OptionButton).item_selected.emit(value)
+	else:
+		(ctrl as BaseButton).button_pressed = value
+
+
+func _revert_changed(a: Variant, b: Variant) -> bool:
+	if a is float and b is float:
+		return not is_equal_approx(a, b)
+	return a != b
+
+
+func _update_revert(ctrl: Control) -> void:
+	var info: Dictionary = _reverts.get(ctrl, {})
+	if info.is_empty():
+		return
+	(info["btn"] as Button).visible = _revert_changed(_revert_value(ctrl), info["baseline"])
+
+
+func _set_revert_baseline(ctrl: Control, value: Variant) -> void:
+	if ctrl in _reverts:
+		_reverts[ctrl]["baseline"] = value
+		_update_revert(ctrl)
+
+
+func _add_revert(ctrl: Control) -> void:
+	var btn := Button.new()
+	btn.text = "\u27F2"
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.visible = false
+	btn.tooltip_text = "Revert to the original value"
+	btn.pressed.connect(func() -> void:
+		_revert_apply(ctrl, _reverts[ctrl]["baseline"])
+		_update_revert(ctrl))
+	var parent := ctrl.get_parent()
+	if parent is HBoxContainer:
+		parent.add_child(btn)
+	else:
+		# Standalone checkbox in the VBox: wrap it in a row so the button
+		# can sit beside it. Node identity survives, signals stay wired.
+		var row := HBoxContainer.new()
+		var idx := ctrl.get_index()
+		parent.remove_child(ctrl)
+		parent.add_child(row)
+		parent.move_child(row, idx)
+		row.add_child(ctrl)
+		ctrl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(btn)
+	_reverts[ctrl] = {"btn": btn, "baseline": _revert_value(ctrl)}
+	# Any user change re-evaluates the button (set_*_no_signal paths are
+	# handled by _update_all_reverts after a sidebar refresh instead).
+	if ctrl is SpinBox:
+		(ctrl as SpinBox).value_changed.connect(func(_v: float) -> void: _update_revert(ctrl))
+	elif ctrl is OptionButton:
+		(ctrl as OptionButton).item_selected.connect(func(_i: int) -> void: _update_revert(ctrl))
+	else:
+		(ctrl as BaseButton).toggled.connect(func(_on: bool) -> void: _update_revert(ctrl))
+
+
+func _setup_reverts() -> void:
+	for c in [_substep_spin, _worker_spin, _max_speed_spin, _gravity_spin,
+			_continuous_check, _sleep_check, _recycling_check,
+			_sidebar_debug_check, _stats_check, _async_check, _vsync_option,
+			_contact_hertz_spin, _contact_damping_spin]:
+		_add_revert(c)
+
+
+## Fresh sample load: the values just pushed into the world controls ARE the
+## originals for this sample. Shell-level controls (debug, stats, async,
+## vsync) keep their startup baselines.
+func _capture_world_baselines() -> void:
+	for c in [_substep_spin, _worker_spin, _max_speed_spin, _gravity_spin,
+			_continuous_check, _sleep_check, _recycling_check,
+			_contact_hertz_spin, _contact_damping_spin]:
+		_set_revert_baseline(c, _revert_value(c))
+
+
+func _update_all_reverts() -> void:
+	for c in _reverts:
+		_update_revert(c)

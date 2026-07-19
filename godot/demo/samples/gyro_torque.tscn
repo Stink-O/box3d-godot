@@ -27,6 +27,7 @@ size = Vector3(2, 0.1, 0.2)
 script = ExtResource("1_gyro")
 
 [node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, 0, 0)
 substep_count = 8
 
 [node name="Floor" type="Box3DBody" parent="Box3DWorld"]
@@ -40,7 +41,6 @@ material_override = SubResource("FloorMat_1")
 
 [node name="Handle" type="Box3DBody" parent="Box3DWorld"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 2, 0)
-gravity_scale = 0.0
 angular_damping = 0.0
 
 [node name="Rod" type="Box3DCollisionShape" parent="Box3DWorld/Handle"]
