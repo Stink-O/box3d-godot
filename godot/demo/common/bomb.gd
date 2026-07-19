@@ -10,10 +10,22 @@ const ExplosionFX = preload("res://common/explosion_fx.gd")
 const FUSE := 3.0
 const BLAST_RADIUS := 8.0
 const BLAST_IMPULSE := 9.0
+## A hit harder than this cuts the fuse to IMPACT_FUSE, so a shot bomb blows
+## where it lands instead of bouncing out of blast range first (a 40 m/s
+## rebound off something heavy carries it well past BLAST_RADIUS in the 3 s
+## fuse). Gentle lobs and rolls stay on the full fuse.
+const IMPACT_SPEED := 12.0
+const IMPACT_FUSE := 0.1
+
+## Set by the shell's blast slider / impact checkbox via the camera at
+## spawn; the constants above stay the defaults.
+var blast_impulse := BLAST_IMPULSE
+var impact_detonation := true
 
 var _t := 0.0
 var _exploded := false
 var _mat: StandardMaterial3D
+var _speed_before_hit := 0.0  ## last pre-solve speed, for the impact check
 
 
 func _ready() -> void:
@@ -23,6 +35,19 @@ func _ready() -> void:
 		_mat = (mi.material_override as StandardMaterial3D).duplicate()
 		_mat.emission_enabled = true
 		mi.material_override = _mat
+	body_entered.connect(_on_body_entered)
+
+
+func _physics_process(_delta: float) -> void:
+	# Sampled once per tick after the world (parent) has stepped, so when a
+	# contact event fires during the NEXT step this still holds the speed
+	# from before that impact was resolved.
+	_speed_before_hit = get_linear_velocity().length()
+
+
+func _on_body_entered(_other: Node) -> void:
+	if impact_detonation and _speed_before_hit > IMPACT_SPEED:
+		_t = maxf(_t, FUSE - IMPACT_FUSE)
 
 
 func _process(delta: float) -> void:
@@ -43,7 +68,7 @@ func _detonate() -> void:
 	_exploded = true
 	var world := _find_world()
 	if world != null:
-		ExplosionFX.blast(world, global_position, BLAST_RADIUS, BLAST_IMPULSE)
+		ExplosionFX.blast(world, global_position, BLAST_RADIUS, blast_impulse)
 	queue_free()
 
 

@@ -28,7 +28,10 @@ func _ready() -> void:
 		var y := (2.0 * i + 1.0) * half
 		for j in range(i, BASE_COUNT):
 			var b := Box3DBody.new()
-			b.density = 100.0  # upstream's benchmark boxes are heavy
+			# Upstream's benchmark uses density 100; the demo uses 1 so the
+			# shared shots (ball impulses, bomb blasts) interact believably.
+			# Solver cost is identical - mass does not change the math load.
+			b.density = 1.0
 			b.position = Vector3(
 				(i + 1.0) * half + 2.0 * (j - i) * half - half * BASE_COUNT, y, 0.0)
 			_blocks.add_child(b)

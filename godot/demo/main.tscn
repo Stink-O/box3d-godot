@@ -48,6 +48,29 @@ flat = false
 [node name="ShotMode" type="OptionButton" parent="UI/Bar" unique_id=258462601]
 layout_mode = 2
 
+[node name="BlastLabel" type="Label" parent="UI/Bar"]
+visible = false
+custom_minimum_size = Vector2(78, 0)
+layout_mode = 2
+text = "Blast: 9"
+
+[node name="BlastSlider" type="HSlider" parent="UI/Bar"]
+visible = false
+custom_minimum_size = Vector2(130, 0)
+layout_mode = 2
+size_flags_vertical = 4
+min_value = 1.0
+max_value = 60.0
+value = 9.0
+tooltip_text = "Bomb blast strength (impulse per area). Heavier scenes need more."
+
+[node name="ImpactCheck" type="CheckBox" parent="UI/Bar"]
+visible = false
+layout_mode = 2
+button_pressed = true
+tooltip_text = "Detonate immediately when the bomb hits something hard (over ~12 m/s). Off = always burn the full 3 s fuse."
+text = "Explode on Contact"
+
 [node name="Activate" type="Button" parent="UI/Bar" unique_id=13492053]
 visible = false
 layout_mode = 2

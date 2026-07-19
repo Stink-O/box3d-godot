@@ -63,6 +63,9 @@ const SAMPLES := {
 @onready var _camera: Camera3D = $Camera3D
 @onready var _menu: MenuButton = $UI/Bar/Menu
 @onready var _shot_mode: OptionButton = $UI/Bar/ShotMode
+@onready var _blast_label: Label = $UI/Bar/BlastLabel
+@onready var _blast_slider: HSlider = $UI/Bar/BlastSlider
+@onready var _impact_check: CheckBox = $UI/Bar/ImpactCheck
 @onready var _activate: Button = $UI/Bar/Activate
 @onready var _sample_toggle: CheckButton = $UI/Bar/SampleToggle
 @onready var _info: Label = $UI/Bar/Info
@@ -135,6 +138,14 @@ func _ready() -> void:
 	_shot_mode.add_item("Shot: Bomb")
 	_shot_mode.add_item("Shot: Ragdoll")
 	_shot_mode.item_selected.connect(_on_shot_mode_selected)
+	_blast_slider.focus_mode = Control.FOCUS_NONE
+	_blast_slider.value_changed.connect(_on_blast_changed)
+	_impact_check.focus_mode = Control.FOCUS_NONE
+	_impact_check.toggled.connect(_on_impact_toggled)
+	# The bar can fill up (bomb controls + a sample toggle + the hint text);
+	# trim the hint with an ellipsis instead of letting it run under the
+	# right-anchored Settings/Debug/Reset cluster.
+	_info.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 
 	# Reusable Activate button: calls activate() on samples that define one.
 	_activate.focus_mode = Control.FOCUS_NONE
@@ -234,6 +245,22 @@ func _on_reset() -> void:
 func _on_shot_mode_selected(index: int) -> void:
 	if _camera.has_method("set_shot_kind"):
 		_camera.set_shot_kind(index)
+	# The blast slider only means something while F fires bombs.
+	var bomb_mode := index == 1
+	_blast_label.visible = bomb_mode
+	_blast_slider.visible = bomb_mode
+	_impact_check.visible = bomb_mode
+
+
+func _on_impact_toggled(pressed: bool) -> void:
+	if "bomb_impact_detonation" in _camera:
+		_camera.bomb_impact_detonation = pressed
+
+
+func _on_blast_changed(value: float) -> void:
+	_blast_label.text = "Blast: %d" % int(value)
+	if "bomb_blast_impulse" in _camera:
+		_camera.bomb_blast_impulse = value
 
 
 func _on_activate() -> void:

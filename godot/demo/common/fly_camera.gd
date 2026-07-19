@@ -94,6 +94,8 @@ const Despawn = preload("res://common/despawn.gd")
 
 enum ShotKind { BALL, BOMB, RAGDOLL }
 var _shot_kind := ShotKind.BALL  ## what F fires
+var bomb_blast_impulse := 9.0  ## from the shell's blast slider
+var bomb_impact_detonation := true  ## from the shell's impact checkbox
 
 
 # Shell calls this to switch what F shoots (matches its dropdown order).
@@ -561,6 +563,8 @@ func _shoot(charge: float = 0.0) -> void:
 		bomb.debug_visualize = false  # projectiles keep their real look
 		bomb.collision_mask = RAY_MASK  # fly through invisible guards
 		bomb.position = origin + dir * (shoot_radius + 0.6)
+		bomb.blast_impulse = bomb_blast_impulse
+		bomb.impact_detonation = bomb_impact_detonation
 		_world.add_child(bomb)
 		bomb.set_linear_velocity(dir * speed)
 		return  # the bomb owns its own fuse -> explode -> free lifecycle

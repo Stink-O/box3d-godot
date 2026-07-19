@@ -21,6 +21,7 @@ sphere_radius = 0.38
 density = 4.0
 restitution = 0.2
 continuous = true
+contact_monitor = true
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 mesh = SubResource("BombMesh")
