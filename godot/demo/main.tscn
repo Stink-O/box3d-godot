@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://dyuost1g4i1cj" path="res://main.gd" id="1_main"]
 [ext_resource type="Environment" uid="uid://643galdbajfd" path="res://common/sky_environment.tres" id="2_env"]
 [ext_resource type="Script" uid="uid://dxugjy148iedm" path="res://common/fly_camera.gd" id="3_cam"]
+[ext_resource type="Script" path="res://common/stats_overlay.gd" id="4_stats"]
 
 [node name="Main" type="Node3D" unique_id=1603281943]
 script = ExtResource("1_main")
@@ -74,6 +75,14 @@ offset_bottom = 44.0
 grow_horizontal = 0
 toggle_mode = true
 text = "Settings"
+
+[node name="StatsOverlay" type="Control" parent="UI"]
+visible = false
+offset_left = 12.0
+offset_top = 56.0
+offset_right = 342.0
+offset_bottom = 296.0
+script = ExtResource("4_stats")
 
 [node name="DebugToggle" type="CheckButton" parent="UI" unique_id=370700332]
 anchors_preset = 1
@@ -205,6 +214,23 @@ text = "Continuous Collision (CCD)"
 [node name="DebugDrawCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox" unique_id=1485773072]
 layout_mode = 2
 text = "Debug Draw"
+
+[node name="StatsCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+tooltip_text = "FPS and frame-time graph, render and memory stats."
+text = "Stats Overlay"
+
+[node name="AsyncCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+tooltip_text = "Steps the physics world on a background thread so heavy bursts (thousands of waking bodies) don't stall rendering."
+text = "Async Physics Step"
+
+[node name="AsyncHint" type="Label" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.45)
+theme_override_font_sizes/font_size = 11
+autowrap_mode = 2
+text = "May improve smoothness on some systems (e.g. high-refresh displays) in heavy scenes."
 
 [node name="ContactHertzRow" type="HBoxContainer" parent="UI/Sidebar/Margin/VBox" unique_id=527305418]
 visible = false

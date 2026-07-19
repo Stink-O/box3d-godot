@@ -77,6 +77,10 @@ const SAMPLES := {
 @onready var _gravity_spin: SpinBox = $UI/Sidebar/Margin/VBox/GravityRow/GravitySpin
 @onready var _continuous_check: CheckBox = $UI/Sidebar/Margin/VBox/ContinuousCheck
 @onready var _sidebar_debug_check: CheckBox = $UI/Sidebar/Margin/VBox/DebugDrawCheck
+@onready var _stats_check: CheckBox = $UI/Sidebar/Margin/VBox/StatsCheck
+@onready var _async_check: CheckBox = $UI/Sidebar/Margin/VBox/AsyncCheck
+@onready var _async_hint: Label = $UI/Sidebar/Margin/VBox/AsyncHint
+@onready var _stats_overlay: Control = $UI/StatsOverlay
 @onready var _contact_hertz_row: Control = $UI/Sidebar/Margin/VBox/ContactHertzRow
 @onready var _contact_hertz_spin: SpinBox = $UI/Sidebar/Margin/VBox/ContactHertzRow/ContactHertzSpin
 @onready var _contact_damping_row: Control = $UI/Sidebar/Margin/VBox/ContactDampingRow
@@ -103,6 +107,8 @@ var _updating_sidebar := false  ## guard while pushing values into the controls
 ## Reset, cleared when switching samples (-1 = use the scene's own value).
 var _worker_override := -1
 var _debug_hidden: Array = []  ## MeshInstance3Ds hidden while the debug view is on
+## Off by default; sticky across sample loads and resets once turned on.
+var _async_step := false
 
 var _touch: TouchControls = null  ## touch overlay, only on touchscreen devices
 
@@ -154,6 +160,10 @@ func _ready() -> void:
 	_sidebar_debug_check.toggled.connect(_on_sidebar_debug_changed)
 	_contact_hertz_spin.value_changed.connect(_on_contact_hertz_changed)
 	_contact_damping_spin.value_changed.connect(_on_contact_damping_changed)
+	_stats_check.focus_mode = Control.FOCUS_NONE
+	_stats_check.toggled.connect(_on_stats_toggled)
+	_async_check.focus_mode = Control.FOCUS_NONE
+	_async_check.toggled.connect(_on_async_toggled)
 
 	# `-- --sample=Ragdoll` (case-insensitive) opens straight to that sample.
 	var wanted := ""
@@ -201,6 +211,9 @@ func _physics_process(_delta: float) -> void:
 	_step_count += 1
 	if _sidebar.visible:
 		_update_readout()
+	# Body counting is a full tree walk, so refresh the overlay's count at 1 Hz.
+	if _stats_overlay.visible and _step_count % 60 == 0:
+		_push_stats_bodies()
 	# Catch bodies spawned after the toggle (emitters, shots): re-hide their
 	# visuals every half second while the debug view is on.
 	if _debug_draw and _step_count % 30 == 0 and _current != null:
@@ -343,6 +356,35 @@ func _on_sidebar_debug_changed(pressed: bool) -> void:
 	_apply_debug()
 
 
+func _on_stats_toggled(pressed: bool) -> void:
+	_stats_overlay.visible = pressed
+	if pressed:
+		_push_stats_bodies()
+
+
+func _on_async_toggled(pressed: bool) -> void:
+	if _updating_sidebar:
+		return
+	_async_step = pressed
+	_apply_async()
+
+
+## async_step toggles live (the world absorbs any in-flight step when turned
+## off), so unlike worker_count no reload is needed.
+func _apply_async() -> void:
+	_with_world(func(world):
+		if "async_step" in world:
+			world.async_step = _async_step)
+
+
+func _push_stats_bodies() -> void:
+	if _current == null:
+		_stats_overlay.bodies = -1
+		return
+	var world = _current.get_node_or_null("Box3DWorld")
+	_stats_overlay.bodies = _count_bodies(world) if world != null else -1
+
+
 # --- Start view: fly the camera somewhere, save it as this sample's spawn ---
 
 func _on_set_start_view() -> void:
@@ -413,6 +455,11 @@ func _refresh_sidebar_from_world(world) -> void:
 		_gravity_spin.set_value_no_signal(world.gravity.y)
 		_continuous_check.set_pressed_no_signal(world.continuous_collision)
 		_sidebar_debug_check.set_pressed_no_signal(_debug_draw)
+		# The async checkbox reflects the sticky user preference, and hides on
+		# builds whose extension predates the property.
+		_async_check.visible = "async_step" in world
+		_async_hint.visible = _async_check.visible
+		_async_check.set_pressed_no_signal(_async_step)
 		# contact_hertz / contact_damping arrived together in the binding; show
 		# their rows only when the loaded build actually exposes them.
 		var has_hertz: bool = "contact_hertz" in world
@@ -533,6 +580,9 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 			elif "camera_home" in _current and "camera_look_at" in _current:
 				_camera.frame_view(_current.camera_home, _current.camera_look_at)
 	_apply_debug()  # carry the debug-draw toggle into the newly loaded sample
+	_apply_async()  # same for the async-step preference
+	if _stats_overlay.visible:
+		_push_stats_bodies()
 	_refresh_sidebar_from_world(world)
 	# Show the Activate button only for samples that expose an activate() action.
 	_activate.visible = _current != null and _current.has_method("activate")
