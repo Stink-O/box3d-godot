@@ -132,6 +132,7 @@ func _ready() -> void:
 	_shot_mode.focus_mode = Control.FOCUS_NONE
 	_shot_mode.add_item("Shot: Ball")
 	_shot_mode.add_item("Shot: Bomb")
+	_shot_mode.add_item("Shot: Ragdoll")
 	_shot_mode.item_selected.connect(_on_shot_mode_selected)
 
 	# Reusable Activate button: calls activate() on samples that define one.
@@ -230,8 +231,8 @@ func _on_reset() -> void:
 
 
 func _on_shot_mode_selected(index: int) -> void:
-	if _camera.has_method("set_bomb_mode"):
-		_camera.set_bomb_mode(index == 1)
+	if _camera.has_method("set_shot_kind"):
+		_camera.set_shot_kind(index)
 
 
 func _on_activate() -> void:

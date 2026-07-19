@@ -89,13 +89,16 @@ var _returning := false    ## gliding back to _follow_saved_pose after clear_fol
 @export var follow_blend_time := 0.5  ## seconds to blend onto the rig when toggled on
 
 const BOMB_SCENE := preload("res://common/bomb.tscn")
+const RAGDOLL_SCENE := preload("res://common/ragdoll_figure.tscn")
 const Despawn = preload("res://common/despawn.gd")
-var _bomb_mode := false  ## when true, F fires a fused Bomb instead of a ball
+
+enum ShotKind { BALL, BOMB, RAGDOLL }
+var _shot_kind := ShotKind.BALL  ## what F fires
 
 
-# Shell calls this to switch what F shoots (false = ball, true = bomb).
-func set_bomb_mode(on: bool) -> void:
-	_bomb_mode = on
+# Shell calls this to switch what F shoots (matches its dropdown order).
+func set_shot_kind(kind: int) -> void:
+	_shot_kind = clampi(kind, ShotKind.BALL, ShotKind.RAGDOLL)
 
 
 func _ready() -> void:
@@ -553,7 +556,7 @@ func _shoot(charge: float = 0.0) -> void:
 
 	var speed := lerpf(shoot_speed_min, shoot_speed_max, clampf(charge, 0.0, 1.0))
 
-	if _bomb_mode:
+	if _shot_kind == ShotKind.BOMB:
 		var bomb := BOMB_SCENE.instantiate() as Box3DBody
 		bomb.debug_visualize = false  # projectiles keep their real look
 		bomb.collision_mask = RAY_MASK  # fly through invisible guards
@@ -561,6 +564,23 @@ func _shoot(charge: float = 0.0) -> void:
 		_world.add_child(bomb)
 		bomb.set_linear_velocity(dir * speed)
 		return  # the bomb owns its own fuse -> explode -> free lifecycle
+
+	if _shot_kind == ShotKind.RAGDOLL:
+		var fig := RAGDOLL_SCENE.instantiate() as Node3D
+		# The figure's bones span roughly y 0.2..1.7 around its feet, so drop
+		# the root by the torso height to launch it centred on the aim ray,
+		# far enough out that no bone starts inside the camera. Face the
+		# flight direction for a proper superhero exit.
+		fig.position = origin + dir * 2.2 - Vector3(0, 0.95, 0)
+		fig.rotation.y = atan2(dir.x, dir.z)
+		_world.add_child(fig)
+		var throw_speed := minf(speed, 30.0)  # joints, not bullets: keep it sane
+		for bone in fig.find_children("*", "Box3DBody", true, false):
+			bone.set_linear_velocity(dir * throw_speed)
+		if shoot_lifetime > 0.0:
+			# One timer on the root frees the whole figure, joints and all.
+			Despawn.attach(fig, shoot_lifetime * 2.0)
+		return
 
 	if _ball_mesh == null:
 		_ball_mesh = SphereMesh.new()
