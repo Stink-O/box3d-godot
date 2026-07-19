@@ -67,6 +67,15 @@ double Box3DCollisionShape::get_capsule_height() const {
 	return capsule_height;
 }
 
+void Box3DCollisionShape::set_sides(int p_sides) {
+	sides = p_sides < 3 ? 3 : p_sides;
+	notify_parent();
+}
+
+int Box3DCollisionShape::get_sides() const {
+	return sides;
+}
+
 void Box3DCollisionShape::set_density(double p_density) {
 	density = p_density;
 	notify_parent();
@@ -105,6 +114,8 @@ void Box3DCollisionShape::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_capsule_radius"), &Box3DCollisionShape::get_capsule_radius);
 	ClassDB::bind_method(D_METHOD("set_capsule_height", "height"), &Box3DCollisionShape::set_capsule_height);
 	ClassDB::bind_method(D_METHOD("get_capsule_height"), &Box3DCollisionShape::get_capsule_height);
+	ClassDB::bind_method(D_METHOD("set_sides", "sides"), &Box3DCollisionShape::set_sides);
+	ClassDB::bind_method(D_METHOD("get_sides"), &Box3DCollisionShape::get_sides);
 	ClassDB::bind_method(D_METHOD("set_density", "density"), &Box3DCollisionShape::set_density);
 	ClassDB::bind_method(D_METHOD("get_density"), &Box3DCollisionShape::get_density);
 	ClassDB::bind_method(D_METHOD("set_friction", "friction"), &Box3DCollisionShape::set_friction);
@@ -112,11 +123,12 @@ void Box3DCollisionShape::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_restitution", "restitution"), &Box3DCollisionShape::set_restitution);
 	ClassDB::bind_method(D_METHOD("get_restitution"), &Box3DCollisionShape::get_restitution);
 
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "shape_type", PROPERTY_HINT_ENUM, "Box,Sphere,Capsule"), "set_shape_type", "get_shape_type");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "shape_type", PROPERTY_HINT_ENUM, "Box,Sphere,Capsule,Cylinder,Cone"), "set_shape_type", "get_shape_type");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "box_size"), "set_box_size", "get_box_size");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sphere_radius", PROPERTY_HINT_RANGE, "0.01,100,0.01,or_greater"), "set_sphere_radius", "get_sphere_radius");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "capsule_radius", PROPERTY_HINT_RANGE, "0.01,100,0.01,or_greater"), "set_capsule_radius", "get_capsule_radius");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "capsule_height", PROPERTY_HINT_RANGE, "0.02,100,0.01,or_greater"), "set_capsule_height", "get_capsule_height");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "sides", PROPERTY_HINT_RANGE, "3,64,1"), "set_sides", "get_sides");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "density", PROPERTY_HINT_RANGE, "0.01,100,0.01,or_greater"), "set_density", "get_density");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "friction", PROPERTY_HINT_RANGE, "0,1,0.01,or_greater"), "set_friction", "get_friction");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restitution", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_restitution", "get_restitution");
@@ -124,4 +136,6 @@ void Box3DCollisionShape::_bind_methods() {
 	BIND_ENUM_CONSTANT(BOX);
 	BIND_ENUM_CONSTANT(SPHERE);
 	BIND_ENUM_CONSTANT(CAPSULE);
+	BIND_ENUM_CONSTANT(CYLINDER);
+	BIND_ENUM_CONSTANT(CONE);
 }

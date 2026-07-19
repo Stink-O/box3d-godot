@@ -804,6 +804,12 @@ void fragment() {
 					case Box3DCollisionShape::CAPSULE:
 						push_shell(DEBUG_CAPSULE, cxf.basis, cxf.origin, Vector3(2 * cr2, (float)cs->get_capsule_height() * 0.5f, 2 * cr2), col);
 						break;
+					case Box3DCollisionShape::CYLINDER:
+						push_shell(DEBUG_CYLINDER, cxf.basis, cxf.origin, Vector3(2 * cr2, (float)cs->get_capsule_height(), 2 * cr2), col);
+						break;
+					case Box3DCollisionShape::CONE:
+						push_shell(DEBUG_CONE, cxf.basis, cxf.origin, Vector3(2 * cr2, (float)cs->get_capsule_height(), 2 * cr2), col);
+						break;
 					case Box3DCollisionShape::BOX:
 					default:
 						push_shell(DEBUG_BOX, cxf.basis, cxf.origin, cs->get_box_size(), col);

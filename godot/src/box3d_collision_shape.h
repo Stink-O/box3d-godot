@@ -20,6 +20,8 @@ public:
 		BOX = 0,
 		SPHERE = 1,
 		CAPSULE = 2,
+		CYLINDER = 3, // capsule_radius / capsule_height, tessellated by sides
+		CONE = 4, // base radius capsule_radius, height capsule_height, apex up
 	};
 
 private:
@@ -28,6 +30,7 @@ private:
 	double sphere_radius = 0.5;
 	double capsule_radius = 0.5;
 	double capsule_height = 2.0;
+	int sides = 16; // hull tessellation for CYLINDER / CONE
 	double density = 1.0;
 	double friction = 0.6;
 	double restitution = 0.0;
@@ -49,6 +52,8 @@ public:
 	double get_capsule_radius() const;
 	void set_capsule_height(double p_height);
 	double get_capsule_height() const;
+	void set_sides(int p_sides);
+	int get_sides() const;
 	void set_density(double p_density);
 	double get_density() const;
 	void set_friction(double p_friction);

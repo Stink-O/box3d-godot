@@ -1,0 +1,64 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://samples/gyro_torque.gd" id="1_gyro"]
+
+[sub_resource type="BoxMesh" id="FloorMesh_1"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat_1"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="CylinderMesh" id="RodMesh"]
+top_radius = 0.15
+bottom_radius = 0.15
+height = 0.6
+
+[sub_resource type="StandardMaterial3D" id="RodMat"]
+albedo_color = Color(0.85, 0.35, 0.25, 1)
+roughness = 0.45
+metallic = 0.25
+
+[sub_resource type="BoxMesh" id="BarMesh"]
+size = Vector3(2, 0.1, 0.2)
+
+[node name="GyroTorque" type="Node3D"]
+script = ExtResource("1_gyro")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+substep_count = 8
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+box_size = Vector3(40, 1, 40)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh_1")
+material_override = SubResource("FloorMat_1")
+
+[node name="Handle" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 2, 0)
+gravity_scale = 0.0
+angular_damping = 0.0
+
+[node name="Rod" type="Box3DCollisionShape" parent="Box3DWorld/Handle"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+shape_type = 3
+capsule_radius = 0.15
+capsule_height = 0.6
+sides = 32
+
+[node name="RodMesh" type="MeshInstance3D" parent="Box3DWorld/Handle"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+mesh = SubResource("RodMesh")
+material_override = SubResource("RodMat")
+
+[node name="Bar" type="Box3DCollisionShape" parent="Box3DWorld/Handle"]
+shape_type = 0
+box_size = Vector3(2, 0.1, 0.2)
+
+[node name="BarMesh" type="MeshInstance3D" parent="Box3DWorld/Handle"]
+mesh = SubResource("BarMesh")
+material_override = SubResource("RodMat")

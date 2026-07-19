@@ -1,0 +1,26 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://samples/gyro_precession.gd" id="1_gyrop"]
+
+[sub_resource type="BoxMesh" id="FloorMesh_1"]
+size = Vector3(80, 1, 80)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat_1"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[node name="GyroPrecession" type="Node3D"]
+script = ExtResource("1_gyrop")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+worker_count = 4
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+box_size = Vector3(80, 1, 80)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh_1")
+material_override = SubResource("FloorMat_1")

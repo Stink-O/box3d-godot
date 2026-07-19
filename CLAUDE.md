@@ -40,7 +40,7 @@ GODOT=<path to Godot 4.7 editor binary>
 "$GODOT" --headless --path godot/demo res://tests/test_samples.tscn  -- --selftest
 ```
 
-- Expect 46 `[test]` lines and 31 `[samples]` lines, in both cases counting
+- Expect 47 `[test]` lines and 33 `[samples]` lines, in both cases counting
   the final `[test]/[samples] ALL -> PASS` line. **Exit 0 alone is not a
   pass** — an empty enumeration once produced a vacuous `ALL -> PASS`; always
   grep the actual lines.

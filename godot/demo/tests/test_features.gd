@@ -36,6 +36,7 @@ func _ready() -> void:
 	await _test_async_step()
 	await _test_contact_recycling()
 	await _test_sync_node_transform_off()
+	await _test_compound_cylinder()
 	print("[test] ALL -> ", "PASS" if _all_ok else "FAIL")
 	get_tree().quit(0 if _all_ok else 1)
 
@@ -971,5 +972,38 @@ func _test_sync_node_transform_off() -> void:
 	_check("sync_node_transform off: solver moves body (query hits it at floor), node stays at spawn",
 		not box.sync_node_transform and found_at_floor
 		and box.position.is_equal_approx(Vector3(0, 4, 0)))
+
+	world.free()
+
+
+func _test_compound_cylinder() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+
+	var floor := Box3DBody.new()
+	floor.body_type = Box3DBody.STATIC
+	floor.box_size = Vector3(20, 1, 20)
+	floor.position = Vector3(0, -0.5, 0)
+	world.add_child(floor)
+
+	# A dynamic body whose only collider is a CYLINDER child shape (the
+	# compound path through b3CreateCylinder + b3CreateTransformedHullShape).
+	var body := Box3DBody.new()
+	body.position = Vector3(0, 3, 0)
+	var cs := Box3DCollisionShape.new()
+	cs.shape_type = Box3DCollisionShape.CYLINDER
+	cs.capsule_radius = 0.5
+	cs.capsule_height = 1.0
+	cs.sides = 24
+	body.add_child(cs)
+	world.add_child(body)
+
+	for i in range(120):
+		await get_tree().physics_frame
+
+	# Centered on the child origin, so it rests half its height above the floor.
+	_check("compound cylinder child collides (rests at y %.2f) and round-trips sides/type" % body.position.y,
+		absf(body.position.y - 0.5) < 0.15
+		and cs.sides == 24 and cs.shape_type == Box3DCollisionShape.CYLINDER)
 
 	world.free()

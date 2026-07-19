@@ -409,6 +409,32 @@ void Box3DBody::create_child_shape(Box3DCollisionShape *p_shape, const Transform
 	// The shape's transform relative to the body.
 	Transform3D local = p_body_inv * p_shape->get_global_transform();
 	switch (p_shape->get_shape_type()) {
+		case Box3DCollisionShape::CYLINDER: {
+			// Centered on the child node origin (yOffset -h/2, like the body's
+			// own CYLINDER), then placed by the child's local transform.
+			float ch_h = (float)p_shape->get_capsule_height();
+			b3HullData *hull = b3CreateCylinder(ch_h, (float)p_shape->get_capsule_radius(), -ch_h * 0.5f, p_shape->get_sides());
+			if (hull != nullptr) {
+				b3Transform xf;
+				xf.p = to_b3(local.origin);
+				xf.q = to_b3(local.basis.get_rotation_quaternion());
+				b3CreateTransformedHullShape(body_id, &sd, hull, xf, b3Vec3_one);
+				b3DestroyHull(hull);
+			}
+		} break;
+		case Box3DCollisionShape::CONE: {
+			// b3CreateCone has no offset; bake the -h/2 centering shift into
+			// the placement transform (mirrors the body's own CONE case).
+			float ch_h = (float)p_shape->get_capsule_height();
+			b3HullData *hull = b3CreateCone(ch_h, (float)p_shape->get_capsule_radius(), 0.0f, p_shape->get_sides());
+			if (hull != nullptr) {
+				b3Transform xf;
+				xf.p = to_b3(local.xform(Vector3(0, -ch_h * 0.5f, 0)));
+				xf.q = to_b3(local.basis.get_rotation_quaternion());
+				b3CreateTransformedHullShape(body_id, &sd, hull, xf, b3Vec3_one);
+				b3DestroyHull(hull);
+			}
+		} break;
 		case Box3DCollisionShape::SPHERE: {
 			b3Sphere sphere;
 			sphere.center = to_b3(local.origin);

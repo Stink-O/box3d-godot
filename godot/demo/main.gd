@@ -42,6 +42,10 @@ const SAMPLES := {
 		"Motorized": "res://samples/motor.tscn",
 		"Newton's Cradle": "res://samples/cradle.tscn",
 	},
+	"Gyroscopes": {
+		"Gyroscopic Torque": "res://samples/gyro_torque.tscn",
+		"Gyroscopic Precession": "res://samples/gyro_precession.tscn",
+	},
 	"Gameplay": {
 		"Character Controller": "res://samples/character.tscn",
 		"Contact Pit": "res://samples/contacts.tscn",
