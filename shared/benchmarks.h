@@ -26,6 +26,7 @@ void CreateTrees100( b3WorldId worldId );
 void DestroyTrees( void );
 void CreateJointGrid( b3WorldId worldId );
 void CreateJunkyard( b3WorldId worldId );
+void GetJunkyardCapacity( b3Capacity* capacity );
 void StepJunkyard( b3WorldId worldId, int stepCount );
 void CreateLargePyramid( b3WorldId worldId );
 void CreateWidePyramid( b3WorldId worldId );
@@ -40,6 +41,7 @@ void StepLargeWorld( b3WorldId worldId, int stepCount );
 void GetWasherCapacity( b3Capacity* capacity );
 void CreateWasher( b3WorldId worldId );
 void CreateConvexPile( b3WorldId worldId );
+void GetConvexPileCapacity( b3Capacity* capacity );
 
 // void CreateSpinner( b3WorldId worldId );
 // float StepSpinner( b3WorldId worldId, int stepCount );

@@ -23,6 +23,15 @@ typedef struct b3EdgeQuery
 	int indexB;
 } b3EdgeQuery;
 
+typedef struct b3AxisQuery
+{
+	b3Vec3 normal;
+	float separation;
+	int indexA;
+	int indexB;
+	b3SeparatingFeature type;
+} b3AxisQuery;
+
 typedef struct b3ClipVertex
 {
 	b3Vec3 position;
@@ -42,6 +51,8 @@ b3FeaturePair b3MakeFeaturePair( b3FeatureOwner owner1, int index1, b3FeatureOwn
 b3FeaturePair b3FlipPair( b3FeaturePair pair );
 
 int b3ClipPolygon( b3ClipVertex* out, b3ClipVertex* polygon, int count, b3Plane clipPlane, int edge, b3Plane refPlane );
+
+b3AxisQuery b3ComputeSeparatingAxis( const b3HullData* hullA, const b3HullData* hullB, b3Transform xfB, int axisOverride );
 
 #if B3_ENABLE_VALIDATION
 bool b3ValidatePolygon( b3ClipVertex* polygon, int count );

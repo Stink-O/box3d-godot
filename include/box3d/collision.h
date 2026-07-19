@@ -163,6 +163,17 @@ B3_INLINE const b3HullHalfEdge* b3GetHullEdges( const b3HullData* hull )
 	return (const b3HullHalfEdge*)( (intptr_t)hull + hull->edgeOffset );
 }
 
+/// Get read only hull planes.
+B3_INLINE const b3Plane* b3GetHullPlanes( const b3HullData* hull )
+{
+	if ( hull->planeOffset == 0 )
+	{
+		return NULL;
+	}
+
+	return (const b3Plane*)( (intptr_t)hull + hull->planeOffset );
+}
+
 /// Get read only hull faces.
 B3_INLINE const b3HullFace* b3GetHullFaces( const b3HullData* hull )
 {
@@ -174,15 +185,30 @@ B3_INLINE const b3HullFace* b3GetHullFaces( const b3HullData* hull )
 	return (const b3HullFace*)( (intptr_t)hull + hull->faceOffset );
 }
 
-/// Get read only hull planes.
-B3_INLINE const b3Plane* b3GetHullPlanes( const b3HullData* hull )
+/// Get read only SOA vertices. This is an array of vertices with all x values,
+/// y values, and z values as separate arrays. The array lengths are padded to
+/// a multiple of 4. The padded values are repeats of the first value.
+B3_INLINE const float* b3GetHullSoaVertices( const b3HullData* hull )
 {
-	if ( hull->planeOffset == 0 )
+	if ( hull->soaVertexOffset == 0 )
 	{
 		return NULL;
 	}
 
-	return (const b3Plane*)( (intptr_t)hull + hull->planeOffset );
+	return (const float*)( (intptr_t)hull + hull->soaVertexOffset );
+}
+
+/// Get read only SOA unit normal vectors. This is an array of normals with all x values,
+/// y values, and z values as separate arrays. The array lengths are padded to
+/// a multiple of 4. The padded values are repeats of the first value.
+B3_INLINE const float* b3GetHullSoaNormals( const b3HullData* hull )
+{
+	if ( hull->soaNormalOffset == 0 )
+	{
+		return NULL;
+	}
+
+	return (const float*)( (intptr_t)hull + hull->soaNormalOffset );
 }
 
 /// Create a tessellated cylinder as a hull.
@@ -426,14 +452,12 @@ B3_API b3CompoundData* b3CreateCompound( const b3CompoundDef* def );
 /// Destroy a compound shape.
 B3_API void b3DestroyCompound( b3CompoundData* compound );
 
-/// If bytes is null then this returns the number of required bytes. This clones all the
-/// data into the bytes buffer. This is expected to run offline or asynchronously.
-/// This mutates the compound to nullify pointers, leaving the compound in an unusable state.
+/// Cast the provided compound data to bytes, setting the internal pointers to null.
+/// Use this before serializing the compound bytes.
 B3_API uint8_t* b3ConvertCompoundToBytes( b3CompoundData* compound );
 
-/// Convert bytes to compound. This does not clone. The bytes must remain in scope while the
-/// compound is used. This is done to improve run-time performance and allow for instancing.
-/// The bytes are mutated to fixup pointers.
+/// Cast the provided bytes to compound data, setting up internal pointers.
+/// Use this after de-serializing the compound bytes.
 B3_API b3CompoundData* b3ConvertBytesToCompound( uint8_t* bytes, int byteCount );
 
 /**@}*/ // compound
