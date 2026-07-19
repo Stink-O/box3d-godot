@@ -33,6 +33,7 @@ func _ready() -> void:
 	await _test_mesh_collider()
 	await _test_auto_visual()
 	await _test_solver_tuning()
+	await _test_async_step()
 	print("[test] ALL -> ", "PASS" if _all_ok else "FAIL")
 	get_tree().quit(0 if _all_ok else 1)
 
@@ -855,5 +856,56 @@ func _test_solver_tuning() -> void:
 
 	_check("custom solver tuning still simulates correctly (body rests on floor)",
 		box.position.y > 0.2 and box.position.y < 2.0)
+
+	world.free()
+
+
+func _test_async_step() -> void:
+	var world := Box3DWorld.new()
+	world.async_step = true
+	world.worker_count = 4
+	add_child(world)
+
+	var floor := Box3DBody.new()
+	floor.body_type = Box3DBody.STATIC
+	floor.box_size = Vector3(30, 1, 30)
+	floor.position = Vector3(0, -0.5, 0)
+	world.add_child(floor)
+
+	var bodies: Array = []
+	for i in range(20):
+		var b := Box3DBody.new()
+		b.box_size = Vector3.ONE
+		b.position = Vector3((i % 5) * 1.5 - 3.0, 2.0 + (i / 5) * 1.5, 0)
+		world.add_child(b)
+		bodies.append(b)
+
+	# Queries and impulses every frame race the background step unless the
+	# join guards work; NaN/fall-through would surface a torn world state.
+	var ray_hits := 0
+	for i in range(150):
+		await get_tree().physics_frame
+		var hit := world.raycast(Vector3(0, 5, 0), Vector3(0, -5, 0))
+		if hit.get("hit", false):
+			ray_hits += 1
+		if i == 30:
+			bodies[0].apply_central_impulse(Vector3(0, 2, 0))
+
+	var all_ok := world.async_step
+	for b in bodies:
+		var y: float = b.position.y
+		if is_nan(y) or y < -0.5 or y > 25.0:
+			all_ok = false
+	_check("async_step: background stepping settles a stack (rays %d/150)" % ray_hits,
+		all_ok and ray_hits > 100)
+
+	# Toggling async off mid-run absorbs the in-flight step and keeps going.
+	world.async_step = false
+	var before: float = bodies[1].position.y
+	for i in range(30):
+		await get_tree().physics_frame
+	var after: float = bodies[1].position.y
+	_check("async_step: toggling off mid-run stays consistent",
+		not world.async_step and not is_nan(after) and absf(after - before) < 5.0)
 
 	world.free()

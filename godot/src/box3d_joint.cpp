@@ -46,11 +46,21 @@ b3Transform Box3DJoint::local_frame(const Transform3D &p_body, const Transform3D
 }
 
 bool Box3DJoint::is_joint_valid() const {
+	return joint_live();
+}
+
+// Validity check that also syncs with an in-flight async world step: touching
+// the b3 API while the solver thread runs would race, so wait it out first
+// (a single atomic load when nothing is in flight).
+bool Box3DJoint::joint_live() const {
+	if (world != nullptr) {
+		world->join_async_step();
+	}
 	return b3Joint_IsValid(joint_id);
 }
 
 void Box3DJoint::create_joint() {
-	if (Engine::get_singleton()->is_editor_hint() || b3Joint_IsValid(joint_id)) {
+	if (Engine::get_singleton()->is_editor_hint() || joint_live()) {
 		return;
 	}
 	world = find_world();
@@ -99,14 +109,14 @@ void Box3DJoint::create_joint() {
 	// into its chassis can't even spin). The live toggle is the one box3d API
 	// that purges those contacts, and it early-outs unless the value changes,
 	// so bounce it through true -> false.
-	if (b3Joint_IsValid(joint_id) && !collide_connected) {
+	if (joint_live() && !collide_connected) {
 		b3Joint_SetCollideConnected(joint_id, true);
 		b3Joint_SetCollideConnected(joint_id, false);
 	}
 }
 
 void Box3DJoint::destroy_joint() {
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3DestroyJoint(joint_id, true);
 	}
 	joint_id = b3_nullJointId;
@@ -117,14 +127,14 @@ void Box3DJoint::destroy_joint() {
 }
 
 void Box3DJoint::rebuild_if_alive() {
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		destroy_joint();
 		create_joint();
 	}
 }
 
 void Box3DJoint::wake_bodies() {
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3Joint_WakeBodies(joint_id);
 	}
 }
@@ -220,7 +230,7 @@ double Box3DHingeJoint::get_upper_limit() const { return upper_limit; }
 
 void Box3DHingeJoint::set_motor_enabled(bool p_v) {
 	motor_enabled = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3RevoluteJoint_EnableMotor(joint_id, p_v);
 	}
 }
@@ -229,7 +239,7 @@ bool Box3DHingeJoint::get_motor_enabled() const { return motor_enabled; }
 void Box3DHingeJoint::set_motor_speed(double p_v) {
 	bool changed = p_v != motor_speed;
 	motor_speed = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3RevoluteJoint_SetMotorSpeed(joint_id, (float)p_v);
 		if (changed) {
 			wake_bodies();
@@ -309,7 +319,7 @@ double Box3DSliderJoint::get_upper_limit() const { return upper_limit; }
 
 void Box3DSliderJoint::set_motor_enabled(bool p_v) {
 	motor_enabled = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3PrismaticJoint_EnableMotor(joint_id, p_v);
 	}
 }
@@ -318,7 +328,7 @@ bool Box3DSliderJoint::get_motor_enabled() const { return motor_enabled; }
 void Box3DSliderJoint::set_motor_speed(double p_v) {
 	bool changed = p_v != motor_speed;
 	motor_speed = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3PrismaticJoint_SetMotorSpeed(joint_id, (float)p_v);
 		if (changed) {
 			wake_bodies();
@@ -381,7 +391,7 @@ b3JointId Box3DDistanceJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b
 
 void Box3DDistanceJoint::set_length(double p_v) {
 	length = p_v;
-	if (b3Joint_IsValid(joint_id) && p_v >= 0.0) {
+	if (joint_live() && p_v >= 0.0) {
 		b3DistanceJoint_SetLength(joint_id, (float)p_v);
 	} else {
 		rebuild_if_alive();
@@ -580,7 +590,7 @@ b3JointId Box3DWheelJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3Bo
 
 void Box3DWheelJoint::set_suspension_enabled(bool p_v) {
 	suspension_enabled = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_EnableSuspension(joint_id, p_v);
 	}
 }
@@ -588,7 +598,7 @@ bool Box3DWheelJoint::get_suspension_enabled() const { return suspension_enabled
 
 void Box3DWheelJoint::set_suspension_hertz(double p_v) {
 	suspension_hertz = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_SetSuspensionHertz(joint_id, (float)p_v);
 	}
 }
@@ -596,7 +606,7 @@ double Box3DWheelJoint::get_suspension_hertz() const { return suspension_hertz; 
 
 void Box3DWheelJoint::set_suspension_damping(double p_v) {
 	suspension_damping = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_SetSuspensionDampingRatio(joint_id, (float)p_v);
 	}
 }
@@ -604,7 +614,7 @@ double Box3DWheelJoint::get_suspension_damping() const { return suspension_dampi
 
 void Box3DWheelJoint::set_suspension_limit_enabled(bool p_v) {
 	suspension_limit_enabled = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_EnableSuspensionLimit(joint_id, p_v);
 	}
 }
@@ -612,7 +622,7 @@ bool Box3DWheelJoint::get_suspension_limit_enabled() const { return suspension_l
 
 void Box3DWheelJoint::set_lower_suspension_limit(double p_v) {
 	lower_suspension_limit = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_SetSuspensionLimits(joint_id, (float)lower_suspension_limit, (float)upper_suspension_limit);
 	}
 }
@@ -620,7 +630,7 @@ double Box3DWheelJoint::get_lower_suspension_limit() const { return lower_suspen
 
 void Box3DWheelJoint::set_upper_suspension_limit(double p_v) {
 	upper_suspension_limit = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_SetSuspensionLimits(joint_id, (float)lower_suspension_limit, (float)upper_suspension_limit);
 	}
 }
@@ -628,18 +638,18 @@ double Box3DWheelJoint::get_upper_suspension_limit() const { return upper_suspen
 
 void Box3DWheelJoint::set_spin_motor_enabled(bool p_v) {
 	spin_motor_enabled = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_EnableSpinMotor(joint_id, p_v);
 	}
 }
 bool Box3DWheelJoint::get_spin_motor_enabled() const {
-	return b3Joint_IsValid(joint_id) ? b3WheelJoint_IsSpinMotorEnabled(joint_id) : spin_motor_enabled;
+	return joint_live() ? b3WheelJoint_IsSpinMotorEnabled(joint_id) : spin_motor_enabled;
 }
 
 void Box3DWheelJoint::set_spin_motor_speed(double p_v) {
 	bool changed = p_v != spin_motor_speed;
 	spin_motor_speed = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_SetSpinMotorSpeed(joint_id, (float)p_v);
 		if (changed) {
 			wake_bodies();
@@ -647,22 +657,22 @@ void Box3DWheelJoint::set_spin_motor_speed(double p_v) {
 	}
 }
 double Box3DWheelJoint::get_spin_motor_speed() const {
-	return b3Joint_IsValid(joint_id) ? b3WheelJoint_GetSpinMotorSpeed(joint_id) : spin_motor_speed;
+	return joint_live() ? b3WheelJoint_GetSpinMotorSpeed(joint_id) : spin_motor_speed;
 }
 
 void Box3DWheelJoint::set_max_spin_torque(double p_v) {
 	max_spin_torque = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_SetMaxSpinTorque(joint_id, (float)p_v);
 	}
 }
 double Box3DWheelJoint::get_max_spin_torque() const {
-	return b3Joint_IsValid(joint_id) ? b3WheelJoint_GetMaxSpinTorque(joint_id) : max_spin_torque;
+	return joint_live() ? b3WheelJoint_GetMaxSpinTorque(joint_id) : max_spin_torque;
 }
 
 void Box3DWheelJoint::set_steering_enabled(bool p_v) {
 	steering_enabled = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_EnableSteering(joint_id, p_v);
 	}
 }
@@ -670,7 +680,7 @@ bool Box3DWheelJoint::get_steering_enabled() const { return steering_enabled; }
 
 void Box3DWheelJoint::set_steering_hertz(double p_v) {
 	steering_hertz = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_SetSteeringHertz(joint_id, (float)p_v);
 	}
 }
@@ -678,7 +688,7 @@ double Box3DWheelJoint::get_steering_hertz() const { return steering_hertz; }
 
 void Box3DWheelJoint::set_steering_damping(double p_v) {
 	steering_damping = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_SetSteeringDampingRatio(joint_id, (float)p_v);
 	}
 }
@@ -687,7 +697,7 @@ double Box3DWheelJoint::get_steering_damping() const { return steering_damping; 
 void Box3DWheelJoint::set_target_steering_angle(double p_v) {
 	bool changed = p_v != target_steering_angle;
 	target_steering_angle = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_SetTargetSteeringAngle(joint_id, (float)p_v);
 		if (changed) {
 			wake_bodies();
@@ -698,7 +708,7 @@ double Box3DWheelJoint::get_target_steering_angle() const { return target_steeri
 
 void Box3DWheelJoint::set_max_steering_torque(double p_v) {
 	max_steering_torque = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_SetMaxSteeringTorque(joint_id, (float)p_v);
 	}
 }
@@ -706,7 +716,7 @@ double Box3DWheelJoint::get_max_steering_torque() const { return max_steering_to
 
 void Box3DWheelJoint::set_steering_limit_enabled(bool p_v) {
 	steering_limit_enabled = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_EnableSteeringLimit(joint_id, p_v);
 	}
 }
@@ -714,7 +724,7 @@ bool Box3DWheelJoint::get_steering_limit_enabled() const { return steering_limit
 
 void Box3DWheelJoint::set_lower_steering_limit(double p_v) {
 	lower_steering_limit = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_SetSteeringLimits(joint_id, (float)lower_steering_limit, (float)upper_steering_limit);
 	}
 }
@@ -722,18 +732,18 @@ double Box3DWheelJoint::get_lower_steering_limit() const { return lower_steering
 
 void Box3DWheelJoint::set_upper_steering_limit(double p_v) {
 	upper_steering_limit = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3WheelJoint_SetSteeringLimits(joint_id, (float)lower_steering_limit, (float)upper_steering_limit);
 	}
 }
 double Box3DWheelJoint::get_upper_steering_limit() const { return upper_steering_limit; }
 
 double Box3DWheelJoint::get_spin_speed() const {
-	return b3Joint_IsValid(joint_id) ? b3WheelJoint_GetSpinSpeed(joint_id) : 0.0;
+	return joint_live() ? b3WheelJoint_GetSpinSpeed(joint_id) : 0.0;
 }
 
 double Box3DWheelJoint::get_steering_angle() const {
-	return b3Joint_IsValid(joint_id) ? b3WheelJoint_GetSteeringAngle(joint_id) : 0.0;
+	return joint_live() ? b3WheelJoint_GetSteeringAngle(joint_id) : 0.0;
 }
 
 void Box3DWheelJoint::_bind_methods() {
@@ -818,7 +828,7 @@ b3JointId Box3DParallelJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b
 
 void Box3DParallelJoint::set_spring_hertz(double p_v) {
 	spring_hertz = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3ParallelJoint_SetSpringHertz(joint_id, (float)p_v);
 	}
 }
@@ -826,7 +836,7 @@ double Box3DParallelJoint::get_spring_hertz() const { return spring_hertz; }
 
 void Box3DParallelJoint::set_spring_damping(double p_v) {
 	spring_damping = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3ParallelJoint_SetSpringDampingRatio(joint_id, (float)p_v);
 	}
 }
@@ -834,7 +844,7 @@ double Box3DParallelJoint::get_spring_damping() const { return spring_damping; }
 
 void Box3DParallelJoint::set_max_torque(double p_v) {
 	max_torque = p_v;
-	if (b3Joint_IsValid(joint_id) && p_v > 0.0) {
+	if (joint_live() && p_v > 0.0) {
 		b3ParallelJoint_SetMaxTorque(joint_id, (float)p_v);
 	} else {
 		rebuild_if_alive(); // back to 0 = unlimited needs the def default
@@ -883,7 +893,7 @@ b3JointId Box3DMotorJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3Bo
 void Box3DMotorJoint::set_linear_velocity(const Vector3 &p_v) {
 	bool changed = p_v != linear_velocity;
 	linear_velocity = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3MotorJoint_SetLinearVelocity(joint_id, to_b3(p_v));
 		if (changed) {
 			wake_bodies();
@@ -894,7 +904,7 @@ Vector3 Box3DMotorJoint::get_linear_velocity() const { return linear_velocity; }
 
 void Box3DMotorJoint::set_max_force(double p_v) {
 	max_force = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3MotorJoint_SetMaxVelocityForce(joint_id, (float)p_v);
 	}
 }
@@ -903,7 +913,7 @@ double Box3DMotorJoint::get_max_force() const { return max_force; }
 void Box3DMotorJoint::set_angular_velocity(const Vector3 &p_v) {
 	bool changed = p_v != angular_velocity;
 	angular_velocity = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3MotorJoint_SetAngularVelocity(joint_id, to_b3(p_v));
 		if (changed) {
 			wake_bodies();
@@ -914,7 +924,7 @@ Vector3 Box3DMotorJoint::get_angular_velocity() const { return angular_velocity;
 
 void Box3DMotorJoint::set_max_torque(double p_v) {
 	max_torque = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3MotorJoint_SetMaxVelocityTorque(joint_id, (float)p_v);
 	}
 }
@@ -922,7 +932,7 @@ double Box3DMotorJoint::get_max_torque() const { return max_torque; }
 
 void Box3DMotorJoint::set_linear_hertz(double p_v) {
 	linear_hertz = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3MotorJoint_SetLinearHertz(joint_id, (float)p_v);
 	}
 }
@@ -930,7 +940,7 @@ double Box3DMotorJoint::get_linear_hertz() const { return linear_hertz; }
 
 void Box3DMotorJoint::set_linear_damping(double p_v) {
 	linear_damping = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3MotorJoint_SetLinearDampingRatio(joint_id, (float)p_v);
 	}
 }
@@ -938,7 +948,7 @@ double Box3DMotorJoint::get_linear_damping() const { return linear_damping; }
 
 void Box3DMotorJoint::set_max_spring_force(double p_v) {
 	max_spring_force = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3MotorJoint_SetMaxSpringForce(joint_id, (float)p_v);
 	}
 }
@@ -946,7 +956,7 @@ double Box3DMotorJoint::get_max_spring_force() const { return max_spring_force; 
 
 void Box3DMotorJoint::set_angular_hertz(double p_v) {
 	angular_hertz = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3MotorJoint_SetAngularHertz(joint_id, (float)p_v);
 	}
 }
@@ -954,7 +964,7 @@ double Box3DMotorJoint::get_angular_hertz() const { return angular_hertz; }
 
 void Box3DMotorJoint::set_angular_damping(double p_v) {
 	angular_damping = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3MotorJoint_SetAngularDampingRatio(joint_id, (float)p_v);
 	}
 }
@@ -962,7 +972,7 @@ double Box3DMotorJoint::get_angular_damping() const { return angular_damping; }
 
 void Box3DMotorJoint::set_max_spring_torque(double p_v) {
 	max_spring_torque = p_v;
-	if (b3Joint_IsValid(joint_id)) {
+	if (joint_live()) {
 		b3MotorJoint_SetMaxSpringTorque(joint_id, (float)p_v);
 	}
 }

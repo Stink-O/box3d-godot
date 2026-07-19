@@ -28,6 +28,8 @@ protected:
 	bool collide_connected = false;
 
 	Box3DWorld *find_world();
+	// b3Joint_IsValid plus a join of any in-flight async world step.
+	bool joint_live() const;
 	Box3DBody *resolve_body(const NodePath &p_path);
 	// The joint frame expressed in a body's local space.
 	b3Transform local_frame(const Transform3D &p_body, const Transform3D &p_joint) const;

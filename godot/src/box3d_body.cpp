@@ -42,6 +42,16 @@ Box3DWorld *Box3DBody::find_world() {
 }
 
 bool Box3DBody::is_body_valid() const {
+	return body_live();
+}
+
+// Validity check that also syncs with an in-flight async world step: touching
+// the b3 API while the solver thread runs would race, so wait it out first
+// (a single atomic load when nothing is in flight).
+bool Box3DBody::body_live() const {
+	if (world != nullptr) {
+		world->join_async_step();
+	}
 	return b3Body_IsValid(body_id);
 }
 
@@ -421,7 +431,7 @@ void Box3DBody::destroy_body() {
 	if (world != nullptr) {
 		world->unregister_body(this);
 	}
-	if (b3Body_IsValid(body_id)) {
+	if (body_live()) {
 		b3DestroyBody(body_id);
 	}
 	body_id = b3_nullBodyId;
@@ -441,7 +451,7 @@ void Box3DBody::rebuild_if_alive() {
 }
 
 void Box3DBody::apply_motion_locks() {
-	if (!b3Body_IsValid(body_id)) {
+	if (!body_live()) {
 		return;
 	}
 	b3MotionLocks locks;
@@ -455,7 +465,7 @@ void Box3DBody::apply_motion_locks() {
 }
 
 void Box3DBody::sync_to_physics(double p_delta) {
-	if (!b3Body_IsValid(body_id) || body_type != KINEMATIC) {
+	if (!body_live() || body_type != KINEMATIC) {
 		return;
 	}
 	Transform3D xform = get_global_transform();
@@ -468,7 +478,7 @@ void Box3DBody::sync_to_physics(double p_delta) {
 }
 
 void Box3DBody::sync_from_physics() {
-	if (body_type != DYNAMIC || !b3Body_IsValid(body_id)) {
+	if (body_type != DYNAMIC || !body_live()) {
 		return;
 	}
 	// Sleeping bodies don't move, so skip the node update once their final
@@ -485,11 +495,11 @@ void Box3DBody::sync_from_physics() {
 }
 
 bool Box3DBody::is_awake_now() const {
-	return b3Body_IsValid(body_id) && b3Body_IsAwake(body_id);
+	return body_live() && b3Body_IsAwake(body_id);
 }
 
 bool Box3DBody::is_enabled_now() const {
-	return b3Body_IsValid(body_id) && b3Body_IsEnabled(body_id);
+	return body_live() && b3Body_IsEnabled(body_id);
 }
 
 void Box3DBody::_notification(int p_what) {
@@ -525,51 +535,51 @@ void Box3DBody::emit_area_end(Box3DBody *p_visitor) {
 // --- Scripting API ---
 
 void Box3DBody::apply_central_force(const Vector3 &p_force) {
-	if (b3Body_IsValid(body_id)) {
+	if (body_live()) {
 		b3Body_ApplyForceToCenter(body_id, to_b3(p_force), true);
 	}
 }
 
 void Box3DBody::apply_central_impulse(const Vector3 &p_impulse) {
-	if (b3Body_IsValid(body_id)) {
+	if (body_live()) {
 		b3Body_ApplyLinearImpulseToCenter(body_id, to_b3(p_impulse), true);
 	}
 }
 
 void Box3DBody::apply_torque(const Vector3 &p_torque) {
-	if (b3Body_IsValid(body_id)) {
+	if (body_live()) {
 		b3Body_ApplyTorque(body_id, to_b3(p_torque), true);
 	}
 }
 
 void Box3DBody::set_linear_velocity(const Vector3 &p_velocity) {
-	if (b3Body_IsValid(body_id)) {
+	if (body_live()) {
 		b3Body_SetLinearVelocity(body_id, to_b3(p_velocity));
 	}
 }
 
 Vector3 Box3DBody::get_linear_velocity() const {
-	if (b3Body_IsValid(body_id)) {
+	if (body_live()) {
 		return to_gd(b3Body_GetLinearVelocity(body_id));
 	}
 	return Vector3();
 }
 
 void Box3DBody::set_angular_velocity(const Vector3 &p_velocity) {
-	if (b3Body_IsValid(body_id)) {
+	if (body_live()) {
 		b3Body_SetAngularVelocity(body_id, to_b3(p_velocity));
 	}
 }
 
 Vector3 Box3DBody::get_angular_velocity() const {
-	if (b3Body_IsValid(body_id)) {
+	if (body_live()) {
 		return to_gd(b3Body_GetAngularVelocity(body_id));
 	}
 	return Vector3();
 }
 
 double Box3DBody::get_mass() const {
-	if (b3Body_IsValid(body_id)) {
+	if (body_live()) {
 		return b3Body_GetMass(body_id);
 	}
 	return 0.0;
@@ -583,7 +593,7 @@ void Box3DBody::teleport(const Transform3D &p_xform) {
 	// With physics interpolation on, an instant jump must not be smeared
 	// across the render frame.
 	reset_physics_interpolation();
-	if (b3Body_IsValid(body_id)) {
+	if (body_live()) {
 		b3Body_SetTransform(body_id, to_b3_pos(p_xform.origin),
 				to_b3(p_xform.basis.get_rotation_quaternion()));
 		b3Body_SetLinearVelocity(body_id, to_b3(Vector3()));
@@ -695,7 +705,7 @@ double Box3DBody::get_restitution() const {
 
 void Box3DBody::set_linear_damping(double p_damping) {
 	linear_damping = p_damping;
-	if (b3Body_IsValid(body_id)) {
+	if (body_live()) {
 		b3Body_SetLinearDamping(body_id, (float)linear_damping);
 	}
 }
@@ -846,7 +856,7 @@ float Box3DBody::debug_min_extent() const {
 
 void Box3DBody::set_continuous(bool p_enabled) {
 	continuous = p_enabled;
-	if (b3Body_IsValid(body_id)) {
+	if (body_live()) {
 		b3Body_SetBullet(body_id, p_enabled);
 	}
 }

@@ -9,6 +9,10 @@
 
 #include <box3d/box3d.h>
 
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 namespace godot {
@@ -54,11 +58,32 @@ private:
 	double last_step_delta = 1.0 / 60.0; // for the fast-body debug criterion
 	std::vector<Box3DBody *> bodies;
 
+	// Asynchronous stepping. When async_step is on, b3World_Step runs on a
+	// dedicated thread while the engine renders; results are applied at the
+	// start of the NEXT physics frame. If a step overruns a whole physics
+	// frame, that tick is skipped (the sim briefly lags real time) instead of
+	// stalling rendering. Any API call that touches the Box3D world first
+	// calls join_async_step() so scripts never race the solver.
+	bool async_step = false;
+	std::thread step_thread;
+	mutable std::mutex step_mutex;
+	mutable std::condition_variable step_cv;
+	bool worker_busy = false; // guarded by step_mutex
+	bool worker_exit = false; // guarded by step_mutex
+	double worker_dt = 1.0 / 60.0; // guarded by step_mutex
+	int worker_substeps = 4; // guarded by step_mutex
+	mutable std::atomic<bool> step_inflight{ false };
+	mutable bool step_pending_apply = false; // main thread only
+
 	void ensure_world();
 	void dispatch_contact_events();
 	void dispatch_sensor_events();
 	void update_debug_draw();
 	void apply_contact_tuning();
+	void async_thread_main();
+	void launch_async_step(double p_delta);
+	void apply_step_results();
+	void stop_step_thread();
 
 protected:
 	static void _bind_methods();
@@ -75,8 +100,18 @@ public:
 	void unregister_body(Box3DBody *p_body);
 
 	// Advance the simulation by delta seconds (called automatically when
-	// auto_step is enabled, or manually from script).
+	// auto_step is enabled, or manually from script). With async_step enabled
+	// this launches the step in the background and returns immediately; if the
+	// previous step is still running the call is a no-op (the tick is skipped).
 	void step(double p_delta);
+
+	// Blocks until any in-flight async step finishes (no-op otherwise). Every
+	// wrapper method that touches the b3 API calls this first; the fast path
+	// is a single relaxed atomic load. Results are applied on the next tick.
+	void join_async_step() const;
+
+	void set_async_step(bool p_enabled);
+	bool get_async_step() const;
 
 	void set_gravity(const Vector3 &p_gravity);
 	Vector3 get_gravity() const;

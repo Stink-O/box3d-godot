@@ -25,10 +25,85 @@ using namespace godot;
 Box3DWorld::Box3DWorld() {}
 
 Box3DWorld::~Box3DWorld() {
+	stop_step_thread();
 	if (b3World_IsValid(world_id)) {
 		b3DestroyWorld(world_id);
 		world_id = b3_nullWorldId;
 	}
+}
+
+void Box3DWorld::async_thread_main() {
+	std::unique_lock<std::mutex> lock(step_mutex);
+	while (true) {
+		step_cv.wait(lock, [this] { return worker_busy || worker_exit; });
+		if (worker_exit) {
+			break;
+		}
+		double dt = worker_dt;
+		int substeps = worker_substeps;
+		b3WorldId id = world_id; // stable: destruction joins this thread first
+		lock.unlock();
+		b3World_Step(id, (float)dt, substeps);
+		lock.lock();
+		worker_busy = false;
+		step_cv.notify_all();
+	}
+}
+
+void Box3DWorld::launch_async_step(double p_delta) {
+	if (!step_thread.joinable()) {
+		step_thread = std::thread(&Box3DWorld::async_thread_main, this);
+	}
+	{
+		std::lock_guard<std::mutex> lock(step_mutex);
+		worker_dt = p_delta;
+		worker_substeps = substep_count;
+		worker_busy = true;
+		step_inflight.store(true, std::memory_order_release);
+	}
+	step_cv.notify_all();
+}
+
+void Box3DWorld::join_async_step() const {
+	if (!step_inflight.load(std::memory_order_acquire)) {
+		return;
+	}
+	{
+		std::unique_lock<std::mutex> lock(step_mutex);
+		step_cv.wait(lock, [this] { return !worker_busy; });
+	}
+	step_inflight.store(false, std::memory_order_release);
+	step_pending_apply = true;
+}
+
+void Box3DWorld::apply_step_results() {
+	step_pending_apply = false;
+	for (Box3DBody *body : bodies) {
+		if (body != nullptr) {
+			body->sync_from_physics();
+			body->debug_hit_decay();
+		}
+	}
+	dispatch_contact_events();
+	dispatch_sensor_events();
+	if (debug_draw) {
+		update_debug_draw();
+	}
+}
+
+void Box3DWorld::stop_step_thread() {
+	if (!step_thread.joinable()) {
+		return;
+	}
+	{
+		std::lock_guard<std::mutex> lock(step_mutex);
+		worker_exit = true;
+	}
+	step_cv.notify_all();
+	step_thread.join();
+	worker_exit = false;
+	step_inflight.store(false, std::memory_order_release);
+	step_pending_apply = false;
 }
 
 void Box3DWorld::ensure_world() {
@@ -54,6 +129,7 @@ void Box3DWorld::apply_contact_tuning() {
 	if (!b3World_IsValid(world_id)) {
 		return;
 	}
+	join_async_step();
 	// contactSpeed left at Box3D's own default (3 m/s at this binding's fixed
 	// 1-length-unit-per-meter scale); only stiffness/damping are exposed.
 	b3World_SetContactTuning(world_id, (float)contact_hertz, (float)contact_damping, 3.0f);
@@ -61,10 +137,12 @@ void Box3DWorld::apply_contact_tuning() {
 
 b3WorldId Box3DWorld::get_world_id() {
 	ensure_world();
+	join_async_step();
 	return world_id;
 }
 
 bool Box3DWorld::is_world_alive() const {
+	join_async_step();
 	return b3World_IsValid(world_id);
 }
 
@@ -88,6 +166,38 @@ void Box3DWorld::step(double p_delta) {
 	ensure_world();
 	if (!b3World_IsValid(world_id) || p_delta <= 0.0) {
 		return;
+	}
+	if (async_step) {
+		if (step_inflight.load(std::memory_order_acquire)) {
+			{
+				std::lock_guard<std::mutex> lock(step_mutex);
+				if (worker_busy) {
+					// The previous step is still solving: skip this tick so
+					// rendering stays smooth (the sim lags rather than stalls).
+					return;
+				}
+			}
+			step_inflight.store(false, std::memory_order_release);
+			step_pending_apply = true;
+		}
+		if (step_pending_apply) {
+			apply_step_results();
+		}
+		// Push user-driven (kinematic) transforms into the solver.
+		for (Box3DBody *body : bodies) {
+			if (body != nullptr) {
+				body->sync_to_physics(p_delta);
+			}
+		}
+		last_step_delta = p_delta;
+		launch_async_step(p_delta);
+		return;
+	}
+	// Synchronous path. Settle any leftover async state first (async_step may
+	// have just been toggled off with a step still in flight).
+	join_async_step();
+	if (step_pending_apply) {
+		apply_step_results();
 	}
 	// Push user-driven (kinematic) transforms into the solver.
 	for (Box3DBody *body : bodies) {
@@ -201,6 +311,7 @@ void Box3DWorld::_notification(int p_what) {
 			}
 		} break;
 		case NOTIFICATION_EXIT_TREE: {
+			stop_step_thread();
 			if (b3World_IsValid(world_id)) {
 				b3DestroyWorld(world_id);
 			}
@@ -218,6 +329,7 @@ void Box3DWorld::_notification(int p_what) {
 void Box3DWorld::set_gravity(const Vector3 &p_gravity) {
 	gravity = p_gravity;
 	if (b3World_IsValid(world_id)) {
+		join_async_step();
 		b3World_SetGravity(world_id, to_b3(gravity));
 	}
 }
@@ -245,6 +357,7 @@ bool Box3DWorld::get_auto_step() const {
 void Box3DWorld::set_continuous_collision(bool p_enabled) {
 	continuous_collision = p_enabled;
 	if (b3World_IsValid(world_id)) {
+		join_async_step();
 		b3World_EnableContinuous(world_id, p_enabled);
 	}
 }
@@ -256,6 +369,7 @@ bool Box3DWorld::get_continuous_collision() const {
 void Box3DWorld::set_max_linear_speed(double p_speed) {
 	max_linear_speed = p_speed;
 	if (b3World_IsValid(world_id) && p_speed > 0.0) {
+		join_async_step();
 		b3World_SetMaximumLinearSpeed(world_id, (float)p_speed);
 	}
 }
@@ -273,7 +387,30 @@ int Box3DWorld::get_worker_count() const {
 	return worker_count;
 }
 
+void Box3DWorld::set_async_step(bool p_enabled) {
+	if (async_step == p_enabled) {
+		return;
+	}
+	if (!p_enabled) {
+		// Finish and absorb any in-flight step before going synchronous.
+		join_async_step();
+		if (step_pending_apply) {
+			apply_step_results();
+		}
+	}
+	async_step = p_enabled;
+	// Run after every script's _physics_process so per-tick API calls (e.g. a
+	// grab joint chasing the mouse) land before the step launches and never
+	// have to wait for it.
+	set_physics_process_priority(p_enabled ? 100 : 0);
+}
+
+bool Box3DWorld::get_async_step() const {
+	return async_step;
+}
+
 Dictionary Box3DWorld::raycast(const Vector3 &p_from, const Vector3 &p_to, uint32_t p_mask) {
+	join_async_step();
 	Dictionary result;
 	ensure_world();
 	if (!b3World_IsValid(world_id)) {
@@ -345,6 +482,7 @@ float cast_result_cb(b3ShapeId p_shape, b3Pos p_point, b3Vec3 p_normal, float p_
 } // namespace
 
 Array Box3DWorld::overlap_sphere(const Vector3 &p_center, double p_radius, uint32_t p_mask) {
+	join_async_step();
 	Array result;
 	ensure_world();
 	if (!b3World_IsValid(world_id)) {
@@ -367,6 +505,7 @@ Array Box3DWorld::overlap_sphere(const Vector3 &p_center, double p_radius, uint3
 }
 
 Dictionary Box3DWorld::shape_cast_sphere(const Vector3 &p_from, const Vector3 &p_to, double p_radius, uint32_t p_mask) {
+	join_async_step();
 	Dictionary result;
 	ensure_world();
 	if (!b3World_IsValid(world_id)) {
@@ -399,6 +538,7 @@ Dictionary Box3DWorld::shape_cast_sphere(const Vector3 &p_from, const Vector3 &p
 }
 
 void Box3DWorld::explode(const Vector3 &p_center, double p_radius, double p_impulse_per_area, double p_falloff, uint32_t p_mask) {
+	join_async_step();
 	ensure_world();
 	if (!b3World_IsValid(world_id)) {
 		return;
@@ -658,6 +798,7 @@ double Box3DWorld::get_contact_damping() const {
 void Box3DWorld::set_enable_sleep(bool p_enabled) {
 	enable_sleep = p_enabled;
 	if (b3World_IsValid(world_id)) {
+		join_async_step();
 		b3World_EnableSleeping(world_id, enable_sleep);
 	}
 }
@@ -669,6 +810,7 @@ bool Box3DWorld::get_enable_sleep() const {
 void Box3DWorld::set_enable_warm_starting(bool p_enabled) {
 	enable_warm_starting = p_enabled;
 	if (b3World_IsValid(world_id)) {
+		join_async_step();
 		b3World_EnableWarmStarting(world_id, enable_warm_starting);
 	}
 }
@@ -695,6 +837,8 @@ void Box3DWorld::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_max_linear_speed", "speed"), &Box3DWorld::set_max_linear_speed);
 	ClassDB::bind_method(D_METHOD("get_max_linear_speed"), &Box3DWorld::get_max_linear_speed);
 	ClassDB::bind_method(D_METHOD("set_worker_count", "count"), &Box3DWorld::set_worker_count);
+	ClassDB::bind_method(D_METHOD("set_async_step", "enabled"), &Box3DWorld::set_async_step);
+	ClassDB::bind_method(D_METHOD("get_async_step"), &Box3DWorld::get_async_step);
 	ClassDB::bind_method(D_METHOD("get_worker_count"), &Box3DWorld::get_worker_count);
 	ClassDB::bind_method(D_METHOD("set_debug_draw", "enabled"), &Box3DWorld::set_debug_draw);
 	ClassDB::bind_method(D_METHOD("get_debug_draw"), &Box3DWorld::get_debug_draw);
@@ -713,6 +857,7 @@ void Box3DWorld::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "continuous_collision"), "set_continuous_collision", "get_continuous_collision");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_linear_speed", PROPERTY_HINT_RANGE, "0,1000,0.1,or_greater"), "set_max_linear_speed", "get_max_linear_speed");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "worker_count", PROPERTY_HINT_RANGE, "1,16,1"), "set_worker_count", "get_worker_count");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "async_step"), "set_async_step", "get_async_step");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_draw"), "set_debug_draw", "get_debug_draw");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "contact_hertz", PROPERTY_HINT_RANGE, "0,120,0.1,or_greater"), "set_contact_hertz", "get_contact_hertz");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "contact_damping", PROPERTY_HINT_RANGE, "0,20,0.01,or_greater"), "set_contact_damping", "get_contact_damping");

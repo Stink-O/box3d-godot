@@ -89,6 +89,8 @@ private:
 	MeshInstance3D *auto_mesh_instance = nullptr;
 
 	Box3DWorld *find_world();
+	// b3Body_IsValid plus a join of any in-flight async world step.
+	bool body_live() const;
 	void rebuild_if_alive();
 	void apply_motion_locks();
 	void create_child_shape(Box3DCollisionShape *p_shape, const Transform3D &p_body_inv);

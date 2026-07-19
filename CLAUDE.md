@@ -40,9 +40,10 @@ GODOT=<path to Godot 4.7 editor binary>
 "$GODOT" --headless --path godot/demo res://tests/test_samples.tscn  -- --selftest
 ```
 
-- Expect 42 `[test]` lines then `ALL -> PASS`, and 29 `[samples]` lines then
-  `ALL -> PASS`. **Exit 0 alone is not a pass** — an empty enumeration once
-  produced a vacuous `ALL -> PASS`; always grep the actual lines.
+- Expect 44 `[test]` lines and 30 `[samples]` lines, in both cases counting
+  the final `[test]/[samples] ALL -> PASS` line. **Exit 0 alone is not a
+  pass** — an empty enumeration once produced a vacuous `ALL -> PASS`; always
+  grep the actual lines.
 - Diff the output against the previous run. Mobile-only changes must leave
   desktop output **byte-identical**.
 - Known quirk: the *first* `--import` on a clean tree can abort (exit 134)
