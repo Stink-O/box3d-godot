@@ -80,6 +80,8 @@ const SAMPLES := {
 @onready var _max_speed_spin: SpinBox = $UI/Sidebar/Margin/VBox/MaxSpeedRow/MaxSpeedSpin
 @onready var _gravity_spin: SpinBox = $UI/Sidebar/Margin/VBox/GravityRow/GravitySpin
 @onready var _continuous_check: CheckBox = $UI/Sidebar/Margin/VBox/ContinuousCheck
+@onready var _sleep_check: CheckBox = $UI/Sidebar/Margin/VBox/SleepCheck
+@onready var _recycling_check: CheckBox = $UI/Sidebar/Margin/VBox/RecyclingCheck
 @onready var _sidebar_debug_check: CheckBox = $UI/Sidebar/Margin/VBox/DebugDrawCheck
 @onready var _stats_check: CheckBox = $UI/Sidebar/Margin/VBox/StatsCheck
 @onready var _async_check: CheckBox = $UI/Sidebar/Margin/VBox/AsyncCheck
@@ -110,6 +112,10 @@ var _updating_sidebar := false  ## guard while pushing values into the controls
 ## sample with this override applied before the world exists. Sticky across
 ## Reset, cleared when switching samples (-1 = use the scene's own value).
 var _worker_override := -1
+## Contact tuning survives Reset the same way (a tuning experiment shouldn't
+## be lost to a rebuild); cleared when switching samples (-1 = scene's own).
+var _contact_hertz_override := -1.0
+var _contact_damping_override := -1.0
 var _debug_hidden: Array = []  ## MeshInstance3Ds hidden while the debug view is on
 ## Off by default; sticky across sample loads and resets once turned on.
 var _async_step := false
@@ -170,6 +176,14 @@ func _ready() -> void:
 	_max_speed_spin.value_changed.connect(_on_max_speed_changed)
 	_gravity_spin.value_changed.connect(_on_gravity_changed)
 	_continuous_check.toggled.connect(_on_continuous_changed)
+	_sleep_check.focus_mode = Control.FOCUS_NONE
+	_sleep_check.toggled.connect(_on_sleep_changed)
+	_recycling_check.focus_mode = Control.FOCUS_NONE
+	_recycling_check.toggled.connect(_on_recycling_changed)
+	# Hide the row on builds whose extension predates the property.
+	var body_probe := Box3DBody.new()
+	_recycling_check.visible = "contact_recycling" in body_probe
+	body_probe.free()
 	_sidebar_debug_check.toggled.connect(_on_sidebar_debug_changed)
 	_contact_hertz_spin.value_changed.connect(_on_contact_hertz_changed)
 	_contact_damping_spin.value_changed.connect(_on_contact_damping_changed)
@@ -460,6 +474,7 @@ func _show_controls_hint() -> void:
 func _on_contact_hertz_changed(value: float) -> void:
 	if _updating_sidebar:
 		return
+	_contact_hertz_override = value
 	_with_world(func(world):
 		if "contact_hertz" in world:
 			world.contact_hertz = value)
@@ -468,9 +483,31 @@ func _on_contact_hertz_changed(value: float) -> void:
 func _on_contact_damping_changed(value: float) -> void:
 	if _updating_sidebar:
 		return
+	_contact_damping_override = value
 	_with_world(func(world):
 		if "contact_damping" in world:
 			world.contact_damping = value)
+
+
+func _on_sleep_changed(pressed: bool) -> void:
+	if _updating_sidebar:
+		return
+	_with_world(func(world):
+		if "enable_sleep" in world:
+			world.enable_sleep = pressed)
+
+
+func _on_recycling_changed(pressed: bool) -> void:
+	if _updating_sidebar:
+		return
+	_with_world(func(world): _set_recycling(world, pressed))
+
+
+func _set_recycling(node: Node, on: bool) -> void:
+	if node is Box3DBody and "contact_recycling" in node:
+		node.contact_recycling = on
+	for child in node.get_children():
+		_set_recycling(child, on)
 
 
 # Pull the just-loaded sample's world settings into the sidebar controls
@@ -484,6 +521,10 @@ func _refresh_sidebar_from_world(world) -> void:
 		_gravity_spin.set_value_no_signal(world.gravity.y)
 		_continuous_check.set_pressed_no_signal(world.continuous_collision)
 		_sidebar_debug_check.set_pressed_no_signal(_debug_draw)
+		if "enable_sleep" in world:
+			_sleep_check.set_pressed_no_signal(world.enable_sleep)
+		# A fresh sample's bodies start with recycling on (the Box3D default).
+		_recycling_check.set_pressed_no_signal(true)
 		# The async checkbox reflects the sticky user preference, and hides on
 		# builds whose extension predates the property.
 		_async_check.visible = "async_step" in world
@@ -557,6 +598,8 @@ func _on_menu_id(id: int) -> void:
 func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	if path != _current_path:
 		_worker_override = -1
+		_contact_hertz_override = -1.0
+		_contact_damping_override = -1.0
 	_debug_hidden.clear()  # the old sample's nodes are freed with it
 	if _current != null:
 		# Free immediately, not deferred: a queued free would leave both the
@@ -615,6 +658,11 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 				_camera.frame_view(eye, target)
 			elif "camera_home" in _current and "camera_look_at" in _current:
 				_camera.frame_view(_current.camera_home, _current.camera_look_at)
+	# Reapply sticky contact tuning (survives Reset, cleared on sample switch).
+	if world != null and _contact_hertz_override > 0.0 and "contact_hertz" in world:
+		world.contact_hertz = _contact_hertz_override
+	if world != null and _contact_damping_override > 0.0 and "contact_damping" in world:
+		world.contact_damping = _contact_damping_override
 	_apply_debug()  # carry the debug-draw toggle into the newly loaded sample
 	_apply_async()  # same for the async-step preference
 	if _stats_overlay.visible:

@@ -36,10 +36,11 @@ private:
 	double max_linear_speed = 0.0; // 0 = keep Box3D's default
 	int worker_count = 1; // >1 enables Box3D's internal multithreaded solver
 	bool debug_draw = false;
-	// Solver tuning, forwarded to b3World_SetContactTuning. Defaults match
-	// Box3D's own (b3DefaultWorldDef): 30 Hz, damping ratio 10, at 1 length
-	// unit per meter (this binding never changes that scale).
-	double contact_hertz = 30.0;
+	// Solver tuning, forwarded to b3World_SetContactTuning. Hertz follows
+	// upstream's sample app default (60; the core's b3DefaultWorldDef is 30),
+	// damping matches the core, at 1 length unit per meter (this binding
+	// never changes that scale).
+	double contact_hertz = 60.0;
 	double contact_damping = 10.0;
 	bool enable_sleep = true;
 	bool enable_warm_starting = true;

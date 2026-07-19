@@ -50,7 +50,7 @@ layout_mode = 2
 
 [node name="BlastLabel" type="Label" parent="UI/Bar"]
 visible = false
-custom_minimum_size = Vector2(78, 0)
+custom_minimum_size = Vector2(92, 0)
 layout_mode = 2
 text = "Blast: 9"
 
@@ -60,7 +60,7 @@ custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
 size_flags_vertical = 4
 min_value = 1.0
-max_value = 60.0
+max_value = 300.0
 value = 9.0
 tooltip_text = "Bomb blast strength (impulse per area). Heavier scenes need more."
 
@@ -233,6 +233,18 @@ value = -9.799999999999997
 layout_mode = 2
 button_pressed = true
 text = "Continuous Collision (CCD)"
+
+[node name="SleepCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+button_pressed = true
+tooltip_text = "Let idle bodies fall asleep. Box3D sleeps whole contact islands, so huge connected stacks rarely qualify - one micro-swaying block keeps the island awake."
+text = "Sleep"
+
+[node name="RecyclingCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+button_pressed = true
+tooltip_text = "Reuse contact points between steps while pairs barely move, keeping warm-start impulses intact. This is what keeps tall stacks (the Huge Pyramid) standing; applies to every body in the current sample."
+text = "Contact Recycling"
 
 [node name="DebugDrawCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox" unique_id=1485773072]
 layout_mode = 2

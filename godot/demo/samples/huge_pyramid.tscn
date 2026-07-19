@@ -1,34 +1,32 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=3 uid="uid://dxacp1vuv33uy"]
 
-[ext_resource type="Script" path="res://samples/huge_pyramid.gd" id="1_huge"]
+[ext_resource type="Script" uid="uid://co8u5ap34q2jv" path="res://samples/huge_pyramid.gd" id="1_huge"]
+
+[sub_resource type="StandardMaterial3D" id="FloorMat_1"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+metallic = 0.1
+roughness = 0.55
 
 [sub_resource type="BoxMesh" id="FloorMesh_1"]
 size = Vector3(400, 1, 400)
 
-[sub_resource type="StandardMaterial3D" id="FloorMat_1"]
-albedo_color = Color(0.2, 0.22, 0.26, 1)
-roughness = 0.55
-metallic = 0.1
-
-[node name="HugePyramid" type="Node3D"]
+[node name="HugePyramid" type="Node3D" unique_id=1066910542]
 script = ExtResource("1_huge")
 
-[node name="CameraStart" type="Camera3D" parent="."]
+[node name="CameraStart" type="Camera3D" parent="." unique_id=75247593]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 110, 250)
 
-[node name="LookAt" type="Node3D" parent="CameraStart"]
+[node name="LookAt" type="Node3D" parent="CameraStart" unique_id=1696719864]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -40, -250)
 
-[node name="Box3DWorld" type="Box3DWorld" parent="."]
-gravity = Vector3(0, -9.8, 0)
-worker_count = 8
-enable_sleep = false
+[node name="Box3DWorld" type="Box3DWorld" parent="." unique_id=65409169]
+worker_count = 16
 
-[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+[node name="Floor" type="Box3DBody" parent="Box3DWorld" unique_id=1412395788]
 body_type = 0
 box_size = Vector3(400, 1, 400)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
-mesh = SubResource("FloorMesh_1")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor" unique_id=1767964323]
 material_override = SubResource("FloorMat_1")
+mesh = SubResource("FloorMesh_1")
