@@ -1,0 +1,37 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://compare/compare.gd" id="1_cmp"]
+[ext_resource type="Environment" path="res://common/sky_environment.tres" id="2_env"]
+[ext_resource type="Script" path="res://compare/overlay.gd" id="3_ovl"]
+
+[node name="Compare" type="Node3D"]
+script = ExtResource("1_cmp")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("2_env")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.57357645, 0.5690309, -0.58924866, 0, 0.7193398, 0.6946584, 0.81915206, -0.3984397, 0.41259637, 0, 0, 0)
+light_color = Color(1, 0.965, 0.91, 1)
+light_energy = 1.15
+shadow_enabled = true
+shadow_bias = 0.03
+
+[node name="FillLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.84804803, -0.32625094, 0.41758215, 0, 0.7880108, 0.6156615, -0.5299193, 0.5221105, -0.668271, 0, 0, 0)
+light_color = Color(0.72, 0.8, 0.95, 1)
+light_energy = 0.3
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.5, 27)
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Overlay" type="Control" parent="UI"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_ovl")

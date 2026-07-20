@@ -41,7 +41,7 @@ const MAX_STEER := 0.25 * PI # target steering angle at full lock (upstream's)
 # --- Shell toggle: third-person chase camera (see main.gd's SampleToggle) ---
 
 func get_toggle_label() -> String:
-	return "🎥 Third Person"
+	return "Third Person"
 
 
 func set_toggled(on: bool) -> void:

@@ -42,7 +42,7 @@ theme_override_constants/separation = 14
 
 [node name="Menu" type="MenuButton" parent="UI/Bar" unique_id=463820218]
 layout_mode = 2
-text = "☰  Samples"
+text = "Samples"
 flat = false
 
 [node name="ShotMode" type="OptionButton" parent="UI/Bar" unique_id=258462601]
@@ -74,7 +74,7 @@ text = "Explode on Contact"
 [node name="Activate" type="Button" parent="UI/Bar" unique_id=13492053]
 visible = false
 layout_mode = 2
-text = "💥  Activate"
+text = "Activate"
 
 [node name="SampleToggle" type="CheckButton" parent="UI/Bar" unique_id=598928604]
 visible = false

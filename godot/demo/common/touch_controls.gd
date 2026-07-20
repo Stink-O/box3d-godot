@@ -77,11 +77,11 @@ func _ready() -> void:
 
 	# --- Action buttons, bottom-right column: SHOOT under JUMP. Big hit
 	# targets; button_down/up (not pressed) so holds work.
-	_shoot_btn = _make_button("⚪  SHOOT", Vector2(-250.0, -140.0), Vector2(230.0, 92.0))
+	_shoot_btn = _make_button("SHOOT", Vector2(-250.0, -140.0), Vector2(230.0, 92.0))
 	_shoot_btn.button_down.connect(_on_shoot_down)
 	_shoot_btn.button_up.connect(_on_shoot_up)
 
-	_jump_btn = _make_button("⬆  JUMP", Vector2(-250.0, -250.0), Vector2(230.0, 92.0))
+	_jump_btn = _make_button("JUMP", Vector2(-250.0, -250.0), Vector2(230.0, 92.0))
 	_jump_btn.button_down.connect(func(): _press_key(KEY_SPACE, true))
 	_jump_btn.button_up.connect(func(): _press_key(KEY_SPACE, false))
 	_jump_btn.visible = false

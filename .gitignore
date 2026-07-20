@@ -54,3 +54,8 @@ godot/msvc_capture.log
 
 # Godot editor cache
 godot/demo/.godot/
+
+# Throwaway physics-engine override written by tools/compare.sh (see
+# compare/README.md). Removed automatically after each run; ignored so a stray
+# one can never be committed and alter the demo's physics backend.
+godot/demo/override.cfg

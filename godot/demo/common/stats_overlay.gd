@@ -211,7 +211,7 @@ func _draw() -> void:
 	var y := PAD + 24.0
 	_shadowed(Vector2(PAD, y), _fps_text, 24, Color(1, 1, 1, 0.95))
 	# Move-grip icon in the corner: a quiet reminder the panel is draggable.
-	# (Drawn, not a font glyph — the default font has no ✥ character.)
+	# (Drawn, not a font glyph — the default font has no move-grip glyph.)
 	_draw_move_icon(Vector2(w - PAD - 10.0, PAD + 14.0), 9.0, Color(1, 1, 1, 0.4))
 	y += 10.0
 	for line in _lines:
