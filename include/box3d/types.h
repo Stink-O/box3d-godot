@@ -419,6 +419,9 @@ typedef struct b3SurfaceMaterial
 	/// carry a b3DebugMaterial preset, see b3MakeDebugColor.
 	/// @see b3HexColor
 	uint32_t customColor;
+
+	/// Explicit padding. Must be zero.
+	uint32_t padding;
 } b3SurfaceMaterial;
 
 /// Use this to initialize your surface material
@@ -2968,8 +2971,10 @@ typedef struct b3DebugShape
 /// it stays accurate far from the origin. Shift into your own camera frame inside the callbacks.
 typedef struct b3DebugDraw
 {
-	/// Draws a shape and returns true if drawing should continue
-	bool ( *DrawShapeFcn )( void* userShape, b3WorldTransform transform, b3HexColor color, void* context );
+	/// Draws a user shape. The userShape pointer is owned by the application and is known to Box3D as
+	/// an opaque pointer returned from b3CreateDebugShapeCallback. When this is called the drawn shape has 
+	/// passed a culling test against drawingBounds below.
+	void ( *DrawShapeFcn )( void* userShape, b3WorldTransform transform, b3HexColor color, void* context );
 
 	/// Draw a line segment.
 	void ( *DrawSegmentFcn )( b3Pos p1, b3Pos p2, b3HexColor color, void* context );
@@ -3029,7 +3034,7 @@ typedef struct b3DebugDraw
 	bool drawContacts;
 
 	/// Draw contact anchor A or B
-	int drawAnchorA;
+	bool drawAnchorA;
 
 	/// Option to visualize the graph coloring used for contacts and joints
 	bool drawGraphColors;
