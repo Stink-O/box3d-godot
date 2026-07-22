@@ -420,7 +420,7 @@ static int TriangleEdgeTest( void )
 		b3LocalManifold manifold = { 0 };
 		manifold.points = points;
 		b3SATCache cache = { .type = b3_manualEdgePairAxis };
-		b3CollideHullAndTriangle( &manifold, 8, &hull.base, v1, v2, v3, 0, &cache, true );
+		b3CollideTriangleAndHull( &manifold, 8, v1, v2, v3, 0, &hull.base, &cache, true );
 
 		b3Vec3 expectedNormal = b3Neg( axis );
 		b3Vec3 expectedPoint = b3MulAdd( hullPoint, 0.5f * gap, axis );
@@ -453,7 +453,7 @@ static int TriangleEdgeTest( void )
 		b3LocalManifold manifold = { 0 };
 		manifold.points = points;
 		b3SATCache cache = { 0 };
-		b3CollideHullAndTriangle( &manifold, 8, &hull.base, v1, v2, v3, 0, &cache, true );
+		b3CollideTriangleAndHull( &manifold, 8, v1, v2, v3, 0, &hull.base, &cache, true );
 
 		ENSURE( manifold.pointCount == 0 );
 		ENSURE( cache.type == b3_edgePairAxis );
@@ -486,7 +486,7 @@ static int TriangleParallelEdgeTest( void )
 			b3LocalManifold manifold = { 0 };
 			manifold.points = points;
 			b3SATCache cache = { 0 };
-			b3CollideHullAndTriangle( &manifold, 8, &hull.base, v1, v2, v3, 0, &cache, true );
+			b3CollideTriangleAndHull( &manifold, 8, v1, v2, v3, 0, &hull.base, &cache, true );
 
 			ENSURE( manifold.pointCount == 4 );
 			ENSURE( cache.type == b3_faceAxisA );
@@ -501,72 +501,111 @@ static int TriangleParallelEdgeTest( void )
 	return 0;
 }
 
-// Two long roof ridges laid across each other. Unlike the stacked cubes the axis of minimum
-// penetration really is the edge pair, so the query has to hand the winning pair to the contact
-// builder. Closing the crossing angle drives that pair toward parallel, where the cross product
-// the builder needs to orient the contact loses its precision.
+// A crossed ridge pair must land on a four point roof face contact. The clipped face
+// separation can be no deeper than root2 times the vertical overlap.
+static int CheckRoofFaceContact( const b3LocalManifold* manifold, const b3SATCache* cache, float overlap )
+{
+	ENSURE( manifold->pointCount == 4 );
+	ENSURE( cache->type == b3_faceAxisA || cache->type == b3_faceAxisB );
+
+	// A roof face of one hull, so 45 degrees off the vertical
+	ENSURE_SMALL( manifold->normal.y - kHalfRoot2, 1e-4f );
+
+	float minSeparation = MinSeparation( manifold );
+	ENSURE( minSeparation < -kHalfRoot2 * overlap + 1e-4f );
+	ENSURE( minSeparation > -kRoot2 * overlap - 1e-4f );
+
+	return 0;
+}
+
+// Two long roof ridges laid across each other. The axis of minimum penetration is the edge
+// pair, but a one point edge contact is weak for stacking. The collider builds the roof face
+// contact first and only switches to the edge contact when the edge axis beats the clipped
+// face separation by more than the slop. This pins all three regimes of that policy.
 static int RidgeCrossingTest( void )
 {
 	b3BoxHull hullA = b3MakeTransformedBoxHull( 1.5f, 0.1f, 0.1f, ExactRotation( kAxisX, 0.25f * B3_PI ) );
 	b3BoxHull hullB = b3MakeTransformedBoxHull( 1.5f, 0.1f, 0.1f, ExactRotation( kAxisX, 0.25f * B3_PI ) );
 
 	float ridgeY = 0.1f * kRoot2;
-	float overlap = 0.01f;
-	float lift = 2.0f * ridgeY - overlap;
 
-	// Well clear of the rejection threshold. The ridges cross over the origin and the axis is y.
-	float crossingAngles[] = { 0.02f, 0.1f, 0.5f };
-
-	for ( int i = 0; i < ARRAY_COUNT( crossingAngles ); ++i )
+	// Shallow overlap. The edge axis is better by only ( root2 - 1 ) * overlap, inside the
+	// slop, so the four point face contact carries the crossing at every angle.
 	{
-		b3Transform transform = { { 0.0f, lift, 0.0f }, ExactQuat( kAxisY, crossingAngles[i] ) };
+		float overlap = 0.01f;
+		float lift = 2.0f * ridgeY - overlap;
+		float crossingAngles[] = { 0.0f, 1e-3f, 0.02f, 0.1f, 0.5f };
 
-		b3LocalManifoldPoint points[8];
-		b3LocalManifold manifold = { 0 };
-		manifold.points = points;
-		b3SATCache cache = { 0 };
-		b3CollideHulls( &manifold, 8, &hullA.base, &hullB.base, transform, &cache );
+		for ( int i = 0; i < ARRAY_COUNT( crossingAngles ); ++i )
+		{
+			b3Transform transform = { { 0.0f, lift, 0.0f }, ExactQuat( kAxisY, crossingAngles[i] ) };
 
-		ENSURE( manifold.pointCount == 1 );
-		ENSURE( cache.type == b3_edgePairAxis );
-		ENSURE_SMALL( manifold.normal.x, 1e-5f );
-		ENSURE_SMALL( manifold.normal.y - 1.0f, 1e-5f );
-		ENSURE_SMALL( manifold.normal.z, 1e-5f );
-		ENSURE_SMALL( manifold.points[0].separation + overlap, 1e-4f );
-		ENSURE_SMALL( manifold.points[0].point.y - ( ridgeY - 0.5f * overlap ), 1e-4f );
+			b3LocalManifoldPoint points[8];
+			b3LocalManifold manifold = { 0 };
+			manifold.points = points;
+			b3SATCache cache = { 0 };
+			b3CollideHulls( &manifold, 8, &hullA.base, &hullB.base, transform, &cache );
 
-		// Where the point lands along the ridges is ill conditioned at a shallow crossing since
-		// the closest point solve divides by the square of the sine of the angle. It only has to
-		// land near the crossing, not at the end of a three meter beam.
-		ENSURE_SMALL( manifold.points[0].point.x, 0.01f );
-		ENSURE_SMALL( manifold.points[0].point.z, 0.01f );
+			if ( CheckRoofFaceContact( &manifold, &cache, overlap ) != 0 )
+			{
+				return 1;
+			}
+		}
 	}
 
-	// Inside the rejection threshold. A one point edge contact off a parallel pair would have a
-	// normal built from noise, so the query drops the pair and the roof faces carry the contact.
-	float shallowAngles[] = { 0.0f, 1e-4f, 1e-3f, 0.003f };
-
-	for ( int i = 0; i < ARRAY_COUNT( shallowAngles ); ++i )
+	// Deep overlap at a clear crossing. The edge axis now beats the clipped face separation
+	// by more than the slop, so the edge contact replaces the face contact.
 	{
-		b3Transform transform = { { 0.0f, lift, 0.0f }, ExactQuat( kAxisY, shallowAngles[i] ) };
+		float overlap = 0.05f;
+		float lift = 2.0f * ridgeY - overlap;
+		float crossingAngles[] = { 0.05f, 0.1f, 0.2f, 0.5f };
 
-		b3LocalManifoldPoint points[8];
-		b3LocalManifold manifold = { 0 };
-		manifold.points = points;
-		b3SATCache cache = { 0 };
-		b3CollideHulls( &manifold, 8, &hullA.base, &hullB.base, transform, &cache );
+		for ( int i = 0; i < ARRAY_COUNT( crossingAngles ); ++i )
+		{
+			b3Transform transform = { { 0.0f, lift, 0.0f }, ExactQuat( kAxisY, crossingAngles[i] ) };
 
-		ENSURE( manifold.pointCount == 4 );
-		ENSURE( cache.type != b3_edgePairAxis );
+			b3LocalManifoldPoint points[8];
+			b3LocalManifold manifold = { 0 };
+			manifold.points = points;
+			b3SATCache cache = { 0 };
+			b3CollideHulls( &manifold, 8, &hullA.base, &hullB.base, transform, &cache );
 
-		// A roof face of one hull, so 45 degrees off the vertical
-		ENSURE_SMALL( manifold.normal.x, 1e-4f );
-		ENSURE_SMALL( manifold.normal.y - kHalfRoot2, 1e-4f );
-		ENSURE_SMALL( b3AbsFloat( manifold.normal.z ) - kHalfRoot2, 1e-4f );
+			ENSURE( manifold.pointCount == 1 );
+			ENSURE( cache.type == b3_edgePairAxis );
+			ENSURE_SMALL( manifold.normal.x, 1e-4f );
+			ENSURE_SMALL( manifold.normal.y - 1.0f, 1e-4f );
+			ENSURE_SMALL( manifold.normal.z, 1e-4f );
+			ENSURE_SMALL( manifold.points[0].separation + overlap, 1e-4f );
+			ENSURE_SMALL( manifold.points[0].point.y - ( ridgeY - 0.5f * overlap ), 1e-4f );
 
-		float minSeparation = MinSeparation( &manifold );
-		ENSURE( minSeparation < 0.0f );
-		ENSURE( minSeparation > -2.0f * overlap );
+			// Only has to land near the crossing, not at the end of a three meter beam
+			ENSURE_SMALL( manifold.points[0].point.x, 0.01f );
+			ENSURE_SMALL( manifold.points[0].point.z, 0.01f );
+		}
+	}
+
+	// Deep overlap near parallel. A one point edge contact off a parallel pair would have a
+	// normal built from noise, so the roof faces keep the contact.
+	{
+		float overlap = 0.05f;
+		float lift = 2.0f * ridgeY - overlap;
+		float shallowAngles[] = { 0.0f, 1e-4f, 1e-3f, 0.003f };
+
+		for ( int i = 0; i < ARRAY_COUNT( shallowAngles ); ++i )
+		{
+			b3Transform transform = { { 0.0f, lift, 0.0f }, ExactQuat( kAxisY, shallowAngles[i] ) };
+
+			b3LocalManifoldPoint points[8];
+			b3LocalManifold manifold = { 0 };
+			manifold.points = points;
+			b3SATCache cache = { 0 };
+			b3CollideHulls( &manifold, 8, &hullA.base, &hullB.base, transform, &cache );
+
+			if ( CheckRoofFaceContact( &manifold, &cache, overlap ) != 0 )
+			{
+				return 1;
+			}
+		}
 	}
 
 	return 0;
@@ -841,7 +880,7 @@ static int TriangleHullEdgeSweepTest( void )
 				b3LocalManifold manifold = { 0 };
 				manifold.points = points;
 				b3SATCache cache = { .type = b3_manualEdgePairAxis };
-				b3CollideHullAndTriangle( &manifold, 8, &hull.base, v1, v2, v3, 0, &cache, true );
+				b3CollideTriangleAndHull( &manifold, 8, v1, v2, v3, 0, &hull.base, &cache, true );
 
 				if ( cache.type != b3_edgePairAxis || manifold.pointCount != 1 )
 				{
@@ -912,7 +951,7 @@ static int CapsuleTriangleEdgeDeepTest( void )
 					b3LocalManifold manifold = { 0 };
 					manifold.points = points;
 					b3SimplexCache cache = { 0 };
-					b3CollideCapsuleAndTriangle( &manifold, 8, &capsule, triangle, &cache );
+					b3CollideTriangleAndCapsule( &manifold, 8, triangle, &capsule, &cache );
 
 					// Only the edge contacts exercise the new axis. Face contacts are handled elsewhere.
 					if ( manifold.pointCount != 1 || manifold.feature < b3_featureEdge1 || manifold.feature > b3_featureEdge3 )
