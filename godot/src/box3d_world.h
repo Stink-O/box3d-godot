@@ -64,6 +64,13 @@ private:
 	// from apply_step_results and never reads this flag.
 	bool debug_step_dirty = true;
 	double last_step_delta = 1.0 / 60.0; // for the fast-body debug criterion
+	// Wall-clock cost of the last b3World_Step. Godot's TIME_PHYSICS_PROCESS
+	// monitor is not usable for this: it reads roughly 2x high under vsync
+	// pacing (it reported 20-28 ms on a scene whose steps provably cost 7-12 ms
+	// while the loop still held 60 ticks a second). Timed around the call
+	// instead. Written by whichever thread ran the step, which is the worker in
+	// async mode, so it is atomic.
+	std::atomic<int64_t> last_step_usec{ 0 };
 	std::vector<Box3DBody *> bodies;
 
 	// Asynchronous stepping. When async_step is on, b3World_Step runs on a
@@ -90,6 +97,8 @@ private:
 	void apply_contact_tuning();
 	void async_thread_main();
 	void launch_async_step(double p_delta);
+	// b3World_Step plus the timing that feeds get_step_time_ms().
+	void step_world(b3WorldId p_id, double p_delta, int p_substeps);
 	void apply_step_results();
 	void stop_step_thread();
 
@@ -120,6 +129,10 @@ public:
 
 	void set_async_step(bool p_enabled);
 	bool get_async_step() const;
+
+	// Milliseconds the last solver step took. Not a property: it is live
+	// telemetry, not scene state.
+	double get_step_time_ms() const;
 
 	void set_gravity(const Vector3 &p_gravity);
 	Vector3 get_gravity() const;

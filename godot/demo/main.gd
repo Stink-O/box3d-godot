@@ -470,9 +470,12 @@ func _apply_async() -> void:
 func _push_stats_bodies() -> void:
 	if _current == null:
 		_stats_overlay.bodies = -1
+		_stats_overlay.world = null
 		return
 	var world = _current.get_node_or_null("Box3DWorld")
 	_stats_overlay.bodies = _count_bodies(world) if world != null else -1
+	# The overlay samples the solver itself every tick; it just needs the handle.
+	_stats_overlay.world = world
 
 
 # --- Start view: fly the camera somewhere, save it as this sample's spawn ---

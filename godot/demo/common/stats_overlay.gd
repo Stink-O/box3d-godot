@@ -14,6 +14,20 @@ const LAYOUT_PATH := "user://ui.cfg"  ## remembers the dragged position
 
 ## Pushed by the shell once a second (recursive node count); -1 hides the line.
 var bodies := -1
+## Pushed by the shell: the sample's Box3DWorld, sampled here for solver cost.
+## null hides the solver line.
+var world: Node = null
+
+var _step_ms := PackedFloat32Array()  ## solver ms per tick, ring buffer
+var _step_head := 0
+var _step_count := 0
+## Physics ticks measured against the wall clock, not against physics delta
+## (which is fixed at 1/60 and would always report 60). Below 60 means the
+## simulation is falling behind real time.
+var _tick_accum := 0
+var _tick_mark_usec := 0
+var _ticks_per_sec := 0.0
+var _world_seen: Node = null
 
 var _times := PackedFloat32Array()  ## ms per frame, ring buffer
 var _head := 0
@@ -40,6 +54,7 @@ func _ready() -> void:
 	mouse_exited.connect(_set_hover.bind(false))
 	tooltip_text = "Drag to move"
 	_times.resize(WINDOW)
+	_step_ms.resize(WINDOW)
 	_font = get_theme_default_font()
 	var layout := ConfigFile.new()
 	if layout.load(LAYOUT_PATH) == OK:
@@ -118,6 +133,41 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
+## Samples the solver once per tick and counts ticks against the wall clock.
+## Both numbers are measured here rather than read from Godot's TIME_* monitors,
+## which report roughly double the real solver cost under vsync pacing.
+func _physics_process(_delta: float) -> void:
+	# Switching samples frees the old world, so drop its samples rather than
+	# averaging two scenes together (and never touch a freed handle).
+	if world != _world_seen:
+		_world_seen = world
+		_step_head = 0
+		_step_count = 0
+	if world != null and is_instance_valid(world) and world.has_method("get_step_time_ms"):
+		_step_ms[_step_head] = float(world.get_step_time_ms())
+		_step_head = (_step_head + 1) % WINDOW
+		_step_count = mini(_step_count + 1, WINDOW)
+	var now := Time.get_ticks_usec()
+	if _tick_mark_usec == 0:
+		_tick_mark_usec = now
+	_tick_accum += 1
+	var elapsed := now - _tick_mark_usec
+	if elapsed >= 1000000:
+		_ticks_per_sec = float(_tick_accum) * 1000000.0 / float(elapsed)
+		_tick_accum = 0
+		_tick_mark_usec = now
+
+
+## Sorted copy of a ring buffer's live entries, for percentiles.
+func _sorted(buf: PackedFloat32Array, n: int, head: int) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	out.resize(n)
+	for i in n:
+		out[i] = buf[(head - n + i + WINDOW) % WINDOW]
+	out.sort()
+	return out
+
+
 func _window_sorted() -> PackedFloat32Array:
 	var out := PackedFloat32Array()
 	out.resize(_count)
@@ -154,10 +204,24 @@ func _rebuild_text() -> void:
 	var worst := sorted[n - 1]
 	_fps_text = "%.0f fps" % Engine.get_frames_per_second()
 	_lines.append("frame  avg %.2f   1%% %.2f   max %.2f ms" % [avg, p99, worst])
-	_lines.append("process %.2f ms   physics %.2f ms  (1 s avg)" % [
+	# TIME_PHYSICS_PROCESS is deliberately not shown. It reads about double the
+	# real solver cost under vsync pacing, and in async mode it reads near zero
+	# because the solve is on a worker thread, so it misleads in both
+	# directions. The solver line below is timed around b3World_Step instead.
+	_lines.append("process %.2f ms  (1 s avg)" % [
 		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
-		Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
 	])
+	# Solver cost plus how many ticks actually ran per real second. 60/s means
+	# the simulation is keeping real time.
+	if _step_count >= 10:
+		var st := _sorted(_step_ms, _step_count, _step_head)
+		var st_total := 0.0
+		for v in st:
+			st_total += v
+		_lines.append("solver  avg %.2f   1%% %.2f   max %.2f ms   %.0f ticks/s" % [
+			st_total / st.size(), st[int(st.size() * 0.99)], st[st.size() - 1],
+			_ticks_per_sec,
+		])
 	var prims := Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)
 	_lines.append("draw calls %d   triangles %s" % [
 		int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),

@@ -19,6 +19,7 @@
 #include <godot_cpp/classes/sphere_mesh.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
+#include <chrono>
 #include <cmath>
 #include <godot_cpp/core/math.hpp>
 
@@ -34,6 +35,19 @@ Box3DWorld::~Box3DWorld() {
 	}
 }
 
+void Box3DWorld::step_world(b3WorldId p_id, double p_delta, int p_substeps) {
+	const auto t0 = std::chrono::steady_clock::now();
+	b3World_Step(p_id, (float)p_delta, p_substeps);
+	const auto t1 = std::chrono::steady_clock::now();
+	last_step_usec.store(
+			std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count(),
+			std::memory_order_relaxed);
+}
+
+double Box3DWorld::get_step_time_ms() const {
+	return (double)last_step_usec.load(std::memory_order_relaxed) / 1000.0;
+}
+
 void Box3DWorld::async_thread_main() {
 	std::unique_lock<std::mutex> lock(step_mutex);
 	while (true) {
@@ -45,7 +59,7 @@ void Box3DWorld::async_thread_main() {
 		int substeps = worker_substeps;
 		b3WorldId id = world_id; // stable: destruction joins this thread first
 		lock.unlock();
-		b3World_Step(id, (float)dt, substeps);
+		step_world(id, dt, substeps);
 		lock.lock();
 		worker_busy = false;
 		step_cv.notify_all();
@@ -211,7 +225,7 @@ void Box3DWorld::step(double p_delta) {
 		}
 	}
 	last_step_delta = p_delta;
-	b3World_Step(world_id, (float)p_delta, substep_count);
+	step_world(world_id, p_delta, substep_count);
 	// Read simulated (dynamic) transforms back out to the nodes.
 	for (Box3DBody *body : bodies) {
 		if (body != nullptr) {
@@ -947,6 +961,7 @@ void Box3DWorld::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_max_linear_speed", "speed"), &Box3DWorld::set_max_linear_speed);
 	ClassDB::bind_method(D_METHOD("get_max_linear_speed"), &Box3DWorld::get_max_linear_speed);
 	ClassDB::bind_method(D_METHOD("set_worker_count", "count"), &Box3DWorld::set_worker_count);
+	ClassDB::bind_method(D_METHOD("get_step_time_ms"), &Box3DWorld::get_step_time_ms);
 	ClassDB::bind_method(D_METHOD("set_async_step", "enabled"), &Box3DWorld::set_async_step);
 	ClassDB::bind_method(D_METHOD("get_async_step"), &Box3DWorld::get_async_step);
 	ClassDB::bind_method(D_METHOD("get_worker_count"), &Box3DWorld::get_worker_count);
