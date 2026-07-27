@@ -5,6 +5,8 @@ extends Camera3D
 ##   LEFT MOUSE drag  : when not flying, grab a Box3DBody at the point you
 ##                      clicked and drag that point around (pivots off-center
 ##                      grabs, e.g. a table's edge, instead of re-centering it)
+##   SCROLL wheel     : while holding a body, reel it along the aim ray —
+##                      scroll up pushes it away, scroll down pulls it to you
 ##   F                : hold to charge a shot 0 -> 1 over ~1s, release to fire
 ##                      (a quick tap still fires a light shot)
 ##
@@ -22,6 +24,7 @@ extends Camera3D
 @export var charge_time := 1.0  ## seconds held to reach full charge
 @export var shoot_radius := 0.35
 @export var shoot_lifetime := 20.0
+@export var grab_reel_step := 0.1  ## fraction of the grab distance per scroll notch
 
 ## Either a Box3DWorld or the NativeWorld stand-in (common/native_world.gd)
 ## when a sample is running on Godot Physics or Jolt. Everything backend-
@@ -285,6 +288,19 @@ func _unhandled_input(event: InputEvent) -> void:
 				_touch_looking = false
 				if _touch_mode:
 					_orbiting = false
+		elif event.button_index == MOUSE_BUTTON_WHEEL_UP \
+				or event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			# Reel a held body along the aim ray: scroll up pushes it away,
+			# scroll down pulls it toward the camera. Multiplicative, so the
+			# step stays proportionate whether the body is 2 m or 50 m out;
+			# _drag_grabbed() re-projects the cursor ray at the new distance
+			# next physics tick, and the grab spring hauls the body after it.
+			if event.pressed and _grabbed != null:
+				var reel := 1.0 if event.button_index == MOUSE_BUTTON_WHEEL_UP else -1.0
+				var notch: float = event.factor if event.factor > 0.0 else 1.0
+				_grab_distance = clampf(
+						_grab_distance * (1.0 + reel * grab_reel_step * notch),
+						0.5, 500.0)
 	elif event is InputEventMouseMotion and _follow != null and _orbiting:
 		# Vertical inverted (flight-style): push the mouse up to dip the
 		# camera and look up at the target.
