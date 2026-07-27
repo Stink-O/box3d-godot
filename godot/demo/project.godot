@@ -28,6 +28,10 @@ common/physics_interpolation=true
 
 [rendering]
 
+; Forward+ needs WebGPU, which Godot 4.7 does not have, so the browser build
+; must be told to use the Compatibility (WebGL2) renderer. Desktop and Android
+; keep whatever the project default is.
+renderer/rendering_method.web="gl_compatibility"
 anti_aliasing/quality/msaa_3d=2
 ; Mobile overrides (the ".mobile" feature tag only applies on phones/tablets;
 ; desktop reads the plain keys above/below and is unaffected). The desktop
@@ -35,8 +39,14 @@ anti_aliasing/quality/msaa_3d=2
 ; slice of frame time on a phone -- and were the main source of low FPS on
 ; device. Same scenes, same cube counts; only shadow resolution and MSAA drop.
 anti_aliasing/quality/msaa_3d.mobile=0
+; Web overrides. Godot 4.7 has no WebGPU, so the browser build is
+; Compatibility/WebGL2 only and never sees Forward+; it also runs the solver on
+; one thread. Same scenes, same body counts -- only shadow resolution and MSAA
+; drop, exactly as the mobile overrides do. Desktop reads the plain keys.
+anti_aliasing/quality/msaa_3d.web=0
 lights_and_shadows/directional_shadow/size=8192
 lights_and_shadows/directional_shadow/size.mobile=2048
+lights_and_shadows/directional_shadow/size.web=2048
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile=1
 limits/global_shader_variables/buffer_size=262144
 ; Required by Godot's Android export gate. The demo ships no textures (all

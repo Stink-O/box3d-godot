@@ -23,3 +23,13 @@ android.release.arm64 = "res://bin/libbox3d_godot.android.template_release.arm64
 
 android.debug.x86_64 = "res://bin/libbox3d_godot.android.template_debug.x86_64.so"
 android.release.x86_64 = "res://bin/libbox3d_godot.android.template_release.x86_64.so"
+
+; Web (wasm32). Built without pthreads, so the key has no ".threads" tag --
+; Godot uses the threads variant only when the export template does, and the
+; two must match or the extension silently fails to load (godot#94537). A
+; nothreads build also needs no COOP/COEP headers, so it will run on plain
+; static hosting. Build with:
+;   source ~/emsdk/emsdk_env.sh
+;   scons platform=web threads=no target=template_release
+web.debug.wasm32 = "res://bin/libbox3d_godot.web.template_debug.wasm32.nothreads.wasm"
+web.release.wasm32 = "res://bin/libbox3d_godot.web.template_release.wasm32.nothreads.wasm"

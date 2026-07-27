@@ -141,6 +141,41 @@ different toolchain from MSVC and the determinism guarantee has only been
 checked on scalar/SSE2/NEON, so treat a cross-built DLL as untested until
 someone runs it on Windows.
 
+## Web (browser) build
+
+Verified working: the whole demo runs in a browser on WebGL2, Box3D and all.
+
+```sh
+source ~/emsdk/emsdk_env.sh          # Emscripten; install once with emsdk
+cd godot
+scons platform=web threads=no target=template_release
+"$GODOT" --headless --path demo --export-release "Web" ../../web/index.html
+```
+
+- **nothreads only.** With no pthreads neither `std::thread` nor box3d's
+  scheduler can fail softly (exceptions are off, so a refused thread aborts),
+  so `SConstruct` defines `BOX3D_NO_THREADS` for that build and the wrapper
+  clamps `worker_count` to 1 and refuses `async_step`. Several samples author
+  4 or 16 workers, so this cannot be left to the scenes. No other platform
+  defines the macro; the desktop `async_step` tests still pass unchanged.
+- `-msimd128 -msse2` is required: box3d maps `B3_CPU_WASM` onto its SSE2 path,
+  so `simd.h` reaches for `<emmintrin.h>`. Upstream's CMake does the same.
+- **The threads/nothreads variant must match between engine template and
+  extension** or the extension silently fails to load (godot#94537). The
+  `.gdextension` key is `web.release.wasm32` with no `.threads` tag, and the
+  export preset has `variant/thread_support=false`.
+- Web is **Compatibility/WebGL2 only** in 4.7 (Forward+ needs WebGPU), hence
+  `renderer/rendering_method.web` and the `.web` shadow/MSAA overrides.
+- Emscripten version mismatch is the documented risk (godot#105717). The
+  extension built with 4.0.11 loads fine against a 4.0.20-built template, but
+  check the browser console line "Build configuration: Emscripten X" if a
+  future template stops loading.
+- ~12 MB gzipped. A nothreads build needs **no COOP/COEP headers**, so plain
+  static hosting (GitHub Pages) works.
+- **Determinism on wasm is unverified.** Upstream's Emscripten CI is
+  build-only; do not claim the wasm build is bit-exact with the native paths
+  without running `test_determinism` under node.
+
 ## Upstream sync procedure
 
 ```sh

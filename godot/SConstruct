@@ -32,6 +32,20 @@ else:
     # Match Box3D's deterministic-math build flag on GCC/Clang/MinGW.
     env.Append(CFLAGS=["-ffp-contract=off"])
 
+# Box3D maps B3_CPU_WASM onto its SSE2 path (src/core.h), so simd.h reaches for
+# <emmintrin.h>, which Emscripten only provides with these flags. Upstream's own
+# CMakeLists does the same thing (add_compile_options(-msimd128 -msse2)); this is
+# the SCons equivalent, kept here rather than in the vendored tree.
+if env["platform"] == "web":
+    env.Append(CFLAGS=["-msimd128", "-msse2"])
+    # A nothreads wasm build has no pthreads, and neither std::thread nor
+    # box3d's scheduler can fail softly there: exceptions are off, so a refused
+    # thread aborts the process. BOX3D_NO_THREADS makes the wrapper clamp the
+    # worker count and refuse async stepping instead. Only defined here, so no
+    # other platform sees a different Box3DWorld.
+    if not env["threads"]:
+        env.Append(CPPDEFINES=["BOX3D_NO_THREADS"])
+
 # C++ wrapper + Box3D core C sources.
 sources = Glob("src/*.cpp") + Glob("../src/*.c")
 

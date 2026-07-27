@@ -43,6 +43,10 @@ godot/msvc_capture.log
 *.tmp
 # renamed-aside copies of locked DLLs (Windows rebuild-while-editor-open trick)
 *.dll.old
+# WebAssembly build output and the exported browser build.
+*.wasm
+/web/
+
 # Exported Android packages (rebuild with: godot --headless --path godot/demo \
 # --export-debug "Android" bin/box3d_demo.apk). ~60 MB each -- not worth tracking.
 *.apk

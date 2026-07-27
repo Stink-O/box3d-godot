@@ -489,6 +489,14 @@ double Box3DWorld::get_max_linear_speed() const {
 
 void Box3DWorld::set_worker_count(int p_count) {
 	worker_count = p_count < 1 ? 1 : p_count;
+#ifdef BOX3D_NO_THREADS
+	// A single-threaded wasm build has no pthreads to give the solver, and
+	// asking for workers anyway is not a soft failure: b3CreateScheduler goes
+	// to pthread_create, and with exceptions disabled a refusal aborts the
+	// process. Several samples author 4 or 16 workers, so clamp rather than
+	// trust the scene.
+	worker_count = 1;
+#endif
 	// Takes effect when the world is (re)created; set it before the sim starts.
 }
 
@@ -497,6 +505,15 @@ int Box3DWorld::get_worker_count() const {
 }
 
 void Box3DWorld::set_async_step(bool p_enabled) {
+#ifdef BOX3D_NO_THREADS
+	// Same reason as set_worker_count: std::thread's constructor cannot report
+	// failure without exceptions, so it aborts. Stepping stays synchronous and
+	// the demo's sidebar hides the control, because the property reads back
+	// false and the shell probes before showing it.
+	(void)p_enabled;
+	async_step = false;
+	return;
+#else
 	if (async_step == p_enabled) {
 		return;
 	}
@@ -512,6 +529,7 @@ void Box3DWorld::set_async_step(bool p_enabled) {
 	// grab joint chasing the mouse) land before the step launches and never
 	// have to wait for it.
 	set_physics_process_priority(p_enabled ? 100 : 0);
+#endif
 }
 
 bool Box3DWorld::get_async_step() const {
