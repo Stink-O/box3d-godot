@@ -1,0 +1,153 @@
+# Build the Godot demo for the browser and publish it to GitHub Pages.
+#
+# This is the one file this fork keeps outside godot/: GitHub only reads
+# workflows from .github/workflows/, so there is nowhere else to put it. The
+# name is one upstream would never use, and the file is purely additive, so
+# `git merge upstream/main` stays clean.
+#
+# Nothing is committed by this workflow. The build is uploaded as a Pages
+# artifact, which keeps the "no build output in the repo" rule intact.
+#
+# Manual trigger only, on purpose: publishing changes a public page, so it
+# should be a decision rather than a side effect of a push. To make every push
+# to main redeploy, add:
+#   push:
+#     branches: [main]
+name: Deploy web demo to Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; queue instead of cancelling, so a run that is
+# already uploading is not left half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # Download tag and the on-disk template directory differ: 4.7-stable vs 4.7.stable.
+  GODOT_VERSION: 4.7-stable
+  GODOT_TEMPLATE_DIR: 4.7.stable
+  # Pinned because dlink (GDExtension on web) is sensitive to the Emscripten
+  # version. This is what godot-cpp's own CI uses. If a future export template
+  # stops loading the extension, check the browser console line
+  # "Build configuration: Emscripten X" and match it here.
+  EM_VERSION: 4.0.11
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive # godot-cpp
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: pip install scons
+
+      - name: Cache Emscripten
+        id: cache-emsdk
+        uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-${{ env.EM_VERSION }}
+
+      - name: Install Emscripten
+        if: steps.cache-emsdk.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install "${EM_VERSION}"
+          ~/emsdk/emsdk activate "${EM_VERSION}"
+
+      # threads=no is not a preference. Without pthreads neither std::thread nor
+      # box3d's scheduler can fail softly (exceptions are off, so a refused
+      # thread aborts), which is why SConstruct defines BOX3D_NO_THREADS here.
+      # It also means the page needs no COOP/COEP headers, which Pages cannot
+      # set anyway.
+      - name: Build the extension for web
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          cd godot
+          scons -j"$(nproc)" platform=web threads=no target=template_release
+
+      - name: Cache Godot and export templates
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot-bin
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}
+
+      # The template archive is ~1.2 GB, hence the cache above.
+      - name: Install Godot and export templates
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot-bin
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}"
+          curl -fsSL -o /tmp/godot.zip "${base}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d ~/godot-bin
+          chmod +x ~/godot-bin/"Godot_v${GODOT_VERSION}_linux.x86_64"
+          curl -fsSL -o /tmp/templates.tpz "${base}/Godot_v${GODOT_VERSION}_export_templates.tpz"
+          unzip -q /tmp/templates.tpz -d /tmp/tpl
+          mkdir -p ~/.local/share/godot/export_templates
+          mv /tmp/tpl/templates ~/.local/share/godot/export_templates/"${GODOT_TEMPLATE_DIR}"
+
+      # Import before exporting. A GDScript class_name that has not been
+      # imported yet gets baked into the export as a parse-broken script while
+      # the export still reports success. The first import on a clean tree can
+      # also abort during editor teardown after the import itself succeeded,
+      # so the first run is allowed to fail and the second one is the real one.
+      - name: Import project
+        run: |
+          GODOT=~/godot-bin/"Godot_v${GODOT_VERSION}_linux.x86_64"
+          "$GODOT" --headless --path godot/demo --import || true
+          "$GODOT" --headless --path godot/demo --import
+
+      - name: Export
+        run: |
+          GODOT=~/godot-bin/"Godot_v${GODOT_VERSION}_linux.x86_64"
+          mkdir -p web
+          "$GODOT" --headless --path godot/demo --export-release "Web" ../../web/index.html
+
+      # An export "succeeds" even when the extension is missing, and the failure
+      # only shows up as a broken page, so check the artifacts are really there.
+      - name: Verify the build carries the extension
+        run: |
+          cd web
+          ls -la
+          for f in index.html index.js index.wasm index.pck; do
+            test -s "$f" || { echo "missing or empty: $f"; exit 1; }
+          done
+          wasm=$(ls libbox3d_godot.web.*.wasm 2>/dev/null | head -1)
+          test -n "$wasm" || { echo "the Box3D extension wasm is not in the export"; exit 1; }
+          # wasm magic: 0x00 'a' 's' 'm'
+          head -c4 "$wasm" | od -An -tx1 | grep -q "00 61 73 6d" \
+            || { echo "$wasm is not a valid wasm module"; exit 1; }
+          echo "extension present: $wasm ($(stat -c%s "$wasm") bytes)"
+
+      # enablement: true turns Pages on with source "GitHub Actions" the first
+      # time this runs, so the repo needs no manual settings change first.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

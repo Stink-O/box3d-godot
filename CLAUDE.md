@@ -19,6 +19,12 @@ been built.
 the top section of `README.md`, and `.gitignore`. This is what keeps
 `git merge upstream/main` conflict-free.
 
+One deliberate exception: `.github/workflows/godot-web-pages.yml`, because
+GitHub only reads workflows from `.github/workflows/` and there is nowhere
+else to put it. It is additive and its name is one upstream would never pick,
+so a merge stays clean. Do not touch `.github/workflows/build.yml`, which is
+upstream's.
+
 If upstream code is wrong, file an issue upstream instead of patching the
 vendored copy — [erincatto/box3d#92](https://github.com/erincatto/box3d/issues/92)
 (arm32 NEON) is the model: documented locally, fixed upstream, zero divergence.
