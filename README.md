@@ -48,10 +48,11 @@ https://github.com/user-attachments/assets/33752918-c3a2-4899-821c-bf13d9adce11
 git clone https://github.com/Stink-O/box3d-godot
 ```
 
-Open `godot/demo/project.godot` in **Godot 4.7** and press play — prebuilt
-Windows binaries are committed, so no build step is needed. On Linux/macOS
-(or after changing the C++ sources) build the extension first: see
-[Building](godot/README.md#building).
+The extension is a compiled library, so grab one before pressing play.
+Download the binaries for your platform from
+[Releases](https://github.com/Stink-O/box3d-godot/releases) and drop them into
+`godot/demo/bin/`, then open `godot/demo/project.godot` in **Godot 4.7**.
+To build instead, see [Building](godot/README.md#building).
 
 **→ Full docs:** see **[`godot/README.md`](godot/README.md)**.
 

@@ -114,12 +114,32 @@ accident. Therefore:
 
 ## Binaries policy
 
-`*.so` / `*.apk` are gitignored, except the committed Windows DLLs
-(`!godot/demo/bin/libbox3d_godot.windows.*.dll` — "clone and play" on
-Windows). Prebuilt Android + Linux libraries ship as GitHub release assets
-instead. Note: the committed Windows DLLs were built before the last
-upstream core sync and are one revision stale — rebuild on a Windows machine
-when possible.
+**No build output is tracked.** `*.so`, `*.dll` and `*.apk` are all
+gitignored, with no exceptions. Every prebuilt binary ships as a GitHub
+release asset instead, versioned against the tag that produced it.
+
+Windows DLLs used to be committed for "clone and play", and it went exactly
+how vendored binaries go: they silently fell four upstream core syncs behind
+and ended up missing bindings the demo had started calling, so a fresh clone
+got a degraded demo with nothing to indicate why. A release asset cannot drift
+from its tag, and a download link is less work for a newcomer than a clone.
+
+Windows DLLs can be cross-compiled from Linux, which is how they are now
+produced for releases:
+
+```sh
+sudo dnf install mingw64-gcc-c++ mingw64-winpthreads-static   # Fedora
+cd godot
+scons platform=windows arch=x86_64 target=template_debug
+scons platform=windows arch=x86_64 target=template_release
+```
+
+godot-cpp takes the MinGW branch automatically on a non-Windows host. Verify
+the result imports only `KERNEL32.dll` and `msvcrt.dll` (`objdump -p`); any
+`libgcc`/`libstdc++` import means the static link failed. These are a
+different toolchain from MSVC and the determinism guarantee has only been
+checked on scalar/SSE2/NEON, so treat a cross-built DLL as untested until
+someone runs it on Windows.
 
 ## Upstream sync procedure
 

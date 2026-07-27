@@ -43,9 +43,6 @@ godot/msvc_capture.log
 *.tmp
 # renamed-aside copies of locked DLLs (Windows rebuild-while-editor-open trick)
 *.dll.old
-# ...but ship the prebuilt Windows demo binaries so a fresh clone plays out of the box
-!godot/demo/bin/libbox3d_godot.windows.*.dll
-
 # Exported Android packages (rebuild with: godot --headless --path godot/demo \
 # --export-debug "Android" bin/box3d_demo.apk). ~60 MB each -- not worth tracking.
 *.apk
