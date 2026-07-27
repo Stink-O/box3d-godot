@@ -56,11 +56,12 @@ To build instead, see [Building](godot/README.md#building).
 
 ### Try it in a browser first
 
-**[box3d-fast.stinkysunstep.workers.dev](https://box3d-fast.stinkysunstep.workers.dev/)**
-runs the demo in a browser, no download -- multi-threaded solver, full-size
-scenes. If it will not load in your browser, use the single-threaded fallback:
-**[stink-o.github.io/box3d-godot](https://stink-o.github.io/box3d-godot/)**,
-which works everywhere but simulates the heaviest scene at half size.
+**[Play it on itch.io](https://stinkysunstep.itch.io/box3d-godot)** -- the demo
+in a browser, no download, multi-threaded solver, full-size scenes. Safari
+lacks the isolation mode itch uses, so it drops those visitors onto the
+single-threaded fallback automatically. Both browser builds are also
+downloadable from [Releases](https://github.com/Stink-O/box3d-godot/releases)
+if you want to host your own.
 
 **It is a preview, not the real thing.** Running the demo in Godot is the
 intended way and the only one that shows the binding at full speed. The browser

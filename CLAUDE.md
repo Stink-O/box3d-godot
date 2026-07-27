@@ -149,70 +149,55 @@ different toolchain from MSVC and the determinism guarantee has only been
 checked on scalar/SSE2/NEON, so treat a cross-built DLL as untested until
 someone runs it on Windows.
 
-## The browser demo — two builds, one deploy (each rule below cost real debugging time)
+## The browser demo — itch.io front door, GitHub Pages safety net
 
-The demo is publicly playable in a browser, and it is part of the product
-surface now: **any change to `godot/src/` or `godot/demo/` also changes the
-web demo**, and shipping it means rebuilding BOTH web variants and running the
-deploy. Do not treat web as an afterthought of a desktop change.
+The demo is publicly playable in a browser and is part of the product surface:
+**any change to `godot/src/` or `godot/demo/` also changes the web demo**, and
+it is not fully shipped until all of the below are refreshed.
 
-| | root (fallback) | `/fast/` |
+| | itch.io (primary) | GitHub Pages (fallback) |
 |---|---|---|
-| URL | stink-o.github.io/box3d-godot | box3d-fast.stinkysunstep.workers.dev |
-| threads | single (nothreads template) | multi (threaded template) |
-| Cube Pile | halved to 2048 at load | full 4096 |
-| extension | `...wasm32.nothreads.wasm` | `...wasm32.wasm` |
-| needs COOP/COEP | no | **yes, or it does not load at all** |
+| URL | stinkysunstep.itch.io/box3d-godot | stink-o.github.io/box3d-godot |
+| threads | multi (SharedArrayBuffer checkbox ON) | single |
+| Cube Pile | full 4096 | halved to 2048 at load |
+| update by | re-uploading a fresh zip of `webfast/` (MANUAL) | "Deploy web demo to Pages" workflow (manual dispatch) |
 
 ```sh
 source ~/emsdk/emsdk_env.sh        # Emscripten 4.0.11, pinned (dlink is version-sensitive)
 cd godot
-scons platform=web threads=no  target=template_release
-scons platform=web threads=yes target=template_release
+scons platform=web threads=no  target=template_release   # fallback
+scons platform=web threads=yes target=template_release   # itch / threaded
+"$GODOT" --headless --path demo --export-release "Web"          ../../web/index.html
+"$GODOT" --headless --path demo --export-release "Web Threaded" ../../webfast/index.html
 ```
 
-**itch.io is the primary public home of the threaded build**
-(stinkysunstep.itch.io/box3d-godot): no request caps, familiar platform, and
-its SharedArrayBuffer option provides the isolation (as COEP credentialless —
-Safari lacks it, which is what the un-isolated guard is for). Updating it means
-re-uploading `box3d-demo-web-threaded.zip` (a fresh zip of `webfast/`) on the
-page — a MANUAL step, so a web-affecting change is not fully shipped until the
-itch zip is refreshed too. Keep the SharedArrayBuffer checkbox on.
-
-Deploy for the GitHub-hosted pair = run the **"Deploy web demo to Pages"**
-workflow (manual dispatch, on purpose — publishing is a decision). It exports
-both variants (root + `/fast/`), plants the kill-switch service worker,
-verifies its own output, and fails the build if the wrong variant would land in
-either slot. **The root fallback must stay alive regardless of itch** — it is
-the uncapped safety net AND the bounce target baked into every threaded
-build's guard. The Cloudflare Worker in
-`godot/tools/web_fast_worker` only needs redeploying (`npx wrangler deploy`
-from that directory) when the worker itself changes — it is a pass-through and
-does not embed the demo.
+Both zips also ship as release assets (`box3d-demo-web.zip`,
+`box3d-demo-web-threaded.zip`) so anyone can self-host.
 
 ### The hard rules
 
-- **A threaded wasm module cannot load without real COOP/COEP headers.** It
+- **The GitHub Pages fallback must stay alive even though itch is primary.**
+  It is not a mirror: its URL is the bounce target compiled into every
+  threaded build's `head_include` guard. Safari (macOS and iOS) lacks the
+  `COEP: credentialless` mode itch uses for isolation, so every Safari visitor
+  to the itch page lands here. Kill it and they land on a 404.
+- **A threaded wasm module cannot load without cross-origin isolation.** It
   declares shared memory; an un-isolated page hands it non-shared memory and it
-  dies with `LinkError: mismatch in shared state of memory`. This is why the
-  fallback exists, why `/fast/` is served *through* the Worker (GitHub Pages
-  cannot send headers), and why the threaded export's `head_include` bounces
-  ANY un-isolated visitor to the fallback's absolute URL (covers raw `/fast/`
-  access, itch-on-Safari, and header-less self-hosts). Never flip the root preset to
-  `thread_support=true`.
-- **Service workers are not an acceptable substitute for headers.** Godot's PWA
-  isolation trick (and the community coi-serviceworker, same architecture)
-  cannot cover a first visit or a hard refresh — both shipped broken here
-  before this was learned. The only service worker that may be deployed is the
-  kill-switch (`godot/tools/web_sw_killswitch.js`), which exists to *unregister*
-  the one that briefly shipped; keep deploying it, it is inert for new visitors.
-- **Cloudflare Pages cannot host the build**: `index.side.wasm` is 41 MiB
-  against a 25 MiB per-file cap, every plan. Hence the Worker-proxy topology.
-  Do not "simplify" it back to direct hosting.
-- **Do not give the Worker cache hints.** `cacheTtl` caches every status, and a
-  cached 404 (fetched before a deploy landed) once served the whole site as
-  missing for an hour. It defers to GitHub's cache-control; bump `CACHE_BUST`
-  in `wrangler.toml` if the edge cache is ever poisoned again.
+  dies with `LinkError: mismatch in shared state of memory`. The guard
+  (`if(!crossOriginIsolated)location.replace(<fallback>)`) is what keeps that
+  from ever being a black screen. Never flip the root/"Web" preset to
+  `thread_support=true`, and never strip the guard from the "Web Threaded" one.
+- **Service workers are not a substitute for headers.** Godot's PWA isolation
+  trick (and coi-serviceworker, same architecture) cannot cover a first visit
+  or a hard refresh — both shipped broken here before this was learned. The
+  only service worker that may be deployed is the kill-switch
+  (`godot/tools/web_sw_killswitch.js`), which unregisters the one that briefly
+  shipped; keep deploying it, it is inert for new visitors.
+- Retired paths, kept as warnings: **Cloudflare Pages cannot host the build**
+  (`index.side.wasm` is 41 MiB vs a 25 MiB per-file cap); a **Cloudflare
+  Worker header-proxy worked** but was redundant once itch proved out (source
+  lives in git history, removed at the "itch front door" commit; the wrangler
+  auth quirk is in agent memory if it is ever revived).
 - Platform behavior differences are gated on **feature tags**, never on new
   properties: `OS.has_feature("web")` (banner, `WEB_FIRST_SAMPLE`),
   `and not OS.has_feature("threads")` (Cube Pile halving). Desktop and the
@@ -228,21 +213,20 @@ does not embed the demo.
 
 An export "succeeds" with a broken page, and a page that works on the SECOND
 load can still be broken on the first (that exact combination shipped). Before
-any deploy, serve the export from a plain header-less server (`python3 -m
-http.server`, which is exactly what GitHub Pages is) and verify in a real
-browser, minimum:
+shipping anywhere, serve the export locally and verify in a real browser:
 
-1. **First load on a FRESH browser profile** — must boot; console must show
-   `Build configuration: ... single-threaded, GDExtension support` (or
-   `multi-threaded` behind a COOP/COEP server for `/fast/`).
-2. **Hard refresh / caches disabled** — must boot identically.
-3. No `LinkError`, no `SCRIPT ERROR`, and the banner present.
+1. Fallback build on a plain header-less server (`python3 -m http.server` — what
+   GitHub Pages is): **first load on a FRESH profile** and a **hard refresh**
+   must both boot with `Build configuration: ... single-threaded` and no errors.
+2. Threaded build TWICE: behind a COOP/COEP-sending server it must boot
+   `multi-threaded`; on a plain server it must redirect to the fallback URL,
+   not black-screen.
+3. The shell's flags make this scriptable: `-- --shot=out.png --shot-tick=N`
+   (game viewport only — never capture the desktop; the user streams),
+   `--profiler`, `--settings`, `--sample="Name"` (exact display name; a typo
+   silently opens the first sample).
 
-The shell has flags that make this scriptable: `-- --shot=out.png
---shot-tick=N` (renders the game viewport only and quits — never capture the
-desktop; the user streams), `--profiler`, `--settings`, `--sample="Name"`
-(exact display name; a typo silently opens the first sample). After deploying,
-run the same checks against the live URLs.
+After deploying/uploading, spot-check the live URLs the same way.
 
 ## Release checklist
 

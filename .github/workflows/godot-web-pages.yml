@@ -66,27 +66,15 @@ jobs:
           ~/emsdk/emsdk install "${EM_VERSION}"
           ~/emsdk/emsdk activate "${EM_VERSION}"
 
-      # Single-threaded, and that is not a preference either way -- it is the
-      # only variant that reliably loads on a static host.
-      #
-      # A threaded side module declares SHARED memory. Without cross-origin
-      # isolation the engine has no SharedArrayBuffer, hands it non-shared
-      # memory, and the module fails to link:
-      #   LinkError: "env" "memory": mismatch in shared state of memory
-      # Pages cannot send COOP/COEP headers. Godot's PWA service worker can
-      # inject them, but not on the load that installs it, and a hard refresh
-      # bypasses it -- so a threaded build is broken on a first visit and broken
-      # again on every forced reload. Measured, not assumed.
-      #
-      # The cost is real: 3.2x on the solver (Cube Pile 1.24 ms/step at one
-      # worker against 0.39 at four). The threaded variant is still built and
-      # shipped as a release asset for anyone hosting with real headers.
+      # Single-threaded on purpose: this site is the works-everywhere fallback
+      # and the bounce target baked into every threaded build's guard, so it
+      # must load with no headers at all. The threaded build's public home is
+      # itch.io (see CLAUDE.md); its zip ships on Releases.
       - name: Build the extension for web
         run: |
           source ~/emsdk/emsdk_env.sh
           cd godot
-          scons -j"$(nproc)" platform=web threads=no  target=template_release
-          scons -j"$(nproc)" platform=web threads=yes target=template_release
+          scons -j"$(nproc)" platform=web threads=no target=template_release
 
       - name: Cache Godot and export templates
         id: cache-godot
@@ -125,13 +113,8 @@ jobs:
       - name: Export
         run: |
           GODOT=~/godot-bin/"Godot_v${GODOT_VERSION}_linux.x86_64"
-          mkdir -p web/fast
+          mkdir -p web
           "$GODOT" --headless --path godot/demo --export-release "Web" ../../web/index.html
-          # The threaded build lives under /fast/, served through the Cloudflare
-          # Worker in godot/tools/web_fast_worker, which adds the COOP/COEP
-          # headers Pages cannot send. Visitors who hit this path directly get
-          # bounced to the fallback by the head_include in its export preset.
-          "$GODOT" --headless --path godot/demo --export-release "Web Threaded" ../../web/fast/index.html
 
       # Heal browsers that visited the short-lived threaded deploy: its service
       # worker outlives it and can serve the broken build from cache forever.
@@ -155,13 +138,6 @@ jobs:
             || { echo "exported extension is not the nothreads build; it will LinkError on Pages"; exit 1; }
           grep -q "self.registration.unregister" index.service.worker.js \
             || { echo "kill-switch service worker missing; stale-SW visitors stay broken"; exit 1; }
-          # /fast/ must be the THREADED variant (the worker exists to serve it)
-          # and must carry the un-isolated-visitor redirect.
-          test -s fast/index.html || { echo "threaded /fast/ export missing"; exit 1; }
-          ls fast/libbox3d_godot.web.*.wasm | grep -qv nothreads \
-            || { echo "/fast/ carries the wrong extension variant"; exit 1; }
-          grep -q "crossOriginIsolated" fast/index.html \
-            || { echo "/fast/ lacks the direct-access redirect"; exit 1; }
           wasm=$(ls libbox3d_godot.web.*.wasm 2>/dev/null | head -1)
           test -n "$wasm" || { echo "the Box3D extension wasm is not in the export"; exit 1; }
           # wasm magic: 0x00 'a' 's' 'm'
