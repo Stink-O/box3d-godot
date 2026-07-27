@@ -55,6 +55,8 @@ GODOT=<path to Godot 4.7 editor binary>
 - Known quirk: the *first* `--import` on a clean tree can abort (exit 134)
   during editor teardown after the import succeeded; a second run exits 0.
   Pre-existing, not your bug.
+- Web-affecting changes (anything in `godot/src/` or `godot/demo/`) also get
+  the web ritual — see "The browser demo" below.
 - Shell/UI changes aren't covered by the selftests — also boot the shell:
   `"$GODOT" --headless --path godot/demo res://main.tscn --quit-after 120`
   and grep the log for `SCRIPT ERROR`.
@@ -147,48 +149,114 @@ different toolchain from MSVC and the determinism guarantee has only been
 checked on scalar/SSE2/NEON, so treat a cross-built DLL as untested until
 someone runs it on Windows.
 
-## Web (browser) build
+## The browser demo — two builds, one deploy (each rule below cost real debugging time)
 
-Verified working: the whole demo runs in a browser on WebGL2, Box3D and all.
+The demo is publicly playable in a browser, and it is part of the product
+surface now: **any change to `godot/src/` or `godot/demo/` also changes the
+web demo**, and shipping it means rebuilding BOTH web variants and running the
+deploy. Do not treat web as an afterthought of a desktop change.
+
+| | root (fallback) | `/fast/` |
+|---|---|---|
+| URL | stink-o.github.io/box3d-godot | box3d-fast.stinkysunstep.workers.dev |
+| threads | single (nothreads template) | multi (threaded template) |
+| Cube Pile | halved to 2048 at load | full 4096 |
+| extension | `...wasm32.nothreads.wasm` | `...wasm32.wasm` |
+| needs COOP/COEP | no | **yes, or it does not load at all** |
 
 ```sh
-source ~/emsdk/emsdk_env.sh          # Emscripten; install once with emsdk
+source ~/emsdk/emsdk_env.sh        # Emscripten 4.0.11, pinned (dlink is version-sensitive)
 cd godot
-scons platform=web threads=no target=template_release
-"$GODOT" --headless --path demo --export-release "Web" ../../web/index.html
+scons platform=web threads=no  target=template_release
+scons platform=web threads=yes target=template_release
 ```
 
-- **nothreads only.** With no pthreads neither `std::thread` nor box3d's
-  scheduler can fail softly (exceptions are off, so a refused thread aborts),
-  so `SConstruct` defines `BOX3D_NO_THREADS` for that build and the wrapper
-  clamps `worker_count` to 1 and refuses `async_step`. Several samples author
-  4 or 16 workers, so this cannot be left to the scenes. No other platform
-  defines the macro; the desktop `async_step` tests still pass unchanged.
-- `-msimd128 -msse2` is required: box3d maps `B3_CPU_WASM` onto its SSE2 path,
-  so `simd.h` reaches for `<emmintrin.h>`. Upstream's CMake does the same.
-- **The threads/nothreads variant must match between engine template and
-  extension** or the extension silently fails to load (godot#94537). The
-  `.gdextension` key is `web.release.wasm32` with no `.threads` tag, and the
-  export preset has `variant/thread_support=false`.
-- Web is **Compatibility/WebGL2 only** in 4.7 (Forward+ needs WebGPU), hence
-  `renderer/rendering_method.web` and the `.web` shadow/MSAA overrides.
-- Emscripten version mismatch is the documented risk (godot#105717). The
-  extension built with 4.0.11 loads fine against a 4.0.20-built template, but
-  check the browser console line "Build configuration: Emscripten X" if a
-  future template stops loading.
-- ~12 MB gzipped. A nothreads build needs **no COOP/COEP headers**, so plain
-  static hosting (GitHub Pages) works.
-- The THREADED build is also deployed, under `/fast/` on the same Pages site,
-  fronted by the Cloudflare Worker in `godot/tools/web_fast_worker` which adds
-  the COOP/COEP headers Pages cannot send (`npx wrangler deploy` from that
-  directory; needs `wrangler login`). Do not serve the threaded build without
-  real headers -- it fails to link (shared-memory LinkError), which is also why
-  its export preset bounces direct un-isolated visitors to the fallback.
-  Cloudflare Pages cannot host it at all: index.side.wasm is 41 MiB against a
-  25 MiB per-file cap.
-- **Determinism on wasm is unverified.** Upstream's Emscripten CI is
-  build-only; do not claim the wasm build is bit-exact with the native paths
-  without running `test_determinism` under node.
+Deploy = run the **"Deploy web demo to Pages"** workflow (manual dispatch, on
+purpose — publishing is a decision). It exports both variants (root + `/fast/`),
+plants the kill-switch service worker, verifies its own output, and fails the
+build if the wrong variant would land in either slot. The Cloudflare Worker in
+`godot/tools/web_fast_worker` only needs redeploying (`npx wrangler deploy`
+from that directory) when the worker itself changes — it is a pass-through and
+does not embed the demo.
+
+### The hard rules
+
+- **A threaded wasm module cannot load without real COOP/COEP headers.** It
+  declares shared memory; an un-isolated page hands it non-shared memory and it
+  dies with `LinkError: mismatch in shared state of memory`. This is why the
+  fallback exists, why `/fast/` is served *through* the Worker (GitHub Pages
+  cannot send headers), and why the threaded export's `head_include` bounces
+  direct un-isolated visitors to the fallback. Never flip the root preset to
+  `thread_support=true`.
+- **Service workers are not an acceptable substitute for headers.** Godot's PWA
+  isolation trick (and the community coi-serviceworker, same architecture)
+  cannot cover a first visit or a hard refresh — both shipped broken here
+  before this was learned. The only service worker that may be deployed is the
+  kill-switch (`godot/tools/web_sw_killswitch.js`), which exists to *unregister*
+  the one that briefly shipped; keep deploying it, it is inert for new visitors.
+- **Cloudflare Pages cannot host the build**: `index.side.wasm` is 41 MiB
+  against a 25 MiB per-file cap, every plan. Hence the Worker-proxy topology.
+  Do not "simplify" it back to direct hosting.
+- **Do not give the Worker cache hints.** `cacheTtl` caches every status, and a
+  cached 404 (fetched before a deploy landed) once served the whole site as
+  missing for an hour. It defers to GitHub's cache-control; bump `CACHE_BUST`
+  in `wrangler.toml` if the edge cache is ever poisoned again.
+- Platform behavior differences are gated on **feature tags**, never on new
+  properties: `OS.has_feature("web")` (banner, `WEB_FIRST_SAMPLE`),
+  `and not OS.has_feature("threads")` (Cube Pile halving). Desktop and the
+  47/33 gate must never observe web behavior.
+- `-msimd128 -msse2` (SConstruct) is required — box3d maps `B3_CPU_WASM` onto
+  its SSE2 path. `BOX3D_NO_THREADS` is defined only for `threads=no` web builds
+  and makes the wrapper clamp `worker_count` and refuse `async_step`; without
+  pthreads a refused thread ABORTS (exceptions are off), it does not error.
+- **Determinism on wasm is unverified** (upstream's Emscripten CI is
+  build-only). Never claim the browser build is bit-exact with native.
+
+### Web verification ritual — never trust one load
+
+An export "succeeds" with a broken page, and a page that works on the SECOND
+load can still be broken on the first (that exact combination shipped). Before
+any deploy, serve the export from a plain header-less server (`python3 -m
+http.server`, which is exactly what GitHub Pages is) and verify in a real
+browser, minimum:
+
+1. **First load on a FRESH browser profile** — must boot; console must show
+   `Build configuration: ... single-threaded, GDExtension support` (or
+   `multi-threaded` behind a COOP/COEP server for `/fast/`).
+2. **Hard refresh / caches disabled** — must boot identically.
+3. No `LinkError`, no `SCRIPT ERROR`, and the banner present.
+
+The shell has flags that make this scriptable: `-- --shot=out.png
+--shot-tick=N` (renders the game viewport only and quits — never capture the
+desktop; the user streams), `--profiler`, `--settings`, `--sample="Name"`
+(exact display name; a typo silently opens the first sample). After deploying,
+run the same checks against the live URLs.
+
+## Release checklist
+
+Releases are the only distribution channel for binaries (nothing prebuilt is
+tracked). v0.3.0 is the shape to match — 12 assets:
+
+| asset | built by |
+|---|---|
+| `libbox3d_godot.linux.template_{debug,release}.x86_64.so` | `scons` / `scons target=template_release` |
+| `libbox3d_godot.android.template_{debug,release}.{arm64,x86_64}.so` | `ANDROID_HOME=~/Android/Sdk scons platform=android arch=... target=...` |
+| `libbox3d_godot.windows.template_{debug,release}.x86_64.dll` | `scons platform=windows arch=x86_64 target=...` (MinGW cross-compile; verify imports are ONLY `KERNEL32.dll`+`msvcrt.dll` via `objdump -p`, and label them untested-on-Windows unless someone has run them) |
+| `libbox3d_godot.web.template_release.wasm32{,.nothreads}.wasm` | the two web builds above |
+| `box3d-demo-android.apk` | `--export-debug "Android"` (debug-signed; no release keystore exists) |
+| `box3d-demo-web.zip` | zip of the exported fallback `web/` **including the kill-switch worker** — must match what the Pages deploy serves |
+
+Rules learned the hard way:
+
+- **Build everything AFTER the final commit**, from the exact tree being
+  tagged. Stale assets on a draft (built before an upstream sync or a binding
+  landed) shipped a broken demo once already.
+- `gh release` commands need `-R Stink-O/box3d-godot` or they hit upstream.
+- Draft first; publishing is the user's click unless they say otherwise.
+- New GDScript `class_name` ⇒ `--headless --import` before ANY export, or the
+  APK/web build bakes a parse-broken script while the export reports success.
+- If the fallback web build changed, refresh `box3d-demo-web.zip` on the
+  release — a stale zip re-ships whatever bug the deploy just fixed.
 
 ## Upstream sync procedure
 
