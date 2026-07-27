@@ -23,6 +23,27 @@ var _last: Array[Transform3D] = []  ## last transform written per instance
 func _ready() -> void:
 	_world = get_parent()  # Box3DWorld in the generated scene
 
+	# The browser build runs the solver on one thread (a threaded wasm module
+	# cannot link without cross-origin isolation, which static hosting does not
+	# provide), and this sample is the one that needs threads most: natively it
+	# measures 0.39 ms/step at four workers against 1.24 ms at one. So the web
+	# build simulates half the pile -- the TOP half is dropped, keeping the
+	# footprint and the look while halving solver work. Desktop and Android are
+	# untouched, and the on-page banner already tells visitors this build is
+	# the preview, not the benchmark.
+	if OS.has_feature("web"):
+		var cubes: Array[Node3D] = []
+		for c in get_children():
+			if c is Box3DBody:
+				cubes.append(c)
+		cubes.sort_custom(func(a: Node3D, b: Node3D) -> bool:
+			return a.position.y < b.position.y)
+		for i in range(cubes.size() / 2, cubes.size()):
+			# Immediate free, before the world ever simulates them; queue_free
+			# would leave 2048 doomed bodies alive for the first frame.
+			cubes[i].free()
+		print("[web] Cube Pile halved for the single-threaded browser build")
+
 	for c in get_children():
 		if c is Box3DBody:
 			_bodies.append(c)
