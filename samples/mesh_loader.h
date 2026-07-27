@@ -8,8 +8,13 @@
 #include <vector>
 
 struct b3MeshData;
+
+// Returns null if the mesh cannot be created.
 b3MeshData* CreateMeshData( const char* path, float scale, bool zUp, bool useMedianSplit, bool identifyConvexEdges,
 							bool weldVertices );
+
+// Null tolerant.
+void DestroyMeshData( b3MeshData* meshData );
 
 struct TempMesh
 {
@@ -18,4 +23,4 @@ struct TempMesh
 	std::vector<uint8_t> materialIndices;
 };
 
-void LoadTempMesh( const char* path, TempMesh* tempMesh, float scale, bool zUp );
+bool LoadTempMesh( const char* path, TempMesh* tempMesh, float scale, bool zUp );

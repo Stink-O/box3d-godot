@@ -5,10 +5,10 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#include "imgui.h"
-#include "utils.h"
-#include "sample.h"
 #include "gfx/draw.h"
+#include "imgui.h"
+#include "sample.h"
+#include "utils.h"
 
 #include "box3d/box3d.h"
 
@@ -63,6 +63,7 @@ public:
 
 		m_closestPoint = b3Pos_zero;
 		m_timeStamp = 1;
+		m_drawLevel = -1;
 		m_doOverlap = false;
 		m_doClosest = false;
 		m_doRay = false;
@@ -90,6 +91,11 @@ public:
 	int ComputeDepths()
 	{
 		m_depths.resize( m_tree.nodeCapacity, 0 );
+
+		if ( m_tree.nodes == nullptr || m_tree.nodeCount == 0 || m_tree.root == B3_NULL_INDEX )
+		{
+			return 0;
+		}
 
 		int* queue = (int*)malloc( m_tree.nodeCount * sizeof( int ) );
 		int front = 0;
@@ -149,6 +155,7 @@ public:
 		FILE* file = fopen( filePath, "r" );
 		if ( file == nullptr )
 		{
+			fprintf( stderr, "Failed to open '%s'\n", filePath );
 			return;
 		}
 
@@ -217,6 +224,13 @@ public:
 			// }
 		}
 
+		fclose( file );
+
+		if ( m_proxies.empty() )
+		{
+			return;
+		}
+
 		printf( "max index = %d\n", maxAreaIndex );
 
 		// constexpr int n = m_isDebug ? 1000 : INT_MAX;
@@ -252,12 +266,20 @@ public:
 		m_proxies.clear();
 
 		{
-			//bool zUp = true;
+			// bool zUp = true;
 			m_tree = b3DynamicTree_Load( m_saveFileName, m_loadScale );
 		}
 
-		constexpr int bufferSize = 512;
-		char buffer[bufferSize];
+		// A missing or stale save file loads as an empty tree, which has no root to walk
+		if ( m_tree.nodes == nullptr || m_tree.proxyCount == 0 )
+		{
+			fprintf( stderr, "Failed to load tree '%s'\n", m_saveFileName );
+			m_height = 0;
+			m_drawLevel = -1;
+			m_buildTime = 0.0f;
+			m_areaRatio = 0.0f;
+			return;
+		}
 
 		int maxArea = 0.0f;
 		int maxAreaIndex = -1;
@@ -406,6 +428,11 @@ public:
 
 	bool DrawControls() override
 	{
+		if ( m_tree.proxyCount == 0 )
+		{
+			return false;
+		}
+
 		DrawTextLine( "leaves = %d, height = %d, area = %g", m_tree.proxyCount, m_height, m_areaRatio );
 		DrawTextLine( "build time = %g ms", m_buildTime );
 		DrawTextLine( "total: ray = %g ms, overlap = %g ms, closest = %g ms", m_rayTime, m_overlapTime, m_closestTime );
@@ -462,6 +489,11 @@ public:
 		Sample::Render();
 
 		DrawAxes( b3WorldTransform_identity, 2.0f );
+
+		if ( m_tree.proxyCount == 0 )
+		{
+			return;
+		}
 
 		b3Pos cp = m_camera->DrawOrigin();
 		b3TreeNode* nodes = m_tree.nodes;
@@ -550,8 +582,14 @@ public:
 	void Step() override
 	{
 		Sample::Step();
+
+		if ( m_tree.proxyCount == 0 )
+		{
+			return;
+		}
+
 		++m_timeStamp;
-		
+
 		if ( m_doRay )
 		{
 			Ray ray = m_rays[m_testIndex];
@@ -599,9 +637,11 @@ public:
 	std::unordered_map<uint64_t, Proxy> m_proxies;
 	std::vector<uint16_t> m_depths;
 	b3DynamicTree m_tree;
-	Ray m_rays[m_testCount];
-	b3AABB m_overlapQueries[m_testCount];
-	b3Sphere m_closestPointQueries[m_testCount];
+
+	// Zeroed because the queries are only generated once a tree loads
+	Ray m_rays[m_testCount] = {};
+	b3AABB m_overlapQueries[m_testCount] = {};
+	b3Sphere m_closestPointQueries[m_testCount] = {};
 	b3Pos m_closestPoint;
 	float m_areaRatio;
 	float m_rayTime;

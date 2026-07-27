@@ -574,9 +574,11 @@ public:
 			constexpr int materialCapacity = 5;
 
 			b3SurfaceMaterial meshMaterials[materialCapacity];
+
+			// Without the building mesh the village still stands, just with no buildings
 			b3MeshData* buildingMesh = CreateMeshData( "data/meshes/building.obj", 1.0f, false, false, true, true );
 
-			int materialCount = buildingMesh->materialCount;
+			int materialCount = buildingMesh != nullptr ? buildingMesh->materialCount : 0;
 			assert( materialCount <= materialCapacity );
 
 			for ( int i = 0; i < materialCount; ++i )
@@ -593,11 +595,11 @@ public:
 				meshMaterials[i].userMaterialId = i + 42;
 			}
 
-			b3CompoundMeshDef* meshes = new b3CompoundMeshDef[meshCount];
+			b3CompoundMeshDef* meshes = buildingMesh != nullptr ? new b3CompoundMeshDef[meshCount] : nullptr;
 			transform = b3Transform_identity;
 
 			int meshIndex = 0;
-			for ( int i = 0; i < meshGridCount; ++i )
+			for ( int i = 0; meshes != nullptr && i < meshGridCount; ++i )
 			{
 				transform.p.x = ( 2.0f * i - meshGridCount ) * b + 0.5f * b;
 
@@ -630,7 +632,7 @@ public:
 				}
 			}
 
-			assert( meshIndex == meshCount );
+			assert( meshes == nullptr || meshIndex == meshCount );
 
 			b3CompoundDef def = {};
 			def.capsules = capsules;
@@ -639,7 +641,7 @@ public:
 			def.hulls = hulls;
 			def.hullCount = hullCount;
 			def.meshes = meshes;
-			def.meshCount = meshCount;
+			def.meshCount = meshIndex;
 			def.spheres = spheres;
 			def.sphereCount = sphereIndex;
 
@@ -665,7 +667,7 @@ public:
 			delete[] spheres;
 			spheres = nullptr;
 
-			b3DestroyMesh( buildingMesh );
+			DestroyMeshData( buildingMesh );
 		}
 
 		m_rayOrigin = { -0.45f * m_worldWidth, 20.0f, -0.45f * m_worldWidth };
@@ -690,7 +692,7 @@ public:
 		b3Transform transform = { { 0.0f, 0.01f, 0.0f }, b3Quat_identity };
 		DrawAxes( b3MakeWorldTransform( transform ), 4.0f );
 
-		DrawTextLine( "surface type = %d", m_userMaterialId );
+		DrawTextLine( "surface type = %d", (int)m_userMaterialId );
 		DrawTextLine( "compound capsules/hulls/meshes/sphere = %d / %d / %d / %d", m_compound->capsuleCount,
 					  m_compound->hullCount, m_compound->meshCount, m_compound->sphereCount );
 		DrawTextLine( "compound byte count = %d", m_compound->byteCount );
@@ -724,7 +726,7 @@ public:
 				DrawLine( p1, p2, MakeColor( b3_colorYellow ) );
 				DrawPoint( p1, 8.0f, MakeColor( b3_colorLightCoral ) );
 				DrawTextLine( "ray hit triangle/child/material = %d / %d / %d", context.triangleIndex, context.childIndex,
-							  context.materialId );
+							  (int)context.materialId );
 			}
 			else
 			{
@@ -749,7 +751,7 @@ public:
 				b3Sphere sphere = { b3Vec3_zero, 0.25f };
 				DrawSolidSphere( { position, b3Quat_identity }, sphere, MakeColor( b3_colorOrchid ) );
 				DrawTextLine( "shape hit triangle/child/material = %d / %d / %d", context.triangleIndex, context.childIndex,
-							  context.materialId );
+							  (int)context.materialId );
 			}
 			else
 			{

@@ -333,14 +333,11 @@ public:
 			b3BodyId body = b3CreateBody( m_worldId, &bodyDef );
 
 			b3ShapeDef shapeDef = b3DefaultShapeDef();
-			b3SurfaceMaterial materials[3];
-			materials[0] = { 0.6f, 0.0f, 0 };
-			materials[1] = { 0.6f, 1.0f, 1 };
-			materials[2] = { 0.1f, 0.0f, 2 };
-			shapeDef.materials = materials;
-			shapeDef.materialCount = 3;
 
-			b3CreateMeshShape( body, &shapeDef, m_levelMesh, b3Vec3_one );
+			if ( m_levelMesh != nullptr )
+			{
+				b3CreateMeshShape( body, &shapeDef, m_levelMesh, b3Vec3_one );
+			}
 
 			// b3Transform transform = { { 0.0f, 1.0f, 14.0f }, b3MakeQuatFromAxisAngle( b3Vec3_axisY, 0.75f * B3_PI ) };
 			// b3BoxHull box = b3MakeTransformedBoxHull( 5.0f, 1.0f, 0.5f, transform );
@@ -371,7 +368,10 @@ public:
 
 			b3ShapeDef shapeDef = b3DefaultShapeDef();
 			b3BodyId body = b3CreateBody( m_worldId, &bodyDef );
-			b3CreateMeshShape( body, &shapeDef, m_stairs, { 0.75f, 0.75f, -1.5f } );
+			if ( m_stairs != nullptr )
+			{
+				b3CreateMeshShape( body, &shapeDef, m_stairs, { 0.75f, 0.75f, -1.5f } );
+			}
 		}
 
 		{
@@ -393,13 +393,6 @@ public:
 
 			m_heightField = b3CreateWave( 50.0f, 50.0f, b3Vec3_one, 0.02f, 0.04f, true );
 			b3ShapeDef shapeDef = b3DefaultShapeDef();
-			b3SurfaceMaterial materials[3];
-			materials[0] = { 0.6f, 0.0f, 0 };
-			materials[1] = { 0.6f, 1.0f, 1 };
-			materials[2] = { 0.1f, 0.0f, 2 };
-			shapeDef.materials = materials;
-			shapeDef.materialCount = 3;
-
 			b3CreateHeightFieldShape( body, &shapeDef, m_heightField );
 		}
 
@@ -530,9 +523,9 @@ public:
 	{
 		m_camera->m_thirdPerson = false;
 		sapp_lock_mouse( false );
-		b3DestroyMesh( m_levelMesh );
-		b3DestroyMesh( m_stairs );
-		b3DestroyMesh( m_torus );
+		DestroyMeshData( m_levelMesh );
+		DestroyMeshData( m_stairs );
+		DestroyMeshData( m_torus );
 		b3DestroyHeightField( m_heightField );
 	}
 
@@ -1333,14 +1326,11 @@ public:
 			b3BodyId body = b3CreateBody( m_worldId, &bodyDef );
 
 			b3ShapeDef shapeDef = b3DefaultShapeDef();
-			b3SurfaceMaterial materials[3];
-			materials[0] = { 0.6f, 0.0f, 0 };
-			materials[1] = { 0.6f, 1.0f, 1 };
-			materials[2] = { 0.1f, 0.0f, 2 };
-			shapeDef.materials = materials;
-			shapeDef.materialCount = 3;
 
-			b3CreateMeshShape( body, &shapeDef, m_levelMesh, b3Vec3_one );
+			if ( m_levelMesh != nullptr )
+			{
+				b3CreateMeshShape( body, &shapeDef, m_levelMesh, b3Vec3_one );
+			}
 		}
 
 		// --- Stairs mesh ---
@@ -1351,7 +1341,10 @@ public:
 			b3BodyId body = b3CreateBody( m_worldId, &bodyDef );
 
 			b3ShapeDef shapeDef = b3DefaultShapeDef();
-			b3CreateMeshShape( body, &shapeDef, m_stairs, { 0.75f, 0.75f, -1.5f } );
+			if ( m_stairs != nullptr )
+			{
+				b3CreateMeshShape( body, &shapeDef, m_stairs, { 0.75f, 0.75f, -1.5f } );
+			}
 		}
 
 		// --- High-poly building mesh ---
@@ -1362,7 +1355,10 @@ public:
 			b3BodyId body = b3CreateBody( m_worldId, &bodyDef );
 
 			b3ShapeDef shapeDef = b3DefaultShapeDef();
-			b3CreateMeshShape( body, &shapeDef, m_building, b3Vec3_one );
+			if ( m_building != nullptr )
+			{
+				b3CreateMeshShape( body, &shapeDef, m_building, b3Vec3_one );
+			}
 		}
 
 		// --- Voxel meshes (dense tri terrain) ---
@@ -1373,7 +1369,10 @@ public:
 			b3BodyId body = b3CreateBody( m_worldId, &bodyDef );
 
 			b3ShapeDef shapeDef = b3DefaultShapeDef();
-			b3CreateMeshShape( body, &shapeDef, m_voxel01, b3Vec3_one );
+			if ( m_voxel01 != nullptr )
+			{
+				b3CreateMeshShape( body, &shapeDef, m_voxel01, b3Vec3_one );
+			}
 		}
 		{
 			m_voxel02 = CreateMeshData( "data/meshes/voxel_mesh_02.obj", 1.0f, false, false, true, true );
@@ -1382,7 +1381,10 @@ public:
 			b3BodyId body = b3CreateBody( m_worldId, &bodyDef );
 
 			b3ShapeDef shapeDef = b3DefaultShapeDef();
-			b3CreateMeshShape( body, &shapeDef, m_voxel02, b3Vec3_one );
+			if ( m_voxel02 != nullptr )
+			{
+				b3CreateMeshShape( body, &shapeDef, m_voxel02, b3Vec3_one );
+			}
 		}
 
 		// --- Height field terrain ---
@@ -1393,13 +1395,6 @@ public:
 
 			m_heightField = b3CreateWave( 50.0f, 50.0f, b3Vec3_one, 0.02f, 0.04f, true );
 			b3ShapeDef shapeDef = b3DefaultShapeDef();
-			b3SurfaceMaterial materials[3];
-			materials[0] = { 0.6f, 0.0f, 0 };
-			materials[1] = { 0.6f, 1.0f, 1 };
-			materials[2] = { 0.1f, 0.0f, 2 };
-			shapeDef.materials = materials;
-			shapeDef.materialCount = 3;
-
 			b3CreateHeightFieldShape( body, &shapeDef, m_heightField );
 		}
 
@@ -1494,11 +1489,11 @@ public:
 	{
 		m_camera->m_thirdPerson = false;
 		sapp_lock_mouse( false );
-		b3DestroyMesh( m_levelMesh );
-		b3DestroyMesh( m_stairs );
-		b3DestroyMesh( m_building );
-		b3DestroyMesh( m_voxel01 );
-		b3DestroyMesh( m_voxel02 );
+		DestroyMeshData( m_levelMesh );
+		DestroyMeshData( m_stairs );
+		DestroyMeshData( m_building );
+		DestroyMeshData( m_voxel01 );
+		DestroyMeshData( m_voxel02 );
 		b3DestroyHeightField( m_heightField );
 	}
 
