@@ -171,10 +171,21 @@ scons platform=web threads=no  target=template_release
 scons platform=web threads=yes target=template_release
 ```
 
-Deploy = run the **"Deploy web demo to Pages"** workflow (manual dispatch, on
-purpose — publishing is a decision). It exports both variants (root + `/fast/`),
-plants the kill-switch service worker, verifies its own output, and fails the
-build if the wrong variant would land in either slot. The Cloudflare Worker in
+**itch.io is the primary public home of the threaded build**
+(stinkysunstep.itch.io/box3d-godot): no request caps, familiar platform, and
+its SharedArrayBuffer option provides the isolation (as COEP credentialless —
+Safari lacks it, which is what the un-isolated guard is for). Updating it means
+re-uploading `box3d-demo-web-threaded.zip` (a fresh zip of `webfast/`) on the
+page — a MANUAL step, so a web-affecting change is not fully shipped until the
+itch zip is refreshed too. Keep the SharedArrayBuffer checkbox on.
+
+Deploy for the GitHub-hosted pair = run the **"Deploy web demo to Pages"**
+workflow (manual dispatch, on purpose — publishing is a decision). It exports
+both variants (root + `/fast/`), plants the kill-switch service worker,
+verifies its own output, and fails the build if the wrong variant would land in
+either slot. **The root fallback must stay alive regardless of itch** — it is
+the uncapped safety net AND the bounce target baked into every threaded
+build's guard. The Cloudflare Worker in
 `godot/tools/web_fast_worker` only needs redeploying (`npx wrangler deploy`
 from that directory) when the worker itself changes — it is a pass-through and
 does not embed the demo.
