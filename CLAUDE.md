@@ -178,6 +178,14 @@ scons platform=web threads=no target=template_release
   future template stops loading.
 - ~12 MB gzipped. A nothreads build needs **no COOP/COEP headers**, so plain
   static hosting (GitHub Pages) works.
+- The THREADED build is also deployed, under `/fast/` on the same Pages site,
+  fronted by the Cloudflare Worker in `godot/tools/web_fast_worker` which adds
+  the COOP/COEP headers Pages cannot send (`npx wrangler deploy` from that
+  directory; needs `wrangler login`). Do not serve the threaded build without
+  real headers -- it fails to link (shared-memory LinkError), which is also why
+  its export preset bounces direct un-isolated visitors to the fallback.
+  Cloudflare Pages cannot host it at all: index.side.wasm is 41 MiB against a
+  25 MiB per-file cap.
 - **Determinism on wasm is unverified.** Upstream's Emscripten CI is
   build-only; do not claim the wasm build is bit-exact with the native paths
   without running `test_determinism` under node.

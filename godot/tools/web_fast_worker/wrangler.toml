@@ -6,3 +6,4 @@ compatibility_date = "2026-07-01"
 # it under /fast/ next to the single-threaded fallback at the root.
 [vars]
 ORIGIN = "https://stink-o.github.io/box3d-godot/fast"
+CACHE_BUST = "2"

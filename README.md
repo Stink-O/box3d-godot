@@ -56,9 +56,11 @@ To build instead, see [Building](godot/README.md#building).
 
 ### Try it in a browser first
 
-**[stink-o.github.io/box3d-godot](https://stink-o.github.io/box3d-godot/)** runs
-the demo in a browser, no download. It is there so you can see what the binding
-does before deciding whether to install anything.
+**[box3d-fast.stinkysunstep.workers.dev](https://box3d-fast.stinkysunstep.workers.dev/)**
+runs the demo in a browser, no download -- multi-threaded solver, full-size
+scenes. If it will not load in your browser, use the single-threaded fallback:
+**[stink-o.github.io/box3d-godot](https://stink-o.github.io/box3d-godot/)**,
+which works everywhere but simulates the heaviest scene at half size.
 
 **It is a preview, not the real thing.** Running the demo in Godot is the
 intended way and the only one that shows the binding at full speed. The browser

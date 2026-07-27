@@ -17,9 +17,14 @@ export default {
 		if (path.endsWith("/")) {
 			path += "index.html";
 		}
-		const upstream = await fetch(env.ORIGIN + path, {
-			cf: { cacheEverything: true, cacheTtl: 3600 },
-		});
+		// No cache hints: cacheTtl caches EVERY status, and an hour-long cached
+		// 404 (from fetching /fast/ before a deploy landed) once took the whole
+		// site down from the worker's point of view. GitHub Pages already sends
+		// cache-control: max-age=600 and sits on its own CDN; defer to that.
+		// CACHE_BUST namespaces the edge cache away from anything poisoned
+		// under the old policy (GitHub ignores query strings on static files).
+		const upstream = await fetch(
+			env.ORIGIN + path + "?cb=" + env.CACHE_BUST);
 		const headers = new Headers(upstream.headers);
 		headers.set("Cross-Origin-Opener-Policy", "same-origin");
 		headers.set("Cross-Origin-Embedder-Policy", "require-corp");
