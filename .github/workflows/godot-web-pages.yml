@@ -66,22 +66,27 @@ jobs:
           ~/emsdk/emsdk install "${EM_VERSION}"
           ~/emsdk/emsdk activate "${EM_VERSION}"
 
-      # Threaded. The solver is the entire cost of the heavy samples, and it is
-      # exactly what single-threading takes away: Cube Pile measures 0.39 ms per
-      # step at four workers against 1.24 ms at one, natively. A threaded wasm
-      # build needs cross-origin isolation, which Pages cannot send as headers,
-      # so the export ships Godot's PWA service worker to inject them instead
-      # (one automatic reload on a visitor's first load).
+      # Single-threaded, and that is not a preference either way -- it is the
+      # only variant that reliably loads on a static host.
       #
-      # The nothreads variant is still built, because the .gdextension lists
-      # both and Godot picks by which template the export used. Keeping it means
-      # a non-isolated host still works.
+      # A threaded side module declares SHARED memory. Without cross-origin
+      # isolation the engine has no SharedArrayBuffer, hands it non-shared
+      # memory, and the module fails to link:
+      #   LinkError: "env" "memory": mismatch in shared state of memory
+      # Pages cannot send COOP/COEP headers. Godot's PWA service worker can
+      # inject them, but not on the load that installs it, and a hard refresh
+      # bypasses it -- so a threaded build is broken on a first visit and broken
+      # again on every forced reload. Measured, not assumed.
+      #
+      # The cost is real: 3.2x on the solver (Cube Pile 1.24 ms/step at one
+      # worker against 0.39 at four). The threaded variant is still built and
+      # shipped as a release asset for anyone hosting with real headers.
       - name: Build the extension for web
         run: |
           source ~/emsdk/emsdk_env.sh
           cd godot
-          scons -j"$(nproc)" platform=web threads=yes target=template_release
           scons -j"$(nproc)" platform=web threads=no  target=template_release
+          scons -j"$(nproc)" platform=web threads=yes target=template_release
 
       - name: Cache Godot and export templates
         id: cache-godot
@@ -132,9 +137,11 @@ jobs:
           for f in index.html index.js index.wasm index.pck; do
             test -s "$f" || { echo "missing or empty: $f"; exit 1; }
           done
-          test -s index.service.worker.js || { echo "PWA service worker missing: a threaded build will not be cross-origin isolated"; exit 1; }
-          grep -q ensureCrossOriginIsolationHeaders index.service.worker.js \
-            || { echo "service worker does not inject COOP/COEP"; exit 1; }
+          # The deployed build must be the single-threaded one. A threaded module
+          # cannot link on a host that sends no COOP/COEP, and the file name is
+          # the only thing that says which variant was exported.
+          ls libbox3d_godot.web.*.nothreads.wasm >/dev/null 2>&1 \
+            || { echo "exported extension is not the nothreads build; it will LinkError on Pages"; exit 1; }
           wasm=$(ls libbox3d_godot.web.*.wasm 2>/dev/null | head -1)
           test -n "$wasm" || { echo "the Box3D extension wasm is not in the export"; exit 1; }
           # wasm magic: 0x00 'a' 's' 'm'
