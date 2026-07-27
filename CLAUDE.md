@@ -186,7 +186,8 @@ does not embed the demo.
   dies with `LinkError: mismatch in shared state of memory`. This is why the
   fallback exists, why `/fast/` is served *through* the Worker (GitHub Pages
   cannot send headers), and why the threaded export's `head_include` bounces
-  direct un-isolated visitors to the fallback. Never flip the root preset to
+  ANY un-isolated visitor to the fallback's absolute URL (covers raw `/fast/`
+  access, itch-on-Safari, and header-less self-hosts). Never flip the root preset to
   `thread_support=true`.
 - **Service workers are not an acceptable substitute for headers.** Godot's PWA
   isolation trick (and the community coi-serviceworker, same architecture)
@@ -245,6 +246,7 @@ tracked). v0.3.0 is the shape to match — 12 assets:
 | `libbox3d_godot.web.template_release.wasm32{,.nothreads}.wasm` | the two web builds above |
 | `box3d-demo-android.apk` | `--export-debug "Android"` (debug-signed; no release keystore exists) |
 | `box3d-demo-web.zip` | zip of the exported fallback `web/` **including the kill-switch worker** — must match what the Pages deploy serves |
+| `box3d-demo-web-threaded.zip` | zip of the threaded `webfast/` export — the one for **itch.io** (enable its SharedArrayBuffer checkbox; itch implements it as COEP credentialless, so Safari gets bounced to the fallback by the guard) or any host with real COOP/COEP headers |
 
 Rules learned the hard way:
 
