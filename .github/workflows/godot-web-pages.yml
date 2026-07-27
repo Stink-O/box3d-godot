@@ -128,6 +128,12 @@ jobs:
           mkdir -p web
           "$GODOT" --headless --path godot/demo --export-release "Web" ../../web/index.html
 
+      # Heal browsers that visited the short-lived threaded deploy: its service
+      # worker outlives it and can serve the broken build from cache forever.
+      # This file self-destructs that registration (see its header comment).
+      - name: Deploy the service worker kill-switch
+        run: cp godot/tools/web_sw_killswitch.js web/index.service.worker.js
+
       # An export "succeeds" even when the extension is missing, and the failure
       # only shows up as a broken page, so check the artifacts are really there.
       - name: Verify the build carries the extension
@@ -142,6 +148,8 @@ jobs:
           # the only thing that says which variant was exported.
           ls libbox3d_godot.web.*.nothreads.wasm >/dev/null 2>&1 \
             || { echo "exported extension is not the nothreads build; it will LinkError on Pages"; exit 1; }
+          grep -q "self.registration.unregister" index.service.worker.js \
+            || { echo "kill-switch service worker missing; stale-SW visitors stay broken"; exit 1; }
           wasm=$(ls libbox3d_godot.web.*.wasm 2>/dev/null | head -1)
           test -n "$wasm" || { echo "the Box3D extension wasm is not in the export"; exit 1; }
           # wasm magic: 0x00 'a' 's' 'm'

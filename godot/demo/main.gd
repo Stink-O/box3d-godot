@@ -300,6 +300,7 @@ func _ready() -> void:
 	_setup_reverts()
 
 	_restore_overlay_state()
+	_add_web_notice()
 
 	# `-- --sample=Ragdoll` (case-insensitive) opens straight to that sample.
 	# `-- --profiler` opens with the solver profiler already up, so a recording
@@ -1427,3 +1428,59 @@ func _save_overlay_state() -> void:
 	layout.set_value("shell", "stats_overlay", _stats_overlay.visible)
 	layout.set_value("shell", "solver_profiler", _profiler.visible)
 	layout.save(SHELL_LAYOUT_PATH)
+
+
+## Browser-only banner. The web build exists so people can try the project
+## before installing anything, and it is slower than the real thing twice over:
+## wasm costs something across the board, and the solver is single-threaded
+## because a threaded module cannot link without cross-origin isolation, which
+## static hosting does not provide. Someone judging performance from the page
+## would be judging the wrong build, so the page says so itself. Dismissible,
+## and never built on any other platform.
+func _add_web_notice() -> void:
+	if not OS.has_feature("web"):
+		return
+	var panel := PanelContainer.new()
+	panel.name = "WebNotice"
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.09, 0.12, 0.92)
+	style.border_color = Color(1.0, 0.78, 0.42, 0.9)
+	style.set_border_width_all(0)
+	style.border_width_top = 2
+	style.content_margin_left = 14.0
+	style.content_margin_right = 8.0
+	style.content_margin_top = 7.0
+	style.content_margin_bottom = 7.0
+	panel.add_theme_stylebox_override("panel", style)
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	panel.add_child(row)
+
+	var label := Label.new()
+	label.text = "Browser preview: single-threaded solver on WebGL2. " 			+ "This is not how the project is meant to run -- for real " 			+ "performance, run the demo natively in Godot."
+	label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.6))
+	label.add_theme_font_size_override("font_size", 15)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	row.add_child(label)
+
+	var link := LinkButton.new()
+	link.text = "Get the native demo"
+	link.underline = LinkButton.UNDERLINE_MODE_ALWAYS
+	link.add_theme_font_size_override("font_size", 15)
+	link.focus_mode = Control.FOCUS_NONE
+	link.pressed.connect(func() -> void:
+		OS.shell_open("https://github.com/Stink-O/box3d-godot"))
+	row.add_child(link)
+
+	var close := Button.new()
+	close.text = "X"
+	close.flat = true
+	close.focus_mode = Control.FOCUS_NONE
+	close.pressed.connect(panel.queue_free)
+	row.add_child(close)
+
+	$UI.add_child(panel)
