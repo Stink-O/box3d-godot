@@ -344,6 +344,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		_sidebar_toggle.button_pressed = not _sidebar_toggle.button_pressed
 
 
+## The shell keeps FOCUS_NONE on every button (see _ready), but the sidebar's
+## SpinBox text fields must take focus to be typed in — and a LineEdit holds it
+## until something else takes it, so W A S D after editing a field kept typing
+## into the field instead of flying the camera. Any mouse press outside the
+## focused field commits the edit (focus_exited applies a SpinBox's text) and
+## hands the keyboard back to the camera / sample.
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		var focused := get_viewport().gui_get_focus_owner()
+		if focused != null \
+				and not focused.get_global_rect().has_point(focused.get_global_mouse_position()):
+			focused.release_focus()
+
+
 # --- Engine selection --------------------------------------------------------
 #
 # `-- --engine=box3d|godot|jolt`, written by the restart below (and usable by
@@ -853,7 +867,7 @@ func _show_controls_hint() -> void:
 	if _touch != null:
 		_info.text = "%s      Stick: move   ·   Drag: look   ·   Touch a body: grab   ·   Two fingers: zoom / pan" % _current_name
 	else:
-		_info.text = "%s      Right-click: fly (WASD / Q E, Shift boost)   ·   Left-drag: grab   ·   Hold F: charge shot" % _current_name
+		_info.text = "%s      Right-click: fly (WASD / Q E, Shift boost)   ·   Left-drag: grab (scroll: reel)   ·   Hold F: charge shot" % _current_name
 
 
 func _on_contact_hertz_changed(value: float) -> void:
