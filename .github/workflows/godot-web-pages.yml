@@ -66,16 +66,22 @@ jobs:
           ~/emsdk/emsdk install "${EM_VERSION}"
           ~/emsdk/emsdk activate "${EM_VERSION}"
 
-      # threads=no is not a preference. Without pthreads neither std::thread nor
-      # box3d's scheduler can fail softly (exceptions are off, so a refused
-      # thread aborts), which is why SConstruct defines BOX3D_NO_THREADS here.
-      # It also means the page needs no COOP/COEP headers, which Pages cannot
-      # set anyway.
+      # Threaded. The solver is the entire cost of the heavy samples, and it is
+      # exactly what single-threading takes away: Cube Pile measures 0.39 ms per
+      # step at four workers against 1.24 ms at one, natively. A threaded wasm
+      # build needs cross-origin isolation, which Pages cannot send as headers,
+      # so the export ships Godot's PWA service worker to inject them instead
+      # (one automatic reload on a visitor's first load).
+      #
+      # The nothreads variant is still built, because the .gdextension lists
+      # both and Godot picks by which template the export used. Keeping it means
+      # a non-isolated host still works.
       - name: Build the extension for web
         run: |
           source ~/emsdk/emsdk_env.sh
           cd godot
-          scons -j"$(nproc)" platform=web threads=no target=template_release
+          scons -j"$(nproc)" platform=web threads=yes target=template_release
+          scons -j"$(nproc)" platform=web threads=no  target=template_release
 
       - name: Cache Godot and export templates
         id: cache-godot
@@ -126,6 +132,9 @@ jobs:
           for f in index.html index.js index.wasm index.pck; do
             test -s "$f" || { echo "missing or empty: $f"; exit 1; }
           done
+          test -s index.service.worker.js || { echo "PWA service worker missing: a threaded build will not be cross-origin isolated"; exit 1; }
+          grep -q ensureCrossOriginIsolationHeaders index.service.worker.js \
+            || { echo "service worker does not inject COOP/COEP"; exit 1; }
           wasm=$(ls libbox3d_godot.web.*.wasm 2>/dev/null | head -1)
           test -n "$wasm" || { echo "the Box3D extension wasm is not in the export"; exit 1; }
           # wasm magic: 0x00 'a' 's' 'm'

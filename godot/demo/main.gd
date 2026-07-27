@@ -90,6 +90,8 @@ const ENGINE_SETTINGS := {
 ## Physics ticks to wait before trusting the behavioural engine probe. The
 ## counters it reads only mean something while bodies are still awake.
 const ENGINE_PROBE_TICK := 12
+## Where the browser build opens. See the note in _ready().
+const WEB_FIRST_SAMPLE := "Pyramid"
 ## Profiler tint per engine, so a recording is identifiable from a thumbnail.
 const ENGINE_ACCENTS := {
 	"box3d": Color(0.35, 0.85, 1.0),
@@ -317,6 +319,17 @@ func _ready() -> void:
 			_shot_tick = maxi(1, int(arg.get_slice("=", 1)))
 	var first_cat: String = SAMPLES.keys()[0]
 	var first_name: String = SAMPLES[first_cat].keys()[0]
+	# The browser build opens somewhere lighter. Cube Pile is 4096 bodies and
+	# asks for 4 solver workers; on web there is one, so it is the single worst
+	# scene to land on first and it is the one everyone would land on. Measured
+	# on this machine, natively: 0.39 ms/step at 4 workers vs 1.24 ms at 1, and
+	# only while the pile is awake -- asleep it costs nothing either way.
+	# Every sample is still one menu click away.
+	if OS.has_feature("web") and not WEB_FIRST_SAMPLE.is_empty():
+		for category in SAMPLES:
+			if SAMPLES[category].has(WEB_FIRST_SAMPLE):
+				first_cat = category
+				first_name = WEB_FIRST_SAMPLE
 	for category in SAMPLES:
 		for sample_name in SAMPLES[category]:
 			if sample_name.to_lower() == wanted:
