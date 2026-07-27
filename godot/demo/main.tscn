@@ -4,6 +4,7 @@
 [ext_resource type="Environment" uid="uid://643galdbajfd" path="res://common/sky_environment.tres" id="2_env"]
 [ext_resource type="Script" uid="uid://dxugjy148iedm" path="res://common/fly_camera.gd" id="3_cam"]
 [ext_resource type="Script" path="res://common/stats_overlay.gd" id="4_stats"]
+[ext_resource type="Script" path="res://compare/profiler_panel.gd" id="5_prof"]
 
 [node name="Main" type="Node3D" unique_id=1603281943]
 script = ExtResource("1_main")
@@ -81,6 +82,11 @@ visible = false
 layout_mode = 2
 text = "Third Person"
 
+[node name="EngineNote" type="Label" parent="UI/Bar"]
+visible = false
+layout_mode = 2
+vertical_alignment = 1
+
 [node name="Info" type="Label" parent="UI/Bar" unique_id=689685282]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -106,6 +112,13 @@ offset_top = 56.0
 offset_right = 372.0
 offset_bottom = 296.0
 script = ExtResource("4_stats")
+
+[node name="Profiler" type="Control" parent="UI"]
+visible = false
+offset_right = 600.0
+offset_bottom = 800.0
+mouse_filter = 2
+script = ExtResource("5_prof")
 
 [node name="DebugToggle" type="CheckButton" parent="UI" unique_id=370700332]
 anchors_preset = 1
@@ -255,6 +268,11 @@ layout_mode = 2
 tooltip_text = "FPS and frame-time graph, render and memory stats."
 text = "Stats Overlay"
 
+[node name="ProfilerCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+tooltip_text = "Per-phase solver profiler, same rows and statistics as the upstream Box3D sample app. Box3D reports all 22 phases; Godot Physics and Jolt expose no solver timing to a running game, so they show a total only."
+text = "Solver Profiler"
+
 [node name="AsyncCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox"]
 layout_mode = 2
 tooltip_text = "Steps the physics world on a background thread so heavy bursts (thousands of waking bodies) don't stall rendering."
@@ -315,6 +333,25 @@ text = "Set Start View"
 layout_mode = 2
 tooltip_text = "Forget the saved start view; the sample spawns at its scene default again."
 text = "Clear"
+
+[node name="EngineSep" type="HSeparator" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+
+[node name="EngineLabel" type="Label" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Physics Engine"
+
+[node name="EngineOption" type="OptionButton" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+tooltip_text = "Which solver runs the samples. Godot reads the physics engine once at startup, so changing this restarts the demo."
+
+[node name="EngineHint" type="Label" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.45)
+theme_override_font_sizes/font_size = 11
+text = "Switching restarts the demo on the same sample. Box3D is the tested path; the others rebuild each scene with native bodies."
+autowrap_mode = 2
 
 [node name="ReadoutSep" type="HSeparator" parent="UI/Sidebar/Margin/VBox" unique_id=413345837]
 layout_mode = 2

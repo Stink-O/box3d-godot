@@ -57,8 +57,14 @@ func _ready() -> void:
 	_step_ms.resize(WINDOW)
 	_font = get_theme_default_font()
 	var layout := ConfigFile.new()
-	if layout.load(LAYOUT_PATH) == OK:
-		var saved = layout.get_value("stats_overlay", "position", null)
+	# has_section_key first: ConfigFile reads a null default as "no default was
+	# given" and pushes an engine error, so a ui.cfg that exists WITHOUT this
+	# section logs one on every launch. That used to need someone to have
+	# dragged this overlay; now the profiler panel writes the same file when a
+	# row is expanded, so the file usually exists and the error fired routinely.
+	if layout.load(LAYOUT_PATH) == OK \
+			and layout.has_section_key("stats_overlay", "position"):
+		var saved: Variant = layout.get_value("stats_overlay", "position")
 		if saved is Vector2:
 			position = saved
 	visibility_changed.connect(_on_visibility_changed)

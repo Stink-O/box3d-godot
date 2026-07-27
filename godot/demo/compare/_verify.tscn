@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://compare/_verify.gd" id="1_vfy"]
+
+[node name="Verify" type="Node3D"]
+script = ExtResource("1_vfy")

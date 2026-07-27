@@ -23,7 +23,10 @@ extends Camera3D
 @export var shoot_radius := 0.35
 @export var shoot_lifetime := 20.0
 
-var _world: Box3DWorld
+## Either a Box3DWorld or the NativeWorld stand-in (common/native_world.gd)
+## when a sample is running on Godot Physics or Jolt. Everything backend-
+## specific the camera does with it goes through WorldOps.
+var _world: Node3D
 var _flying := false
 ## Collision layer 2 is the demos' invisible-guard layer (e.g. the marble
 ## run's front glass): contained bodies bounce off it, but camera rays AND
@@ -40,10 +43,12 @@ var _pitch := 0.0
 ## you clicked, with max_torque acting as angular friction. Compliant and
 ## calm — unlike a velocity override, it doesn't tremble the held body (a
 ## held car's wheels used to bob on their suspensions from that jitter).
-var _grabbed: Box3DBody = null
+## WorldOps builds the same rig with the same numbers on a native engine, where
+## the spring has to be stepped by hand (see WorldOps.drive_grab).
+var _grabbed: Node3D = null
 var _grab_distance := 0.0
-var _grab_mouse_body: Box3DBody = null
-var _grab_joint: Box3DMotorJoint = null
+var _grab_mouse_body: Node3D = null
+var _grab_joint: Node = null
 
 var _charging := false
 var _charge := 0.0
@@ -129,7 +134,7 @@ func touch_move(v: Vector2, delta: float) -> void:
 
 # Point the camera at a newly loaded sample's world and reset to the default
 # framing. A sample can override the framing afterwards via frame_view().
-func set_world(world: Box3DWorld) -> void:
+func set_world(world: Node3D) -> void:
 	_end_grab()
 	_world = world
 	_end_follow_states()  # the new sample owns the framing; nothing to restore
@@ -138,7 +143,7 @@ func set_world(world: Box3DWorld) -> void:
 
 # Point at a rebuilt world (e.g. after Reset) WITHOUT moving the camera, so the
 # view the user flew to is preserved.
-func set_world_keep_view(world: Box3DWorld) -> void:
+func set_world_keep_view(world: Node3D) -> void:
 	_end_grab()
 	_world = world
 	_end_follow_states()
@@ -392,7 +397,7 @@ func _update_follow(delta: float) -> void:
 	# pull the camera in front of whatever the ray hits.
 	if _world != null:
 		var from := _pivot + Vector3.UP * maxf(_follow_look_height, 1.2)
-		var hit := _world.raycast(from, desired, RAY_MASK)
+		var hit := WorldOps.raycast(_world, from, desired, RAY_MASK)
 		if hit.get("hit", false):
 			desired = (hit["position"] as Vector3).lerp(from, 0.1)
 
@@ -464,47 +469,26 @@ func _try_grab() -> void:
 	var mouse := get_viewport().get_mouse_position()
 	var from := project_ray_origin(mouse)
 	var dir := project_ray_normal(mouse)
-	var hit := _world.raycast(from, from + dir * 500.0, RAY_MASK)
+	var hit := WorldOps.raycast(_world, from, from + dir * 500.0, RAY_MASK)
 	if hit.get("hit", false):
 		var body = hit.get("collider")
-		if body is Box3DBody and body.body_type == Box3DBody.DYNAMIC:
+		if WorldOps.is_dynamic_body(body):
 			_begin_grab(body, hit["position"], from.distance_to(hit["position"]))
 
 
 # Build the mouse-body + motor-joint grab rig at the clicked point, mirroring
 # upstream sample.cpp (linear spring 7.5 Hz / damping 1 / force cap 100 mg,
 # angular friction ~0.5 * lever * mg).
-func _begin_grab(body: Box3DBody, hit_pos: Vector3, distance: float) -> void:
+func _begin_grab(body: Node3D, hit_pos: Vector3, distance: float) -> void:
 	_end_grab()
 	_grabbed = body
 	_grab_distance = distance
 	var to_world_local: Transform3D = _world.global_transform.affine_inverse()
 
-	_grab_mouse_body = Box3DBody.new()
-	_grab_mouse_body.body_type = Box3DBody.KINEMATIC
-	_grab_mouse_body.debug_visualize = false  # invisible helper, no debug shell
-	_grab_mouse_body.shape_type = Box3DBody.SPHERE
-	_grab_mouse_body.sphere_radius = 0.05
-	_grab_mouse_body.collision_layer = 0  # collides with nothing
-	_grab_mouse_body.collision_mask = 0
-	_grab_mouse_body.position = to_world_local * hit_pos  # BEFORE add_child
-	_world.add_child(_grab_mouse_body)
-
-	# Upstream's grab strength scales with weight (100 mg). Floor the
-	# reference acceleration at standard gravity: in a zero-g world (the
-	# sidebar allows it) weight is zero and the grab spring would cap at
-	# zero force - grabbing would silently do nothing.
-	var mg: float = body.get_mass() * maxf(_world.gravity.length(), 9.8)
-	_grab_joint = Box3DMotorJoint.new()
-	_grab_joint.position = to_world_local * hit_pos  # joint frame = grab point
-	_grab_joint.max_force = 0.0  # no velocity drive; the position spring pulls
-	_grab_joint.linear_hertz = 7.5
-	_grab_joint.linear_damping = 1.0
-	_grab_joint.max_spring_force = 100.0 * mg
-	_grab_joint.max_torque = 0.2 * mg  # angular friction (lever ~0.4 m)
-	_world.add_child(_grab_joint)
-	_grab_joint.body_a = _grab_joint.get_path_to(_grab_mouse_body)
-	_grab_joint.body_b = _grab_joint.get_path_to(body)
+	_grab_mouse_body = WorldOps.spawn_kinematic_sphere(
+			_world, to_world_local * hit_pos, 0.05)
+	_grab_joint = WorldOps.make_grab_joint(
+			_world, _grab_mouse_body, body, to_world_local * hit_pos)
 
 
 func _end_grab() -> void:
@@ -528,10 +512,14 @@ func _drag_grabbed() -> void:
 	var mouse := get_viewport().get_mouse_position()
 	var from := project_ray_origin(mouse)
 	var dir := project_ray_normal(mouse)
-	_grab_mouse_body.global_position = from + dir * _grab_distance
+	WorldOps.set_body_transform(_grab_mouse_body,
+			Transform3D(_grab_mouse_body.global_basis, from + dir * _grab_distance))
+	# On Box3D the solver steps the spring; on a native engine WorldOps has to.
+	WorldOps.drive_grab(_world, _grab_mouse_body, _grabbed, _grab_joint)
 
 
-var _ball_mesh: SphereMesh
+## The ball MESH is shared by WorldOps (one per radius, both backends); only the
+## material is the camera's own.
 var _ball_mat: StandardMaterial3D
 
 
@@ -563,59 +551,45 @@ func _shoot(charge: float = 0.0) -> void:
 	var speed := lerpf(shoot_speed_min, shoot_speed_max, clampf(charge, 0.0, 1.0))
 
 	if _shot_kind == ShotKind.BOMB:
-		var bomb := BOMB_SCENE.instantiate() as Box3DBody
-		bomb.debug_visualize = false  # projectiles keep their real look
-		bomb.collision_mask = RAY_MASK  # fly through invisible guards
-		bomb.position = origin + dir * (shoot_radius + 0.6)
-		bomb.blast_impulse = bomb_blast_impulse
-		bomb.impact_detonation = bomb_impact_detonation
-		_world.add_child(bomb)
-		bomb.set_linear_velocity(dir * speed)
+		var bomb := WorldOps.spawn_authored_scene(_world, BOMB_SCENE,
+				Transform3D(Basis(), origin + dir * (shoot_radius + 0.6)), {
+					"debug_visualize": false,  # projectiles keep their real look
+					"collision_mask": RAY_MASK,  # fly through invisible guards
+					"blast_impulse": bomb_blast_impulse,
+					"impact_detonation": bomb_impact_detonation,
+				})
+		for body in WorldOps.bodies_in(bomb):
+			WorldOps.set_linear_velocity(body, dir * speed)
 		return  # the bomb owns its own fuse -> explode -> free lifecycle
 
 	if _shot_kind == ShotKind.RAGDOLL:
-		var fig := RAGDOLL_SCENE.instantiate() as Node3D
 		# The figure's bones span roughly y 0.2..1.7 around its feet, so drop
 		# the root by the torso height to launch it centred on the aim ray,
 		# far enough out that no bone starts inside the camera. Face the
 		# flight direction for a proper superhero exit.
-		fig.position = origin + dir * 2.2 - Vector3(0, 0.95, 0)
-		fig.rotation.y = atan2(dir.x, dir.z)
-		_world.add_child(fig)
+		var fig := WorldOps.spawn_authored_scene(_world, RAGDOLL_SCENE,
+				Transform3D(Basis(Vector3.UP, atan2(dir.x, dir.z)),
+						origin + dir * 2.2 - Vector3(0, 0.95, 0)))
 		var throw_speed := minf(speed, 30.0)  # joints, not bullets: keep it sane
-		for bone in fig.find_children("*", "Box3DBody", true, false):
-			bone.set_linear_velocity(dir * throw_speed)
+		for bone in WorldOps.bodies_in(fig):
+			WorldOps.set_linear_velocity(bone, dir * throw_speed)
 		if shoot_lifetime > 0.0:
 			# One timer on the root frees the whole figure, joints and all.
 			Despawn.attach(fig, shoot_lifetime * 2.0)
 		return
 
-	if _ball_mesh == null:
-		_ball_mesh = SphereMesh.new()
-		_ball_mesh.radius = shoot_radius
-		_ball_mesh.height = shoot_radius * 2.0
+	if _ball_mat == null:
 		_ball_mat = StandardMaterial3D.new()
 		_ball_mat.albedo_color = Color(0.95, 0.85, 0.25)
 		_ball_mat.metallic = 0.2
 		_ball_mat.roughness = 0.35
 
-	var ball := Box3DBody.new()
-	ball.debug_visualize = false  # projectiles keep their real look
-	ball.collision_mask = RAY_MASK  # fly through invisible guards
-	ball.shape_type = Box3DBody.SPHERE
-	ball.sphere_radius = shoot_radius
-	ball.density = 4.0
-	ball.restitution = 0.35
-	ball.continuous = true  # CCD so a fast ball can't tunnel through walls
-	ball.position = origin + dir * (shoot_radius + 0.5)
-
-	var mesh := MeshInstance3D.new()
-	mesh.mesh = _ball_mesh
-	mesh.material_override = _ball_mat
-	ball.add_child(mesh)
-
-	_world.add_child(ball)
-	ball.set_linear_velocity(dir * speed)
+	# Density 4 and restitution 0.35, CCD so a fast ball can't tunnel through
+	# walls, RAY_MASK so it flies through invisible guards.
+	var ball := WorldOps.spawn_sphere(_world,
+			origin + dir * (shoot_radius + 0.5),
+			shoot_radius, 4.0, _ball_mat, true, 0.35, RAY_MASK)
+	WorldOps.set_linear_velocity(ball, dir * speed)
 
 	if shoot_lifetime > 0.0:
 		Despawn.attach(ball, shoot_lifetime)

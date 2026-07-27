@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://compare/compare.gd" id="1_cmp"]
 [ext_resource type="Environment" path="res://common/sky_environment.tres" id="2_env"]
 [ext_resource type="Script" path="res://compare/overlay.gd" id="3_ovl"]
+[ext_resource type="Script" path="res://compare/profiler_panel.gd" id="4_prof"]
 
 [node name="Compare" type="Node3D"]
 script = ExtResource("1_cmp")
@@ -35,3 +36,9 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("3_ovl")
+
+[node name="Profiler" type="Control" parent="UI"]
+offset_right = 1000.0
+offset_bottom = 880.0
+mouse_filter = 2
+script = ExtResource("4_prof")

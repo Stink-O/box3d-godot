@@ -7,6 +7,7 @@
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_float32_array.hpp>
+#include <godot_cpp/variant/packed_int32_array.hpp>
 
 #include <box3d/box3d.h>
 
@@ -133,6 +134,15 @@ public:
 	// Milliseconds the last solver step took. Not a property: it is live
 	// telemetry, not scene state.
 	double get_step_time_ms() const;
+
+	// Per-phase solver timings (b3Profile, milliseconds) and simulation size
+	// counters (b3Counters) for the most recent step. Keys are the upstream
+	// struct field names verbatim, so the sample app's profiler rows and any
+	// port of them index the same names. Like get_step_time_ms these are live
+	// telemetry rather than scene state, so they are methods, not properties.
+	// Both return an empty Dictionary when the world is dead.
+	Dictionary get_profile() const;
+	Dictionary get_counters() const;
 
 	void set_gravity(const Vector3 &p_gravity);
 	Vector3 get_gravity() const;

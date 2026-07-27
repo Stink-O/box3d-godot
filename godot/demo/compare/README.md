@@ -1,158 +1,220 @@
 # Physics engine comparison harness
 
-A fair, video-ready side-by-side of three 3D physics engines running the same
-scenarios in Godot 4.7:
+Runs the demo's **own sample scenes** under three different 3D physics engines,
+behind a fixed camera and a recording-legible HUD, so three captures of the same
+sample line up and the only variable is the solver.
 
-- **Box3D** — this repo's GDExtension (`Box3DWorld` / `Box3DBody`).
-- **Godot Physics** — Godot's built-in server.
-- **Jolt Physics** — the Jolt server that ships with Godot 4.4+.
+- **Box3D** - this repo's GDExtension (`Box3DWorld` / `Box3DBody`).
+- **Godot Physics** - Godot's built-in server.
+- **Jolt Physics** - the Jolt server bundled with Godot 4.4+.
 
-One scene (`compare.tscn`) drives everything. A single seeded builder
-(`compare.gd`) emits the geometry, then instantiates it with **either** Box3D
-nodes **or** native `RigidBody3D` / `StaticBody3D` nodes — same positions, same
-sizes, same mass, friction, restitution, gravity and 60 Hz timestep. A fixed
-camera and a big overlay make two recordings line up frame-for-frame, so the
-only thing that differs on screen is the solver.
-
-## Scenarios
-
-| scenario | what happens | bodies |
-|----------|--------------|--------|
-| `pyramid` | A solid 14-wide square pyramid; at physics tick 90 a heavy sphere is fired into it on a flat arc. Stacking stability + a deterministic collapse. | 1015 boxes + 1 ball |
-| `pile`    | 1152 boxes rain from a staggered grid into a walled bin and settle. Many-contact throughput. | 1152 boxes |
-| `stir`    | A dense bed of boxes churned continuously by a rotating kinematic cross-paddle. Sustained solver load. | 784 boxes + paddle |
-| `chain`   | 20 hanging chains of 25 links each, joined by ball / pin joints, anchored to the world. Joint-heavy. | 500 links + 500 joints |
-
-Spawning is seeded (`SEED = 1337`), so every run of a given scenario is
-identical, and the two engines being compared get byte-identical layouts.
+This is deliberately a side project inside the repo. It reads the samples; it
+does not change them, the demo shell, or the GDExtension. Nothing under
+`godot/demo/samples/` or `godot/demo/common/` is touched, and the extension has
+no comparison-specific code paths.
 
 ## Running
 
-Use the launcher (it handles engine selection, see below):
-
 ```sh
 export GODOT=/path/to/Godot_v4.7-stable_linux.x86_64   # or rely on the default
-godot/tools/compare.sh <engine> <scenario> [extra godot args...]
+godot/tools/compare.sh <engine> [sample] [extra godot args...]
 
-# engine   = box3d | godot | jolt
-# scenario = pyramid | pile | stir | chain
+# engine = box3d | godot | jolt
+# sample = any scene name under godot/demo/samples/ (default: pyramid)
 ```
 
-Examples:
-
 ```sh
-godot/tools/compare.sh box3d pyramid          # windowed, for recording
+godot/tools/compare.sh box3d pyramid
 godot/tools/compare.sh godot pyramid
-godot/tools/compare.sh jolt  pyramid
-
-godot/tools/compare.sh jolt pile --headless --quit-after 600 --fixed-fps 60   # timing / CI
+godot/tools/compare.sh jolt  pyramid --resolution 1920x1080
 ```
 
-Or launch the scene directly (box3d only, since it needs no engine setting):
+Keys: `Left` / `Right` (or `[` / `]`) change sample, `R` reloads, `Tab` toggles
+the profiler panel, `Esc` quits. **Samples switch live; engines do not** - see
+below.
+
+## How the same scene runs on three engines
+
+Box3D runs each sample **exactly as authored**: the `Box3DWorld` and `Box3DBody`
+nodes in the `.tscn`, untouched.
+
+The native engines cannot do that. 18 of the 32 samples carry `: Box3DBody`
+static type annotations, and `common/cube.gd` and `common/bomb.gd` literally
+`extends Box3DBody`, so swapping nodes for `RigidBody3D` breaks GDScript
+type-checking before physics is even involved. `tests/test_samples.gd` also
+asserts every sample has a child named exactly `Box3DWorld`, which rules out
+shipping per-engine scene variants.
+
+So instead:
+
+```
+sample .tscn --> RigExtract --> neutral rig --> RigNative --> RigidBody3D etc.
+```
+
+`PackedScene.instantiate()` runs `_init` but **not** `_ready` or `_enter_tree`,
+so `rig_extract.gd` can instantiate a sample, walk the still-unparented tree
+reading authored physics properties, and free it again with no Box3D world ever
+created and no sample script side effects. `rig_native.gd` then rebuilds that
+description natively.
+
+| file | role |
+|---|---|
+| `rig_extract.gd` | sample scene to backend-neutral rig description |
+| `rig_native.gd` | rig to `RigidBody3D` / `StaticBody3D` / `Joint3D` + fairness corrections |
+| `profiler_panel.gd` | the profiler UI, cloned from upstream's sample app |
+| `profile_feeds.gd` | three profiler data sources behind one interface |
+| `compare.gd` / `overlay.gd` | the harness shell and its HUD |
+| `_verify.gd` | headless check that all 32 samples extract and rebuild |
+
+## Choosing the engine, and why it needs a relaunch
+
+`physics/3d/physics_engine` is read **once at startup**. There is no runtime
+switch and no command-line flag, so `compare.sh` writes a throwaway
+`override.cfg` next to `project.godot` before launching.
+
+A stale `override.cfg` would silently switch the normal demo to another engine,
+so it is removed three ways: `compare.gd` deletes it in `_ready()` (Godot has
+already read it by then, and this is the one that survives a crash or a
+`kill -9`), `compare.sh` traps `EXIT`, and the next launch sweeps before writing.
+It is also gitignored.
+
+**Do not trust the setting to tell you what ran.** An unregistered engine name
+is not an error: Godot falls back to `DEFAULT` silently with nothing on stderr.
+(An earlier version of this harness wrote `"GodotPhysics"`, which is not a
+registered server; it worked only because `DEFAULT` resolves to GodotPhysics3D
+anyway.) `PhysicsServer3D.get_class()` does not help either - it returns
+`PhysicsServer3D` for both native engines.
+
+What does discriminate is behaviour. `JoltPhysicsServer3D::get_process_info()`
+is literally `return 0;`, so the active-object, collision-pair and island
+counters all read 0 under Jolt and real values under GodotPhysics3D. The harness
+probes that at physics tick 12 and paints a **red MISMATCH banner** across the
+bottom of the screen if the live engine is not the requested one, so a bad
+recording is impossible to miss.
+
+Valid values, verified on 4.7.stable: `DEFAULT`, `GodotPhysics3D`,
+`"Jolt Physics"`, `Dummy`. The Box3D run uses `Dummy` so the native server is
+not also stepping an empty space on our frame budget.
+
+## The profiler
+
+`Tab` toggles a panel cloned from the upstream box3d sample app
+(`samples/sample.cpp`), with the same rows, the same labels, and the same
+statistics - so a number here means what it means there:
+
+- 512-sample ring, one sample per **physics tick**, not per rendered frame
+- `now` = mean of the last 10 ticks, `avg` = mean over the whole live ring,
+  `max` = max over the live ring, recomputed each draw and self-healing
+  (spikes age out; there is no sticky max)
+- columns `section | now | avg | max | % step`, optional per-row sparklines
+- a flame strip normalised to step time
+- a collapsible tree derived from row indent
+
+**Box3D gets all 22 rows** (`pairs`, `collide`, `solve`, and inside `solve`:
+`prepare`, `velocities`, `warm start`, `bias`, `positions`, `relax`,
+`restitution`, `store`, `split islands`, then `transforms`, `joint events`,
+`hit events`, `refit BVH`, `sleep`, `bullets`, `sensors`), fed by
+`Box3DWorld.get_profile()` and `get_counters()`, which forward upstream's
+`b3World_GetProfile` / `b3World_GetCounters`.
+
+**Godot Physics and Jolt get one row.** This is not an oversight, and it is
+worth knowing before you pick an engine:
+
+> Both native engines *do* compute per-phase timings and emit them to the
+> `"servers"` debugger profiler. But `EngineDebugger.profiler_enable()` is a
+> no-op outside a debug session: `_toggle` is never called, `is_profiling()`
+> stays `false`, and every engine-side emitter is wrapped in `is_profiling()`,
+> so zero payloads arrive. Launching with `--remote-debug` does not help
+> either - `ServersDebugger` then owns the `"servers"` name and our tap cannot
+> register at all. Measured on 4.7.stable: 0 payloads after 200 physics ticks
+> under both engines.
+
+So a shipped game can read Box3D's solver breakdown at runtime and cannot read
+Godot's or Jolt's. The panel says so on screen rather than quietly showing a
+flat bar.
+
+Counters are similarly lopsided: GodotPhysics reports active objects, collision
+pairs and islands; **Jolt reports 0 for all three**, so the panel shows the
+harness's own body count there and says why.
+
+## What is matched, and what cannot be
+
+`rig_native.gd` corrects the things that would otherwise make the comparison
+dishonest. Each of these is a real divergence, not a rounding difference:
+
+| quantity | how it is matched |
+|---|---|
+| geometry, spawn transforms | one source of truth: the authored `.tscn` |
+| box / sphere / capsule | direct shape equivalents |
+| cylinder / cone | emitted as N-gon `ConvexPolygonShape3D`, because Box3D builds them as `cylinder_sides`-gon hulls internally. Godot's `CylinderShape3D` is a different (and experimental) shape |
+| mass | Godot has no density: `mass = sum(density * volume)` computed analytically per shape |
+| inertia + centre of mass | set explicitly. GodotPhysics otherwise uses an AABB approximation for capsule, cylinder, hull and concave shapes (its own source says `// use bad AABB approximation`); Jolt is exact. Unset, the two native engines would not even match each other |
+| friction / restitution values | written explicitly, never left to defaults (`PhysicsMaterial` defaults to friction 1.0, Box3D to 0.6) |
+| collision filtering | Box3D ANDs (`(A.layer & B.mask) && (B.layer & A.mask)`), Godot ORs. Where the OR model cannot express the authored matrix, layers are re-synthesized and the substitution is reported on screen |
+| per-world gravity | no native node equivalent, so it goes on the space via `PhysicsServer3D.area_set_param` |
+| timestep | fixed 60 Hz for all three |
+| camera | the sample's own `CameraStart`, identical per engine |
+| vsync | disabled, so a shared refresh cap cannot flatten the difference |
+
+**Not matchable**, and reported as on-screen badges when a sample hits them:
+
+- **Friction and restitution combine rules.** Box3D uses `sqrt(fA*fB)` and
+  `max(rA,rB)`; both native engines use `abs(min(fA,fB))` and
+  `clamp(rA+rB,0,1)`. Equal-valued pairs agree on friction but *not* on
+  restitution, where the native result is about double.
+- **Substeps vs iterations.** Box3D uses TGS Soft: each substep is a full pass
+  at `dt/N`. GodotPhysics' `solver_iterations` and Jolt's velocity/position
+  steps are iterations *within* one timestep. There is no equivalent setting, so
+  each engine runs at its own defaults and no iteration-parity claim is made.
+- **Threading.** Jolt multithreads internally through `WorkerThreadPool`
+  regardless of `run_on_separate_thread`; GodotPhysics3D is single-threaded;
+  Box3D has its own worker count. This is a real shipping property of each
+  engine and is left alone.
+- **Joints with no native equivalent.** Godot has 5 joint types. Wheel,
+  parallel and motor joints are skipped with a badge; slider motors are rebuilt
+  on `Generic6DOFJoint3D` because `SliderJoint3D` has no motor at all; joint
+  softness is ignored outright by Jolt.
+- **Per-shape materials.** Box3D sets friction and restitution per shape;
+  Godot's `PhysicsMaterial` is per body. Compound bodies are collapsed and the
+  substitution is reported.
+
+## Samples that do not port
+
+Six of the 32 are Box3D-only, which is a result rather than a gap in the
+harness. They still run, badged:
+
+| sample | why |
+|---|---|
+| `gyro_torque` | the Dzhanibekov effect needs the gyroscopic `w x (Iw)` term. GodotPhysics does not integrate it and Godot's Jolt module does not expose Jolt's toggle |
+| `car` | `Box3DWheelJoint` packs suspension spring, spin motor and steering into one constraint. `VehicleBody3D` is a raycast vehicle, a different model |
+| `explosion` | `b3World_Explode` applies impulse by projected area facing the blast. Nothing native does this |
+| `ragdoll` | the pose holds because every joint has an angular spring plus dry friction torque. Jolt ignores soft-limit parameters entirely |
+| `gyro_precession` | needs `allow_fast_rotation` to bypass the per-step rotation cap at 75 rad/s |
+| `huge_pyramid` | `Box3DMultiMeshRenderer` has no native equivalent, and Jolt's default `max_bodies` is 10240 against this scene's 16k |
+
+`gyro_precession` and `huge_pyramid` additionally build their bodies in
+`_ready()`, which the extractor deliberately never runs, so their native side
+shows only the authored ground plane.
+
+## Recording
+
+1. Launch each engine full-screen at a fixed resolution, one at a time. The
+   camera comes from the sample's own `CameraStart`, so the three clips register
+   when laid side by side.
+2. `Tab` for the profiler when you want the Box3D breakdown on screen.
+3. The HUD carries engine name, data-source proof, sample name, body count,
+   fps, frame avg/1%/max and sustained physics ticks per second, so a clip is
+   self-describing without a voiceover.
+
+## Verifying
 
 ```sh
-"$GODOT" --path godot/demo res://compare/compare.tscn -- --engine=box3d --scenario=stir
+"$GODOT" --headless --path godot/demo res://compare/_verify.tscn --quit-after 600
 ```
 
-## How the engine is selected — and how each proves it engaged
+Extracts and rebuilds all 32 samples, asserting rig well-formedness (every shape
+carries its kind-specific parameters, every body has a shape, every joint
+endpoint is in range). Prints one line per scene plus `[verify] ALL -> PASS`.
 
-Box3D is a GDExtension with its own world; it ignores Godot's physics server
-entirely. The native engines (Godot Physics, Jolt) are chosen by the project
-setting `physics/3d/physics_engine`, which Godot reads **once at startup** —
-there is no runtime switch and no command-line flag.
-
-`compare.sh` therefore writes a throwaway `override.cfg` next to
-`project.godot` (`3d/physics_engine="Jolt Physics"` or `"GodotPhysics"`),
-launches, and **always deletes it again** on exit (bash `trap`), so the normal
-demo is never left altered. For `box3d` no override is written. `override.cfg`
-is also `.gitignore`d so a stray one can't be committed.
-
-**Proof.** The overlay's second line, and a `[compare] ENGINE PROOF:` line
-printed to stdout at startup, report the engine actually in force:
-
-- box3d → `Box3D GDExtension · b3World_Step, substeps=4, 4 workers`
-- native → `native PhysicsServer3D · physics/3d/physics_engine = "<value>"`
-
-For native runs the name is derived from the **live** project setting, not the
-requested argument, so a missing override would show the truth (and log a
-warning). Verified engaged headless:
-
-```
-[compare] ENGINE PROOF: Box3D        -> Box3D GDExtension ...
-[compare] ENGINE PROOF: Godot Physics -> native PhysicsServer3D  ·  physics/3d/physics_engine = "GodotPhysics"
-[compare] ENGINE PROOF: Jolt Physics  -> native PhysicsServer3D  ·  physics/3d/physics_engine = "Jolt Physics"
-```
-
-## The overlay
-
-Top-left panel, sized for a screen recording:
-
-- **Engine name** (big) + the proof line, tinted per engine (Box3D cyan, Godot
-  blue, Jolt orange).
-- Scenario, body count, tick rate, substeps.
-- **`physics  N.NN ms / tick`** — the headline metric (green). This is the
-  honest cross-engine number: every scenario runs the same fixed 60 Hz step
-  with the same bodies, so the differentiator is how many milliseconds each
-  engine spends per physics tick (its headroom) — not the rendered frame rate,
-  which a shared vsync cap and the identical draw-call load would flatten.
-- FPS (self-measured, averaged) and process ms / draw calls for context.
-
-## What is matched, and what has no equivalent
-
-Matched exactly across all three engines:
-
-| quantity | value | how |
-|----------|-------|-----|
-| geometry / spawn positions | seeded, identical | one builder, `SEED=1337` |
-| box size | 1×1×1 (full extents) | `box_size` == `BoxShape3D.size` |
-| mass | `density × volume` | Box3D uses density 1.0; native `RigidBody3D.mass` is set to the same resulting mass |
-| friction | 0.6 | Box3D `friction`; native via a `PhysicsMaterial` |
-| restitution | 0.0 | Box3D `restitution`; native `PhysicsMaterial.bounce` |
-| gravity | 9.8 m/s² down | Box3D world gravity; native project `default_gravity` |
-| timestep | fixed 60 Hz | both step in `_physics_process` at `physics_ticks_per_second` |
-| camera | fixed per scenario | same eye/target for every engine |
-
-**Not matchable** — these are genuinely different solver designs, and the
-differences are the point of the comparison:
-
-- **Substeps vs iterations.** Box3D uses a soft-step solver with a substep
-  count (set to 4 here). Godot Physics exposes solver *iterations*
-  (`physics/3d/solver/solver_iterations`); Jolt uses velocity/position steps
-  (`physics/jolt_physics_3d/simulation/*`). There is no one-to-one mapping, so
-  each native engine runs at its own defaults and Box3D at 4 substeps. Tune
-  these in `project.godot` / the constants if you want a different operating
-  point, but document whatever you pick.
-- **Threading.** Box3D's solver is multithreaded (`worker_count = 4` here).
-  Godot Physics is single-threaded; Jolt multithreads internally by default.
-  This is a real, shipping property of each engine, left as-is.
-- **Friction / restitution combine rules.** Box3D combines with a geometric
-  mean; Godot multiplies; Jolt uses a geometric mean by default. With both
-  contacting surfaces set to the same 0.6 the spread is small, but it is not
-  zero.
-- **Contact softness, sleeping thresholds, CCD internals** differ per engine
-  and are left at each engine's defaults (the wrecking ball opts into CCD on
-  all three: Box3D `continuous`, native `continuous_cd`).
-
-## Recording flow
-
-1. Pick a scenario. Launch each engine full-screen at a fixed window size, one
-   at a time:
-   ```sh
-   godot/tools/compare.sh box3d pyramid
-   godot/tools/compare.sh godot pyramid
-   godot/tools/compare.sh jolt  pyramid
-   ```
-   The camera and overlay are identical, so the three clips register when laid
-   side-by-side (or in a 3-up grid) in your editor.
-2. For the `pyramid` collapse, the ball fires at tick 90 (~1.5 s in) on every
-   engine — a natural sync point. `pile` settles within a few seconds; `stir`
-   and `chain` run indefinitely, so cut whatever window you like.
-3. Read the green `physics ms / tick` number off each clip for the on-screen
-   verdict; the body count and FPS are there for context.
-4. `stir` is the best single clip for a "which solver stays cheap under
-   sustained contact" story; `pile` for settle time; `pyramid` for a dramatic
-   collapse; `chain` for joint behavior (expect the most visible divergence
-   here — joint solvers differ the most).
-
-Tip: add `--fixed-fps 60` to decouple the sim from your display's refresh if you
-want identical wall-clock pacing between captures.
+This lives in `compare/`, not `samples/`, so it does not change the 33
+`[samples]` lines the repo's verification ritual expects.

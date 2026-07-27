@@ -48,6 +48,83 @@ double Box3DWorld::get_step_time_ms() const {
 	return (double)last_step_usec.load(std::memory_order_relaxed) / 1000.0;
 }
 
+Dictionary Box3DWorld::get_profile() const {
+	Dictionary d;
+	if (!is_world_alive()) {
+		return d;
+	}
+	// The profile is rewritten by every b3World_Step, so an in-flight async
+	// step would hand back a half-updated struct.
+	join_async_step();
+	const b3Profile p = b3World_GetProfile(world_id);
+	d["step"] = p.step;
+	d["pairs"] = p.pairs;
+	d["collide"] = p.collide;
+	d["solve"] = p.solve;
+	d["solverSetup"] = p.solverSetup;
+	d["constraints"] = p.constraints;
+	d["prepareConstraints"] = p.prepareConstraints;
+	d["integrateVelocities"] = p.integrateVelocities;
+	d["warmStart"] = p.warmStart;
+	d["solveImpulses"] = p.solveImpulses;
+	d["integratePositions"] = p.integratePositions;
+	d["relaxImpulses"] = p.relaxImpulses;
+	d["applyRestitution"] = p.applyRestitution;
+	d["storeImpulses"] = p.storeImpulses;
+	d["splitIslands"] = p.splitIslands;
+	d["transforms"] = p.transforms;
+	d["sensorHits"] = p.sensorHits;
+	d["jointEvents"] = p.jointEvents;
+	d["hitEvents"] = p.hitEvents;
+	d["refit"] = p.refit;
+	d["bullets"] = p.bullets;
+	d["sleepIslands"] = p.sleepIslands;
+	d["sensors"] = p.sensors;
+	return d;
+}
+
+Dictionary Box3DWorld::get_counters() const {
+	Dictionary d;
+	if (!is_world_alive()) {
+		return d;
+	}
+	join_async_step();
+	const b3Counters c = b3World_GetCounters(world_id);
+	d["bodyCount"] = c.bodyCount;
+	d["shapeCount"] = c.shapeCount;
+	d["contactCount"] = c.contactCount;
+	d["jointCount"] = c.jointCount;
+	d["islandCount"] = c.islandCount;
+	d["stackUsed"] = c.stackUsed;
+	d["arenaCapacity"] = c.arenaCapacity;
+	d["staticTreeHeight"] = c.staticTreeHeight;
+	d["treeHeight"] = c.treeHeight;
+	d["satCallCount"] = c.satCallCount;
+	d["satCacheHitCount"] = c.satCacheHitCount;
+	d["byteCount"] = c.byteCount;
+	d["taskCount"] = c.taskCount;
+	d["awakeContactCount"] = c.awakeContactCount;
+	d["recycledContactCount"] = c.recycledContactCount;
+	d["distanceIterations"] = c.distanceIterations;
+	d["pushBackIterations"] = c.pushBackIterations;
+	d["rootIterations"] = c.rootIterations;
+	// Graph-color and manifold-size histograms, kept as arrays so a UI can
+	// draw them without knowing the bucket counts at compile time.
+	PackedInt32Array colors;
+	colors.resize(24);
+	for (int i = 0; i < 24; i++) {
+		colors.set(i, c.colorCounts[i]);
+	}
+	d["colorCounts"] = colors;
+	PackedInt32Array manifolds;
+	manifolds.resize(B3_CONTACT_MANIFOLD_COUNT_BUCKETS);
+	for (int i = 0; i < B3_CONTACT_MANIFOLD_COUNT_BUCKETS; i++) {
+		manifolds.set(i, c.manifoldCounts[i]);
+	}
+	d["manifoldCounts"] = manifolds;
+	return d;
+}
+
 void Box3DWorld::async_thread_main() {
 	std::unique_lock<std::mutex> lock(step_mutex);
 	while (true) {
@@ -962,6 +1039,8 @@ void Box3DWorld::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_max_linear_speed"), &Box3DWorld::get_max_linear_speed);
 	ClassDB::bind_method(D_METHOD("set_worker_count", "count"), &Box3DWorld::set_worker_count);
 	ClassDB::bind_method(D_METHOD("get_step_time_ms"), &Box3DWorld::get_step_time_ms);
+	ClassDB::bind_method(D_METHOD("get_profile"), &Box3DWorld::get_profile);
+	ClassDB::bind_method(D_METHOD("get_counters"), &Box3DWorld::get_counters);
 	ClassDB::bind_method(D_METHOD("set_async_step", "enabled"), &Box3DWorld::set_async_step);
 	ClassDB::bind_method(D_METHOD("get_async_step"), &Box3DWorld::get_async_step);
 	ClassDB::bind_method(D_METHOD("get_worker_count"), &Box3DWorld::get_worker_count);
