@@ -1,0 +1,8 @@
+name = "box3d-fast"
+main = "worker.js"
+compatibility_date = "2026-07-01"
+
+# Where the threaded export actually lives. The GitHub Pages workflow deploys
+# it under /fast/ next to the single-threaded fallback at the root.
+[vars]
+ORIGIN = "https://stink-o.github.io/box3d-godot/fast"

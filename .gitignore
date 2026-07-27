@@ -46,6 +46,7 @@ godot/msvc_capture.log
 # WebAssembly build output and the exported browser build.
 *.wasm
 /web/
+/webfast/
 
 # Exported Android packages (rebuild with: godot --headless --path godot/demo \
 # --export-debug "Android" bin/box3d_demo.apk). ~60 MB each -- not worth tracking.

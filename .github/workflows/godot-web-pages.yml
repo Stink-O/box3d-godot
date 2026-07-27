@@ -125,8 +125,13 @@ jobs:
       - name: Export
         run: |
           GODOT=~/godot-bin/"Godot_v${GODOT_VERSION}_linux.x86_64"
-          mkdir -p web
+          mkdir -p web/fast
           "$GODOT" --headless --path godot/demo --export-release "Web" ../../web/index.html
+          # The threaded build lives under /fast/, served through the Cloudflare
+          # Worker in godot/tools/web_fast_worker, which adds the COOP/COEP
+          # headers Pages cannot send. Visitors who hit this path directly get
+          # bounced to the fallback by the head_include in its export preset.
+          "$GODOT" --headless --path godot/demo --export-release "Web Threaded" ../../web/fast/index.html
 
       # Heal browsers that visited the short-lived threaded deploy: its service
       # worker outlives it and can serve the broken build from cache forever.
@@ -150,6 +155,13 @@ jobs:
             || { echo "exported extension is not the nothreads build; it will LinkError on Pages"; exit 1; }
           grep -q "self.registration.unregister" index.service.worker.js \
             || { echo "kill-switch service worker missing; stale-SW visitors stay broken"; exit 1; }
+          # /fast/ must be the THREADED variant (the worker exists to serve it)
+          # and must carry the un-isolated-visitor redirect.
+          test -s fast/index.html || { echo "threaded /fast/ export missing"; exit 1; }
+          ls fast/libbox3d_godot.web.*.wasm | grep -qv nothreads \
+            || { echo "/fast/ carries the wrong extension variant"; exit 1; }
+          grep -q "crossOriginIsolated" fast/index.html \
+            || { echo "/fast/ lacks the direct-access redirect"; exit 1; }
           wasm=$(ls libbox3d_godot.web.*.wasm 2>/dev/null | head -1)
           test -n "$wasm" || { echo "the Box3D extension wasm is not in the export"; exit 1; }
           # wasm magic: 0x00 'a' 's' 'm'

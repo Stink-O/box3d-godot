@@ -1460,7 +1460,13 @@ func _add_web_notice() -> void:
 	panel.add_child(row)
 
 	var label := Label.new()
-	label.text = "Browser preview: single-threaded solver on WebGL2. " 			+ "This is not how the project is meant to run -- for real " 			+ "performance, run the demo natively in Godot."
+	# The threaded build (hosted with real COOP/COEP headers) runs the solver
+	# on multiple workers; the single-threaded fallback does not. Same banner,
+	# honest wording for each.
+	if OS.has_feature("threads"):
+		label.text = "Browser preview on WebGL2. Faster than the fallback build, still not how the project is meant to run -- for real performance, run the demo natively in Godot."
+	else:
+		label.text = "Browser preview: single-threaded solver on WebGL2. This is not how the project is meant to run -- for real performance, run the demo natively in Godot."
 	label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.6))
 	label.add_theme_font_size_override("font_size", 15)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL

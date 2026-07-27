@@ -30,8 +30,11 @@ func _ready() -> void:
 	# build simulates half the pile -- the TOP half is dropped, keeping the
 	# footprint and the look while halving solver work. Desktop and Android are
 	# untouched, and the on-page banner already tells visitors this build is
-	# the preview, not the benchmark.
-	if OS.has_feature("web"):
+	# the preview, not the benchmark. The threaded web build (hosted where real
+	# COOP/COEP headers exist) runs the full pile: the "threads" feature tag is
+	# set on web exports with thread support, so only the single-threaded
+	# fallback pays the halving.
+	if OS.has_feature("web") and not OS.has_feature("threads"):
 		var cubes: Array[Node3D] = []
 		for c in get_children():
 			if c is Box3DBody:
