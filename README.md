@@ -54,6 +54,20 @@ Download the binaries for your platform from
 `godot/demo/bin/`, then open `godot/demo/project.godot` in **Godot 4.7**.
 To build instead, see [Building](godot/README.md#building).
 
+### Try it in a browser first
+
+**[stink-o.github.io/box3d-godot](https://stink-o.github.io/box3d-godot/)** runs
+the demo in a browser, no download. It is there so you can see what the binding
+does before deciding whether to install anything.
+
+**It is a preview, not the real thing.** Running the demo in Godot is the
+intended way and the only one that shows the binding at full speed. The browser
+build is slower on purpose and by circumstance: WebAssembly costs something over
+native, and it renders through the Compatibility (WebGL2) renderer because
+Godot 4.7 has no WebGPU. Judge performance from a desktop run, not from the
+page. Determinism on wasm is also unverified, so the browser build is not a
+reference for behaviour.
+
 **→ Full docs:** see **[`godot/README.md`](godot/README.md)**.
 
 Inspired by the [`box3d-unity`](https://github.com/timskap/box3d-unity) binding,

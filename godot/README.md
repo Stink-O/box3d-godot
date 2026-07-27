@@ -349,10 +349,11 @@ shell and verifies the menu + ball shooting.
 
 ## Building
 
-Prebuilt **Windows x86_64** binaries are committed in `demo/bin/`, so on Windows
-the demo runs straight from a fresh clone. On **Linux and macOS you build the
-library yourself** (only the Windows binaries ship; `.so` files are gitignored).
-On Windows, build only if you change the C/C++ sources.
+No build output is tracked. Either download the library for your platform from
+[Releases](https://github.com/Stink-O/box3d-godot/releases) and drop it into
+`demo/bin/`, or build it yourself as below. Binaries used to be committed for
+Windows; they drifted several upstream syncs out of date and shipped a demo
+that was quietly missing bindings, so they now ship against a tag instead.
 
 You need Python 3, SCons, and a C++17 compiler (GCC, Clang, or MSVC), plus the
 `godot-cpp` submodule. A plain clone will not build, so clone with submodules:
