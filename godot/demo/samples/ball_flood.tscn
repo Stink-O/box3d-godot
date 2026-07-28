@@ -79,6 +79,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 17, 0)
 rate = 0.01
 speed = 6.0
 spread = 1.1
+multimesh_render = true
 lifetime = 0.0
 max_alive = 0
 
@@ -87,6 +88,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17, 0)
 rate = 0.01
 speed = 6.0
 spread = 1.1
+multimesh_render = true
 lifetime = 0.0
 max_alive = 0
 
@@ -95,5 +97,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 17, 0)
 rate = 0.01
 speed = 6.0
 spread = 1.1
+multimesh_render = true
 lifetime = 0.0
 max_alive = 0

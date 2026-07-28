@@ -16,6 +16,7 @@ extends Node3D
 ## Drop one of these into a Box3DWorld, position it, tweak the exports, done.
 
 const Despawn = preload("res://common/despawn.gd")
+const BallCloud = preload("res://common/ball_cloud.gd")
 
 @export var rate: float = 0.65 ## seconds between spawns
 @export var speed: float = 1.0 ## initial speed along local -Y (down/forward)
@@ -35,6 +36,11 @@ const Despawn = preload("res://common/despawn.gd")
 @export var random_color: bool = true ## pick a random hue per ball
 @export var color: Color = Color(0.8, 0.8, 0.9) ## used when random_color is false
 @export var autostart: bool = true ## start spawning as soon as it's ready
+## Draw the balls through the world's ONE shared MultiMesh (common/
+## ball_cloud.gd) instead of a MeshInstance3D per ball. The win at thousands
+## of balls, where draw calls, not the solver, set the framerate: the Ball
+## Flood measured 21 fps and 45k draw calls per-instance vs one call clouded.
+@export var multimesh_render: bool = false
 
 var _timer: Timer
 var _rng := RandomNumberGenerator.new()
@@ -80,17 +86,19 @@ func _spawn() -> void:
 	b.restitution = restitution
 	b.friction = friction
 
-	var mi := MeshInstance3D.new()
-	var mesh := SphereMesh.new()
-	mesh.radius = radius
-	mesh.height = radius * 2.0
-	mi.mesh = mesh
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color.from_hsv(_rng.randf(), 0.7, 0.95) if random_color else color
-	mat.roughness = 0.3
-	mat.metallic = 0.2
-	mi.material_override = mat
-	b.add_child(mi)
+	var ball_color := Color.from_hsv(_rng.randf(), 0.7, 0.95) if random_color else color
+	if not multimesh_render:
+		var mi := MeshInstance3D.new()
+		var mesh := SphereMesh.new()
+		mesh.radius = radius
+		mesh.height = radius * 2.0
+		mi.mesh = mesh
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = ball_color
+		mat.roughness = 0.3
+		mat.metallic = 0.2
+		mi.material_override = mat
+		b.add_child(mi)
 
 	# Place the body at the emitter's CURRENT world transform BEFORE adding it
 	# to the world. A Box3DBody creates its physics body in _ready -- which
@@ -103,6 +111,8 @@ func _spawn() -> void:
 	b.position += _spread_offset()
 	world.add_child(b)
 	b.set_linear_velocity(-global_transform.basis.y.normalized() * speed)
+	if multimesh_render:
+		BallCloud.adopt_into(world, b, ball_color, radius)
 
 	# Self-owned lifetime -- the timer lives and dies with the ball (see
 	# common/despawn.gd for why that matters). Zero means immortal: the
@@ -117,10 +127,13 @@ func _spawn() -> void:
 ## The native twin of the spawn above: same material, same launch, but the
 ## body construction goes through WorldOps so a RigidBody3D comes out.
 func _spawn_native(world: Node3D) -> void:
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color.from_hsv(_rng.randf(), 0.7, 0.95) if random_color else color
-	mat.roughness = 0.3
-	mat.metallic = 0.2
+	var ball_color := Color.from_hsv(_rng.randf(), 0.7, 0.95) if random_color else color
+	var mat: StandardMaterial3D = null
+	if not multimesh_render:
+		mat = StandardMaterial3D.new()
+		mat.albedo_color = ball_color
+		mat.roughness = 0.3
+		mat.metallic = 0.2
 
 	var pos: Vector3 = world.global_transform.affine_inverse() * global_position
 	# A couple of centimetres of jitter: at fast rates consecutive balls
@@ -135,6 +148,8 @@ func _spawn_native(world: Node3D) -> void:
 	if b == null:
 		return
 	WorldOps.set_linear_velocity(b, -global_transform.basis.y.normalized() * speed)
+	if multimesh_render:
+		BallCloud.adopt_into(world, b, ball_color, radius)
 	if lifetime > 0.0:
 		Despawn.attach(b, lifetime)
 	_alive.append(b)
