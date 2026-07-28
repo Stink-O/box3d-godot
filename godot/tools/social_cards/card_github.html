@@ -1,0 +1,53 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+  * { margin: 0; padding: 0; }
+  body { width: 1280px; height: 640px; overflow: hidden; font-family: "Cantarell", "Noto Sans", sans-serif; }
+  .card {
+    position: relative; width: 1280px; height: 640px;
+    background-color: #0a0d14;
+    background-image: url("social_bg.jpg");
+    background-size: 1500px auto;
+    background-position: 160px -120px;
+    background-repeat: no-repeat;
+  }
+  .shade {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(90deg, #0a0d14 0%, #0a0d14 26%, rgba(10,13,20,0.86) 42%, rgba(10,13,20,0.3) 68%, rgba(10,13,20,0.08) 100%),
+      linear-gradient(0deg, rgba(10,13,20,0.5) 0%, rgba(10,13,20,0) 28%);
+  }
+  .text { position: absolute; left: 72px; top: 50%; transform: translateY(-50%); }
+  h1 {
+    font-weight: 800; font-size: 148px; line-height: 0.95;
+    color: #ffffff; letter-spacing: -2px;
+    text-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+  h2 {
+    font-weight: 800; font-size: 74px; line-height: 1.1;
+    color: #6fb1e4; letter-spacing: 0;
+    margin-top: 6px; text-shadow: 0 3px 18px rgba(0,0,0,0.5);
+  }
+  h2 .x { color: #ffffff; font-weight: 400; }
+  h2 { display: flex; align-items: center; gap: 20px; }
+  h2 img { height: 76px; width: 76px; filter: drop-shadow(0 3px 12px rgba(0,0,0,0.5)); }
+  .tag {
+    margin-top: 30px; font-size: 30px; line-height: 1.35; font-weight: 400;
+    color: #e8ecf2; max-width: 560px; text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  }
+  .meta {
+    margin-top: 26px; font-size: 24px; font-weight: 700;
+    color: #9fb6c9; letter-spacing: 1px;
+  }
+  .meta b { color: #d8e6f2; }
+</style></head>
+<body>
+  <div class="card">
+    <div class="shade"></div>
+    <div class="text">
+      <h1>BOX3D</h1>
+      <h2><span class="x">&times;</span> <img src="godot_icon.svg" alt=""> <span>GODOT</span></h2>
+      <p class="tag">The new 3D physics engine from the creator of Box2D, running in Godot.</p>
+      <p class="meta"><b>16,000+ bodies</b> &nbsp;&middot;&nbsp; real time &nbsp;&middot;&nbsp; open source</p>
+    </div>
+  </div>
+</body></html>

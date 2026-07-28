@@ -1,0 +1,46 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+  * { margin: 0; padding: 0; }
+  body { width: 630px; height: 500px; overflow: hidden; font-family: "Cantarell", "Noto Sans", sans-serif; }
+  .card {
+    position: relative; width: 630px; height: 500px;
+    background-image: url("social_bg.jpg");
+    background-size: 165%;
+    background-position: 62% 40%;
+  }
+  .shade {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(10,13,20,0.88) 0%, rgba(10,13,20,0.55) 30%, rgba(10,13,20,0.08) 60%, rgba(10,13,20,0.55) 100%);
+  }
+  .text { position: absolute; left: 40px; top: 38px; }
+  h1 {
+    font-weight: 800; font-size: 92px; line-height: 0.95;
+    color: #ffffff; letter-spacing: -1px;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.55);
+  }
+  h2 {
+    font-weight: 800; font-size: 46px; line-height: 1.1;
+    color: #6fb1e4; margin-top: 4px; text-shadow: 0 3px 14px rgba(0,0,0,0.55);
+  }
+  h2 .x { color: #ffffff; font-weight: 400; }
+  h2 { display: flex; align-items: center; gap: 13px; }
+  h2 img { height: 48px; width: 48px; filter: drop-shadow(0 2px 9px rgba(0,0,0,0.5)); }
+  .meta {
+    position: absolute; left: 40px; bottom: 30px;
+    font-size: 21px; font-weight: 700;
+    color: #d8e6f2; letter-spacing: 0.5px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.7);
+  }
+  .meta span { color: #9fb6c9; }
+</style></head>
+<body>
+  <div class="card">
+    <div class="shade"></div>
+    <div class="text">
+      <h1>BOX3D</h1>
+      <h2><span class="x">&times;</span> <img src="godot_icon.svg" alt=""> <span>GODOT</span></h2>
+    </div>
+    <p class="meta">16,000+ bodies <span>&middot; real time &middot; open source</span></p>
+  </div>
+</body></html>
