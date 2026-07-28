@@ -114,6 +114,10 @@ static func from_scene(path: String) -> Dictionary:
 	# same layout through rig_bodies() instead: an Array of Dictionaries with
 	# "position" and optional "size" / "density" / "friction" / "restitution" /
 	# "material", each becoming a dynamic box body with a synthesized visual.
+	# Entries: "position" or a full "transform"; optional "size" (box, the
+	# default kind), "hull_mesh" (a convex-hull body instead, the mesh doubling
+	# as the visual), "density" / "friction" / "restitution", "material", and
+	# initial "linear_velocity" / "angular_velocity".
 	if root.has_method(&"rig_bodies"):
 		_add_generated_bodies(root.rig_bodies(), rig)
 	_resolve_joints(ctx)
@@ -244,25 +248,42 @@ static func _add_generated_bodies(entries: Array, rig: Dictionary) -> void:
 	for e in entries:
 		if not (e is Dictionary):
 			continue
-		var size: Vector3 = e.get("size", Vector3.ONE)
-		var mesh: Mesh = _unit_box_mesh
-		if size != Vector3.ONE:
-			var bm := BoxMesh.new()
-			bm.size = size
-			mesh = bm
-		bodies.append({
+		var shape := {
+			"transform": Transform3D.IDENTITY,
+			"density": float(e.get("density", 1.0)),
+			"friction": float(e.get("friction", 0.6)),
+			"restitution": float(e.get("restitution", 0.0)),
+		}
+		var mesh: Mesh
+		var hull: Variant = e.get("hull_mesh")
+		if hull is Mesh:
+			mesh = hull
+			# Same dedup _hull_from_mesh applies: identical hull, fewer points.
+			var seen := {}
+			var pts := PackedVector3Array()
+			for v: Vector3 in (hull as Mesh).get_faces():
+				if not seen.has(v):
+					seen[v] = true
+					pts.append(v)
+			shape["kind"] = "hull"
+			shape["points"] = pts
+		else:
+			var size: Vector3 = e.get("size", Vector3.ONE)
+			mesh = _unit_box_mesh
+			if size != Vector3.ONE:
+				var bm := BoxMesh.new()
+				bm.size = size
+				mesh = bm
+			shape["kind"] = "box"
+			shape["size"] = size
+		var xf: Transform3D = e.get("transform",
+				Transform3D(Basis(), e.get("position", Vector3.ZERO)))
+		var body := {
 			"id": bodies.size(),
 			"name": String(e.get("name", "block_%d" % bodies.size())),
-			"transform": Transform3D(Basis(), e.get("position", Vector3.ZERO)),
+			"transform": xf,
 			"type": "dynamic",
-			"shapes": [{
-				"kind": "box",
-				"size": size,
-				"transform": Transform3D.IDENTITY,
-				"density": float(e.get("density", 1.0)),
-				"friction": float(e.get("friction", 0.6)),
-				"restitution": float(e.get("restitution", 0.0)),
-			}],
+			"shapes": [shape],
 			"linear_damping": 0.0,
 			"angular_damping": 0.05,
 			"gravity_scale": 1.0,
@@ -279,7 +300,12 @@ static func _add_generated_bodies(entries: Array, rig: Dictionary) -> void:
 				"material": e.get("material"),
 				"layers": 1,
 			}],
-		})
+		}
+		if e.has("linear_velocity"):
+			body["linear_velocity"] = e["linear_velocity"]
+		if e.has("angular_velocity"):
+			body["angular_velocity"] = e["angular_velocity"]
+		bodies.append(body)
 
 
 # --- Visuals ----------------------------------------------------------------

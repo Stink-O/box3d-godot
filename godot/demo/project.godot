@@ -39,6 +39,9 @@ jolt_physics_3d/limits/max_bodies=32768
 jolt_physics_3d/limits/max_body_pairs=131072
 jolt_physics_3d/limits/max_contact_constraints=65536
 jolt_physics_3d/limits/temporary_memory_buffer_size=64
+; The gyro tops spin at 75 rad/s; Jolt's default clamp (~47) would slow them
+; on spawn and they would topple instead of precessing.
+jolt_physics_3d/limits/max_angular_velocity=150.0
 
 [rendering]
 

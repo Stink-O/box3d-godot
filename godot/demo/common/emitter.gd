@@ -7,8 +7,11 @@ extends Node3D
 ##
 ## Balls launch with an initial velocity along the emitter's local -Y axis
 ## (straight down for an unrotated emitter; tilt or rotate the node to fire
-## sideways/"forward" instead) and are added to the nearest Box3DWorld
-## ancestor, whichever node that ends up being.
+## sideways/"forward" instead) and are added to the nearest world ancestor --
+## a Box3DWorld, or the NativeWorld stand-in when the engine selector rebuilt
+## the sample for Godot Physics / Jolt (main.gd carries this node across the
+## rebuild whole, script and exports included, because RigExtract has nothing
+## to extract from a spawner).
 ##
 ## Drop one of these into a Box3DWorld, position it, tweak the exports, done.
 
@@ -30,7 +33,7 @@ const Despawn = preload("res://common/despawn.gd")
 
 var _timer: Timer
 var _rng := RandomNumberGenerator.new()
-var _alive: Array[Box3DBody] = []  ## live balls, oldest first (for the max_alive cap)
+var _alive: Array[Node3D] = []  ## live balls, oldest first (for the max_alive cap)
 
 
 func _ready() -> void:
@@ -45,10 +48,10 @@ func _ready() -> void:
 		_timer.start()
 
 
-func _find_world() -> Box3DWorld:
+func _find_world() -> Node3D:
 	var n: Node = get_parent()
 	while n != null:
-		if n is Box3DWorld:
+		if n is Box3DWorld or n is NativeWorld:
 			return n
 		n = n.get_parent()
 	return null
@@ -60,6 +63,10 @@ func _spawn() -> void:
 
 	var world := _find_world()
 	if world == null:
+		return
+
+	if WorldOps.is_native(world):
+		_spawn_native(world)
 		return
 
 	var b := Box3DBody.new()
@@ -95,12 +102,35 @@ func _spawn() -> void:
 	# common/despawn.gd for why that matters).
 	Despawn.attach(b, lifetime)
 
-	# Count-based cap: track this ball, drop refs to any that already died on
-	# their own (lifetime timer), then if we're still over max_alive free the
-	# oldest living ones so only max_alive of this emitter's balls ever coexist.
 	_alive.append(b)
+	_track_alive()
+
+
+## The native twin of the spawn above: same material, same launch, but the
+## body construction goes through WorldOps so a RigidBody3D comes out.
+func _spawn_native(world: Node3D) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color.from_hsv(_rng.randf(), 0.7, 0.95) if random_color else color
+	mat.roughness = 0.3
+	mat.metallic = 0.2
+
+	var pos: Vector3 = world.global_transform.affine_inverse() * global_position
+	var b := WorldOps.spawn_sphere(world, pos, radius, 1.0, mat, false,
+			restitution, 0xFFFFFFFF, friction)
+	if b == null:
+		return
+	WorldOps.set_linear_velocity(b, -global_transform.basis.y.normalized() * speed)
+	Despawn.attach(b, lifetime)
+	_alive.append(b)
+	_track_alive()
+
+
+func _track_alive() -> void:
+	# Count-based cap: drop refs to balls that already died on their own
+	# (lifetime timer), then if we're still over max_alive free the oldest
+	# living ones so only max_alive of this emitter's balls ever coexist.
 	_alive = _alive.filter(func(x): return is_instance_valid(x))
 	if max_alive > 0:
 		while _alive.size() > max_alive:
-			var oldest: Box3DBody = _alive.pop_front()
+			var oldest: Node3D = _alive.pop_front()
 			oldest.queue_free()

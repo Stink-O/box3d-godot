@@ -1363,6 +1363,21 @@ func _add_native_dressing(path: String, stage: Node3D) -> void:
 		_strip_scripts(copy)
 		deco.add_child(copy)
 		copy.transform = xf
+	# Runtime spawners survive by COPY, not by rig: an emitter is a plain
+	# Node3D whose script spawns balls, so RigExtract has nothing to extract
+	# and the decoration pass above skips everything under the world. Its
+	# script is backend-aware (emitter.gd spawns through WorldOps), so the
+	# node comes across whole -- script, exports and children -- parented
+	# under the stand-in world its spawn loop looks for.
+	var native_world := stage.get_node_or_null("Box3DWorld")
+	if world != null and native_world != null:
+		for node in root.find_children("*", "", true, false):
+			var s := node.get_script() as Script
+			if s == null or s.resource_path != "res://common/emitter.gd":
+				continue
+			var copy := (node as Node3D).duplicate() as Node3D
+			native_world.add_child(copy)
+			copy.transform = _relative_xform(node as Node3D, world)
 	_add_camera_marker(root, stage)
 	root.free()
 

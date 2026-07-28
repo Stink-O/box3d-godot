@@ -30,6 +30,29 @@ var camera_look_at := Vector3(-3.0, 2.0, -3.0)  # grid center
 func _ready() -> void:
 	var world: Node = get_node("Box3DWorld")
 	var mesh := _build_top_mesh()
+	for e: Dictionary in rig_bodies():
+		var body := Box3DBody.new()
+		body.shape_type = Box3DBody.HULL
+		body.collision_mesh = mesh
+		body.allow_fast_rotation = true  # 75 rad/s exceeds the default cap
+		body.transform = e["transform"]
+		var vis := MeshInstance3D.new()
+		vis.mesh = mesh
+		vis.material_override = e["material"]
+		body.add_child(vis)
+		world.add_child(body)
+		# Spin about the top's own (tilted) symmetry axis, like upstream.
+		body.set_angular_velocity(e["angular_velocity"])
+
+
+## One layout for both builders: _ready above consumes it to make Box3D
+## bodies, and RigExtract consumes it for the native rebuild (the tops are
+## generated here in code, so _ready never runs on the instance it walks and
+## the rig would otherwise come out empty). Native engines lack
+## allow_fast_rotation; Jolt's max_angular_velocity is raised in
+## project.godot so the 75 rad/s spin at least survives the clamp.
+func rig_bodies() -> Array:
+	var mesh := _build_top_mesh()
 	var mats: Array[StandardMaterial3D] = []
 	for c in COLORS:
 		var m := StandardMaterial3D.new()
@@ -39,21 +62,18 @@ func _ready() -> void:
 		mats.append(m)
 
 	var tilt := Basis(Vector3(0, 0, 1), deg_to_rad(TILT_DEG))
+	var out: Array = []
 	for x in COUNT:
 		for z in COUNT:
-			var body := Box3DBody.new()
-			body.shape_type = Box3DBody.HULL
-			body.collision_mesh = mesh
-			body.allow_fast_rotation = true  # 75 rad/s exceeds the default cap
-			body.transform = Transform3D(
+			var xf := Transform3D(
 				tilt, Vector3((x - 4) * SEPARATION, TOP_HEIGHT, (z - 4) * SEPARATION))
-			var vis := MeshInstance3D.new()
-			vis.mesh = mesh
-			vis.material_override = mats[(x + z) % mats.size()]
-			body.add_child(vis)
-			world.add_child(body)
-			# Spin about the top's own (tilted) symmetry axis, like upstream.
-			body.set_angular_velocity(body.global_basis * Vector3(0, SPIN, 0))
+			out.append({
+				"transform": xf,
+				"hull_mesh": mesh,
+				"material": mats[(x + z) % mats.size()],
+				"angular_velocity": xf.basis * Vector3(0, SPIN, 0),
+			})
+	return out
 
 
 ## The top: a 7-gon rim at height 2, radius 2, closed by a flat lid, tapering

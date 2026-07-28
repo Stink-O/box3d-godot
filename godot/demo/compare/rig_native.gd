@@ -215,6 +215,13 @@ static func _apply_dynamics(rb: RigidBody3D, b: Dictionary, props: Array,
 		rb.contact_monitor = true
 		rb.max_contacts_reported = CONTACT_REPORTS
 
+	# Only generated bodies carry these (an authored scene's initial motion is
+	# script-imparted and never reaches the rig): the gyro tops spawn spinning.
+	if b.has("linear_velocity"):
+		rb.linear_velocity = b["linear_velocity"]
+	if b.has("angular_velocity"):
+		rb.angular_velocity = b["angular_velocity"]
+
 	# Both engines apply their locks in the body's own axes, so these are 1:1.
 	var lin: Array = b.get("lock_linear", [])
 	var ang: Array = b.get("lock_angular", [])

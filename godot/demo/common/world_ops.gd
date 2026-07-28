@@ -62,17 +62,20 @@ static func is_dynamic_body(node) -> bool:
 
 # --- Spawning ---------------------------------------------------------------
 
-## The camera's projectile. `pos` is local to `world`; `restitution` and `mask`
-## carry the shot's own material and its "fly through invisible guards" filter.
+## The camera's projectile (and the emitter's marble). `pos` is local to
+## `world`; `restitution` and `mask` carry the shot's own material and its
+## "fly through invisible guards" filter. `friction` only reaches the native
+## branch: the Box3D branch below is frozen, and its callers all want the
+## Box3D shape default this parameter defaults to anyway.
 static func spawn_sphere(world, pos: Vector3, radius: float, density: float,
 		mat: Material, continuous: bool, restitution := 0.0,
-		mask := 0xFFFFFFFF) -> Node3D:
+		mask := 0xFFFFFFFF, friction := DEFAULT_FRICTION) -> Node3D:
 	if world == null:
 		return null
 
 	if is_native(world):
 		var rb := _make_native_sphere(radius, density, mat, continuous,
-				restitution, mask)
+				restitution, mask, friction)
 		rb.position = pos
 		world.add_child(rb)
 		return rb
@@ -390,7 +393,8 @@ static func _native_root_body(packed: PackedScene, parent: Node3D) -> void:
 
 
 static func _make_native_sphere(radius: float, density: float, mat: Material,
-		continuous: bool, restitution: float, mask: int) -> RigidBody3D:
+		continuous: bool, restitution: float, mask: int,
+		friction := DEFAULT_FRICTION) -> RigidBody3D:
 	var body := RigidBody3D.new()
 	# Box3D derives mass from a density and the shape's volume; Godot has
 	# neither, so integrate the one shape being built here.
@@ -405,7 +409,7 @@ static func _make_native_sphere(radius: float, density: float, mat: Material,
 	body.angular_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
 	body.angular_damp = 0.05
 	var pm := PhysicsMaterial.new()
-	pm.friction = DEFAULT_FRICTION
+	pm.friction = friction
 	pm.bounce = restitution
 	pm.rough = false
 	pm.absorbent = false
