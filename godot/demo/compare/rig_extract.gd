@@ -108,6 +108,14 @@ static func from_scene(path: String) -> Dictionary:
 		"gaps": {},              # gap key -> count
 	}
 	_walk(origin, Transform3D.IDENTITY, ctx)
+	# Scenes that BUILD their bodies in _ready (huge_pyramid generates 16k
+	# blocks in code) have nothing in the .tscn for the walk to find, and
+	# _ready never runs on this unparented instance. Such scenes describe the
+	# same layout through rig_bodies() instead: an Array of Dictionaries with
+	# "position" and optional "size" / "density" / "friction" / "restitution" /
+	# "material", each becoming a dynamic box body with a synthesized visual.
+	if root.has_method(&"rig_bodies"):
+		_add_generated_bodies(root.rig_bodies(), rig)
 	_resolve_joints(ctx)
 	_write_unsupported(ctx)
 
@@ -222,11 +230,70 @@ static func _body_type_name(v: int) -> String:
 	return "dynamic"
 
 
+# --- Generated bodies -------------------------------------------------------
+
+## Every generated block in a scene shares this one mesh; a 16k-body pyramid
+## must not allocate 16k BoxMeshes just to be looked at.
+static var _unit_box_mesh: BoxMesh = null
+
+
+static func _add_generated_bodies(entries: Array, rig: Dictionary) -> void:
+	if _unit_box_mesh == null:
+		_unit_box_mesh = BoxMesh.new()  # 1x1x1, the generated-block default
+	var bodies: Array = rig["bodies"]
+	for e in entries:
+		if not (e is Dictionary):
+			continue
+		var size: Vector3 = e.get("size", Vector3.ONE)
+		var mesh: Mesh = _unit_box_mesh
+		if size != Vector3.ONE:
+			var bm := BoxMesh.new()
+			bm.size = size
+			mesh = bm
+		bodies.append({
+			"id": bodies.size(),
+			"name": String(e.get("name", "block_%d" % bodies.size())),
+			"transform": Transform3D(Basis(), e.get("position", Vector3.ZERO)),
+			"type": "dynamic",
+			"shapes": [{
+				"kind": "box",
+				"size": size,
+				"transform": Transform3D.IDENTITY,
+				"density": float(e.get("density", 1.0)),
+				"friction": float(e.get("friction", 0.6)),
+				"restitution": float(e.get("restitution", 0.0)),
+			}],
+			"linear_damping": 0.0,
+			"angular_damping": 0.05,
+			"gravity_scale": 1.0,
+			"continuous": false,
+			"collision_layer": 1,
+			"collision_mask": 0xFFFFFFFF,
+			"lock_linear": [false, false, false],
+			"lock_angular": [false, false, false],
+			"contact_monitor": false,
+			"is_sensor": false,
+			"visuals": [{
+				"mesh": mesh,
+				"transform": Transform3D.IDENTITY,
+				"material": e.get("material"),
+				"layers": 1,
+			}],
+		})
+
+
 # --- Visuals ----------------------------------------------------------------
 
 static func _extract_visuals(body: Node) -> Array:
 	var out: Array = []
 	_collect_visuals(body, Transform3D.IDENTITY, out)
+	# Materials assigned in _ready (cube.gd picks its palette color there) do
+	# not exist on this unparented instance; scripts that color themselves at
+	# runtime expose the same choice through rig_visual_material() instead.
+	if body.has_method(&"rig_visual_material"):
+		for vis: Dictionary in out:
+			if vis.get("material") == null:
+				vis["material"] = body.rig_visual_material()
 	return out
 
 

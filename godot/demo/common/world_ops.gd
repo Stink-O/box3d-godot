@@ -333,7 +333,13 @@ static func _native_authored_scene(world, packed: PackedScene, xf: Transform3D,
 		# same rig in full.
 		RigNative.build(rig, container)
 
+	# On the Box3D side the scene ROOT owns the props (bomb.tscn's root IS the
+	# body); here the root is this plain container, so the bodies inside must
+	# get the same offer or the camera's blast_impulse / collision_mask writes
+	# would silently land on a Node3D that owns none of them.
 	_apply_props(container, props)
+	for body in bodies_in(container):
+		_apply_props(body, props)
 	world.add_child(container)
 	return container
 
@@ -343,11 +349,11 @@ static func _native_authored_scene(world, packed: PackedScene, xf: Transform3D,
 ## in the scene that origin is the root itself. Rebuild that single body from
 ## the root's own properties rather than fork the extractor over one case.
 ##
-## The SCRIPT cannot come across. bomb.gd extends Box3DBody, and its fuse ->
-## blink -> detonate chain ends in Box3DWorld.explode(), an impulse-per-contact-
-## AREA blast with no native counterpart (ExplosionFX.blast is typed to
-## Box3DWorld too). So on a native engine a thrown bomb is an inert weight: it
-## flies and it hits, it does not go off.
+## The SCRIPT cannot come across as-is -- bomb.gd extends Box3DBody -- but the
+## bomb's behaviour has a hand-written native twin (native_bomb.gd, same fuse /
+## blink / impact rules, detonating through ExplosionFX.blast's native branch),
+## attached below when the authored root carries bomb.gd. Any other root script
+## stays stripped.
 static func _native_root_body(packed: PackedScene, parent: Node3D) -> void:
 	var src := packed.instantiate()
 	if src == null:
@@ -373,6 +379,11 @@ static func _native_root_body(packed: PackedScene, parent: Node3D) -> void:
 			var copy := (child as Node3D).duplicate(0) as Node3D
 			_strip_scripts(copy)
 			body.add_child(copy)
+
+	var src_script := src.get_script() as Script
+	if src_script != null and src_script.resource_path == "res://common/bomb.gd":
+		# Before add_child, so the twin's _ready runs on tree entry.
+		body.set_script(load("res://common/native_bomb.gd"))
 
 	parent.add_child(body)
 	src.free()

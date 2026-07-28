@@ -16,10 +16,9 @@ const PALETTE_SIZE := 24
 static var _palette: Array[StandardMaterial3D] = []
 
 
-func _ready() -> void:
-	var mesh := get_node_or_null("MeshInstance3D") as MeshInstance3D
-	if mesh == null:
-		return
+## One shared material, random hue. Static so the native rebuild can color its
+## bodies from the identical palette.
+static func pick_material() -> StandardMaterial3D:
 	if _palette.is_empty():
 		for i in PALETTE_SIZE:
 			var m := StandardMaterial3D.new()
@@ -28,4 +27,19 @@ func _ready() -> void:
 			m.albedo_color = Color.from_hsv(float(i) / PALETTE_SIZE, 0.5, 0.95)
 			m.roughness = 0.8
 			_palette.append(m)
-	mesh.material_override = _palette[randi() % PALETTE_SIZE]
+	return _palette[randi() % PALETTE_SIZE]
+
+
+func _ready() -> void:
+	var mesh := get_node_or_null("MeshInstance3D") as MeshInstance3D
+	if mesh == null:
+		return
+	mesh.material_override = pick_material()
+
+
+## The color above is assigned in _ready, which never runs on the unparented
+## instance RigExtract walks — so the rig would carry a null material and the
+## native rebuild rendered every cube plain. The extractor asks for this
+## instead wherever a visual has no authored material.
+func rig_visual_material() -> Material:
+	return pick_material()
