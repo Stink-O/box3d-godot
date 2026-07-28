@@ -30,6 +30,15 @@ window/handheld/orientation=4
 [physics]
 
 common/physics_interpolation=true
+; Jolt's default caps are far below the Huge Pyramid's 16,290 blocks: bodies
+; past max_bodies (10240) are silently never created, which left the top half
+; of the pyramid frozen in the air while the bottom half collapsed. Only read
+; when the engine selector has switched the run to Jolt; Box3D and Godot
+; Physics ignore them.
+jolt_physics_3d/limits/max_bodies=32768
+jolt_physics_3d/limits/max_body_pairs=131072
+jolt_physics_3d/limits/max_contact_constraints=65536
+jolt_physics_3d/limits/temporary_memory_buffer_size=64
 
 [rendering]
 
