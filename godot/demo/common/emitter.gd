@@ -115,6 +115,12 @@ func _spawn_native(world: Node3D) -> void:
 	mat.metallic = 0.2
 
 	var pos: Vector3 = world.global_transform.affine_inverse() * global_position
+	# A couple of centimetres of jitter: at fast rates consecutive balls
+	# overlap on the exact same line, and Godot Physics resolves a perfectly
+	# axis-aligned sphere column purely vertically -- the stack extrudes
+	# upward forever instead of toppling and rolling. Box3D happens to break
+	# that symmetry on its own, so its branch stays untouched.
+	pos += Vector3(_rng.randf_range(-0.02, 0.02), 0.0, _rng.randf_range(-0.02, 0.02))
 	var b := WorldOps.spawn_sphere(world, pos, radius, 1.0, mat, false,
 			restitution, 0xFFFFFFFF, friction)
 	if b == null:
