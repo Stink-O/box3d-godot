@@ -30,7 +30,7 @@ upstream engine sources are unchanged; everything Godot-specific lives in
 
 
 
-https://github.com/user-attachments/assets/ce0d9806-9d35-4d24-9457-4ab83e761230
+<img width="620" height="336" alt="pyramid_boom" src="https://github.com/user-attachments/assets/5f9e5d4d-092c-4286-b80b-9d4fb3b6ae62" />
 
 
 
