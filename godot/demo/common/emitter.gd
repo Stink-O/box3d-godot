@@ -22,7 +22,7 @@ const Despawn = preload("res://common/despawn.gd")
 @export var radius: float = 0.25 ## sphere radius
 @export var restitution: float = 0.15
 @export var friction: float = 0.3
-@export var lifetime: float = 13.0 ## seconds before a spawned ball self-frees
+@export var lifetime: float = 13.0 ## seconds before a spawned ball self-frees (0 = live forever)
 ## Hard cap on how many of THIS emitter's balls exist at once. When a new ball
 ## would exceed it, the oldest one is freed immediately (0 = no cap, rely on
 ## lifetime only). Set this to decide how busy the scene gets.
@@ -99,8 +99,10 @@ func _spawn() -> void:
 	b.set_linear_velocity(-global_transform.basis.y.normalized() * speed)
 
 	# Self-owned lifetime -- the timer lives and dies with the ball (see
-	# common/despawn.gd for why that matters).
-	Despawn.attach(b, lifetime)
+	# common/despawn.gd for why that matters). Zero means immortal: the
+	# stress scenes want the population to only ever grow.
+	if lifetime > 0.0:
+		Despawn.attach(b, lifetime)
 
 	_alive.append(b)
 	_track_alive()
@@ -126,7 +128,8 @@ func _spawn_native(world: Node3D) -> void:
 	if b == null:
 		return
 	WorldOps.set_linear_velocity(b, -global_transform.basis.y.normalized() * speed)
-	Despawn.attach(b, lifetime)
+	if lifetime > 0.0:
+		Despawn.attach(b, lifetime)
 	_alive.append(b)
 	_track_alive()
 

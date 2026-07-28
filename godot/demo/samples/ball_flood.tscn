@@ -1,0 +1,96 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://samples/ball_flood.gd" id="1_bf"]
+[ext_resource type="PackedScene" path="res://common/emitter.tscn" id="2_emitter"]
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+metallic = 0.1
+roughness = 0.55
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(26, 1, 26)
+
+[sub_resource type="StandardMaterial3D" id="GlassMat"]
+transparency = 1
+albedo_color = Color(0.65, 0.85, 0.95, 0.16)
+metallic = 0.1
+roughness = 0.05
+
+[sub_resource type="BoxMesh" id="WallNS"]
+size = Vector3(25, 14, 0.5)
+
+[sub_resource type="BoxMesh" id="WallEW"]
+size = Vector3(0.5, 14, 25)
+
+[node name="BallFlood" type="Node3D"]
+script = ExtResource("1_bf")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+worker_count = 8
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+body_type = 0
+box_size = Vector3(26, 1, 26)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+material_override = SubResource("FloorMat")
+mesh = SubResource("FloorMesh")
+
+[node name="WallN" type="Box3DBody" parent="Box3DWorld"]
+body_type = 0
+box_size = Vector3(25, 14, 0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, -12.25)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallN"]
+material_override = SubResource("GlassMat")
+mesh = SubResource("WallNS")
+
+[node name="WallS" type="Box3DBody" parent="Box3DWorld"]
+body_type = 0
+box_size = Vector3(25, 14, 0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, 12.25)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallS"]
+material_override = SubResource("GlassMat")
+mesh = SubResource("WallNS")
+
+[node name="WallE" type="Box3DBody" parent="Box3DWorld"]
+body_type = 0
+box_size = Vector3(0.5, 14, 25)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.25, 7, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallE"]
+material_override = SubResource("GlassMat")
+mesh = SubResource("WallEW")
+
+[node name="WallW" type="Box3DBody" parent="Box3DWorld"]
+body_type = 0
+box_size = Vector3(0.5, 14, 25)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.25, 7, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallW"]
+material_override = SubResource("GlassMat")
+mesh = SubResource("WallEW")
+
+[node name="EmitterL" parent="Box3DWorld" instance=ExtResource("2_emitter")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 17, 0)
+rate = 0.01
+speed = 6.0
+lifetime = 0.0
+max_alive = 0
+
+[node name="EmitterM" parent="Box3DWorld" instance=ExtResource("2_emitter")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17, 0)
+rate = 0.01
+speed = 6.0
+lifetime = 0.0
+max_alive = 0
+
+[node name="EmitterR" parent="Box3DWorld" instance=ExtResource("2_emitter")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 17, 0)
+rate = 0.01
+speed = 6.0
+lifetime = 0.0
+max_alive = 0

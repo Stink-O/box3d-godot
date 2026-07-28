@@ -141,6 +141,24 @@ offset_right = -12.0
 offset_bottom = 44.0
 text = "⟲  Reset"
 
+[node name="BodyCount" type="Label" parent="UI"]
+visible = false
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -220.0
+offset_top = -160.0
+offset_right = 220.0
+offset_bottom = -120.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_font_sizes/font_size = 28
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "Bodies: 0"
+
 [node name="ChargeBar" type="ProgressBar" parent="UI" unique_id=1418525060]
 visible = false
 anchors_preset = 7
@@ -272,6 +290,11 @@ text = "Stats Overlay"
 layout_mode = 2
 tooltip_text = "Per-phase solver profiler, same rows and statistics as the upstream Box3D sample app. Box3D reports all 22 phases; Godot Physics and Jolt expose no solver timing to a running game, so they show a total only."
 text = "Solver Profiler"
+
+[node name="BodyCountCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox"]
+layout_mode = 2
+tooltip_text = "A live count of physics bodies in the scene, at the bottom of the screen. Ball Flood turns this on by itself."
+text = "Body Counter"
 
 [node name="AsyncCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox"]
 layout_mode = 2

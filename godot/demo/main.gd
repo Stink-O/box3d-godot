@@ -34,6 +34,7 @@ const SAMPLES := {
 		"Ball Pit": "res://samples/ball_pit.tscn",
 		"Wrecking Ball": "res://samples/wrecking.tscn",
 		"Ball Fountain": "res://samples/fountain.tscn",
+		"Ball Flood": "res://samples/ball_flood.tscn",
 	},
 	"Dynamics": {
 		"Dominoes": "res://samples/dominoes.tscn",
@@ -135,6 +136,8 @@ const ENGINE_ACCENTS := {
 @onready var _stats_overlay: Control = $UI/StatsOverlay
 @onready var _profiler: ProfilerPanel = $UI/Profiler
 @onready var _profiler_check: CheckBox = $UI/Sidebar/Margin/VBox/ProfilerCheck
+@onready var _body_count_check: CheckBox = $UI/Sidebar/Margin/VBox/BodyCountCheck
+@onready var _body_count_label: Label = $UI/BodyCount
 @onready var _contact_hertz_row: Control = $UI/Sidebar/Margin/VBox/ContactHertzRow
 @onready var _contact_hertz_spin: SpinBox = $UI/Sidebar/Margin/VBox/ContactHertzRow/ContactHertzSpin
 @onready var _contact_damping_row: Control = $UI/Sidebar/Margin/VBox/ContactDampingRow
@@ -294,6 +297,8 @@ func _ready() -> void:
 	_stats_check.toggled.connect(_on_stats_toggled)
 	_profiler_check.focus_mode = Control.FOCUS_NONE
 	_profiler_check.toggled.connect(_on_profiler_toggled)
+	_body_count_check.focus_mode = Control.FOCUS_NONE
+	_body_count_check.toggled.connect(_on_body_count_toggled)
 	_async_check.focus_mode = Control.FOCUS_NONE
 	_async_check.toggled.connect(_on_async_toggled)
 
@@ -745,6 +750,10 @@ func _physics_process(_delta: float) -> void:
 	# Body counting is a full tree walk, so refresh the overlay's count at 1 Hz.
 	if _stats_overlay.visible and _step_count % 60 == 0:
 		_push_stats_bodies()
+	# The bottom-of-screen counter refreshes faster (4 Hz): watching the number
+	# climb is its entire job in the stress scenes.
+	if _body_count_label.visible and _step_count % 15 == 0:
+		_update_body_count()
 	# Catch bodies spawned after the toggle (emitters, shots): re-hide their
 	# visuals every half second while the debug view is on. The walk touches
 	# every node (16k+ in the big samples), so skip it while the tree hasn't
@@ -962,6 +971,30 @@ func _apply_async() -> void:
 	_with_world(func(world):
 		if "async_step" in world:
 			world.async_step = _async_step)
+
+
+func _on_body_count_toggled(pressed: bool) -> void:
+	_body_count_label.visible = pressed
+	if pressed:
+		_update_body_count()
+
+
+func _update_body_count() -> void:
+	var world = _current.get_node_or_null("Box3DWorld") if _current != null else null
+	if world == null:
+		_body_count_label.text = "Bodies: 0"
+		return
+	_body_count_label.text = "Bodies: %s" % _thousands(_count_bodies(world))
+
+
+## 16290 reads better as 16,290 when the whole point is watching it grow.
+func _thousands(n: int) -> String:
+	var s := str(n)
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.right(3) + out
+		s = s.left(s.length() - 3)
+	return s + out
 
 
 func _push_stats_bodies() -> void:
@@ -1259,6 +1292,15 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 		world.contact_damping = _contact_damping_override
 	_apply_debug()  # carry the debug-draw toggle into the newly loaded sample
 	_apply_async()  # same for the async-step preference
+	# A sample can ask for the body counter (Ball Flood, whose whole point IS
+	# the number). Opting in switches it on; switching it back off is the
+	# user's, and their choice then sticks until the next opt-in sample.
+	if _current != null and "wants_body_counter" in _current \
+			and _current.wants_body_counter:
+		_body_count_check.set_pressed_no_signal(true)
+		_body_count_label.visible = true
+	if _body_count_label.visible:
+		_update_body_count()
 	if _stats_overlay.visible:
 		_push_stats_bodies()
 	_refresh_sidebar_from_world(world)
