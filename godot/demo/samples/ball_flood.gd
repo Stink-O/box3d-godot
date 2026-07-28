@@ -10,3 +10,17 @@ extends Node3D
 var camera_home := Vector3(0.0, 20.0, 42.0)
 var camera_look_at := Vector3(0.0, 6.0, 0.0)
 var wants_body_counter := true
+
+
+## The shell's reusable sample toggle: ON pauses the flood, and a fresh load
+## always starts un-toggled, i.e. flooding. On a native engine the same
+## toggle comes from common/native_emitter_toggle.gd (this script does not
+## survive the rebuild, the emitters do).
+func get_toggle_label() -> String:
+	return "Pause Emitters"
+
+
+func set_toggled(on: bool) -> void:
+	for node in find_children("*", "", true, false):
+		if node.has_method(&"set_running"):
+			node.set_running(not on)

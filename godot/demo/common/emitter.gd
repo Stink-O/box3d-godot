@@ -19,6 +19,11 @@ const Despawn = preload("res://common/despawn.gd")
 
 @export var rate: float = 0.65 ## seconds between spawns
 @export var speed: float = 1.0 ## initial speed along local -Y (down/forward)
+## Horizontal radius the spawn point wanders in (0 = the exact point). Fast
+## rates NEED it: consecutive balls spawned inside one another get pushed
+## apart by the solver and extrude upward as a growing column; spreading the
+## spawns keeps the throughput and turns the column into a shower.
+@export var spread: float = 0.0
 @export var radius: float = 0.25 ## sphere radius
 @export var restitution: float = 0.15
 @export var friction: float = 0.3
@@ -95,6 +100,7 @@ func _spawn() -> void:
 	# body becomes a direct child of `world`, express the emitter's world pose in
 	# the world's local space.
 	b.transform = world.global_transform.affine_inverse() * global_transform
+	b.position += _spread_offset()
 	world.add_child(b)
 	b.set_linear_velocity(-global_transform.basis.y.normalized() * speed)
 
@@ -123,6 +129,7 @@ func _spawn_native(world: Node3D) -> void:
 	# upward forever instead of toppling and rolling. Box3D happens to break
 	# that symmetry on its own, so its branch stays untouched.
 	pos += Vector3(_rng.randf_range(-0.02, 0.02), 0.0, _rng.randf_range(-0.02, 0.02))
+	pos += _spread_offset()
 	var b := WorldOps.spawn_sphere(world, pos, radius, 1.0, mat, false,
 			restitution, 0xFFFFFFFF, friction)
 	if b == null:
@@ -132,6 +139,23 @@ func _spawn_native(world: Node3D) -> void:
 		Despawn.attach(b, lifetime)
 	_alive.append(b)
 	_track_alive()
+
+
+## Pause / resume spawning (the flood scene's toggle). Timer.paused keeps the
+## countdown phase, so resuming does not burst-fire a queued backlog.
+func set_running(on: bool) -> void:
+	if _timer != null:
+		_timer.paused = not on
+
+
+## Uniform over the spread disc (the sqrt keeps density even; a plain randf
+## would bunch spawns at the centre and rebuild the column there).
+func _spread_offset() -> Vector3:
+	if spread <= 0.0:
+		return Vector3.ZERO
+	var a := _rng.randf() * TAU
+	var r := sqrt(_rng.randf()) * spread
+	return Vector3(cos(a) * r, 0.0, sin(a) * r)
 
 
 func _track_alive() -> void:

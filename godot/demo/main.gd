@@ -1294,9 +1294,13 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	_apply_async()  # same for the async-step preference
 	# A sample can ask for the body counter (Ball Flood, whose whole point IS
 	# the number). Opting in switches it on; switching it back off is the
-	# user's, and their choice then sticks until the next opt-in sample.
-	if _current != null and "wants_body_counter" in _current \
-			and _current.wants_body_counter:
+	# user's, and their choice then sticks until the next opt-in sample. On a
+	# native engine the flag arrives as metadata (the script does not).
+	var wants_counter := false
+	if _current != null:
+		wants_counter = bool(_current.get_meta("wants_body_counter", false)) \
+				or ("wants_body_counter" in _current and _current.wants_body_counter)
+	if wants_counter:
 		_body_count_check.set_pressed_no_signal(true)
 		_body_count_label.visible = true
 	if _body_count_label.visible:
@@ -1412,6 +1416,7 @@ func _add_native_dressing(path: String, stage: Node3D) -> void:
 	# node comes across whole -- script, exports and children -- parented
 	# under the stand-in world its spawn loop looks for.
 	var native_world := stage.get_node_or_null("Box3DWorld")
+	var carried_emitters := 0
 	if world != null and native_world != null:
 		for node in root.find_children("*", "", true, false):
 			var s := node.get_script() as Script
@@ -1420,6 +1425,19 @@ func _add_native_dressing(path: String, stage: Node3D) -> void:
 			var copy := (node as Node3D).duplicate() as Node3D
 			native_world.add_child(copy)
 			copy.transform = _relative_xform(node as Node3D, world)
+			carried_emitters += 1
+	# The flood's pause toggle must exist on this engine too. The authored
+	# sample script cannot run here, but when it exposed a toggle AND its
+	# emitters were carried, the toggle's whole job is pausing those emitters
+	# -- which the stage-level forwarder does, under the authored label.
+	if carried_emitters > 0 and root.has_method(&"set_toggled") \
+			and root.has_method(&"get_toggle_label"):
+		stage.set_script(load("res://common/native_emitter_toggle.gd"))
+		stage.toggle_label = root.get_toggle_label()
+	# The authored script's shell opt-ins ride across as metadata -- the
+	# script itself cannot (_load reads the meta alongside the property).
+	if bool(root.get("wants_body_counter")):
+		stage.set_meta("wants_body_counter", true)
 	_add_camera_marker(root, stage)
 	root.free()
 
