@@ -149,18 +149,16 @@ different toolchain from MSVC and the determinism guarantee has only been
 checked on scalar/SSE2/NEON, so treat a cross-built DLL as untested until
 someone runs it on Windows.
 
-## The browser demo — itch.io front door, GitHub Pages safety net
+## The browser demo — one itch.io page, threaded build only
 
 The demo is publicly playable in a browser and is part of the product surface:
 **any change to `godot/src/` or `godot/demo/` also changes the web demo**, and
-it is not fully shipped until all of the below are refreshed.
+it is not fully shipped until the itch page is refreshed.
 
-| | itch.io (primary) | GitHub Pages (fallback) |
-|---|---|---|
-| URL | stinkysunstep.itch.io/box3d-godot | stink-o.github.io/box3d-godot |
-| threads | multi (SharedArrayBuffer checkbox ON) | single |
-| Cube Pile | full 4096 | halved to 2048 at load |
-| update by | re-uploading a fresh zip of `webfast/` (MANUAL) | "Deploy web demo to Pages" workflow (manual dispatch) |
+The one deployment: **stinkysunstep.itch.io/box3d-godot**, the THREADED build
+(SharedArrayBuffer checkbox ON), updated by the user MANUALLY re-uploading a
+fresh zip of the `webfast/` export. The single-threaded build still exists as
+a release asset for self-hosters, but nothing deploys it.
 
 ```sh
 source ~/emsdk/emsdk_env.sh        # Emscripten 4.0.11, pinned (dlink is version-sensitive)
@@ -176,17 +174,22 @@ Both zips also ship as release assets (`box3d-demo-web.zip`,
 
 ### The hard rules
 
-- **The GitHub Pages fallback must stay alive even though itch is primary.**
-  It is not a mirror: its URL is the bounce target compiled into every
-  threaded build's `head_include` guard. Safari (macOS and iOS) lacks the
-  `COEP: credentialless` mode itch uses for isolation, so every Safari visitor
-  to the itch page lands here. Kill it and they land on a 404.
+- **iOS runs the threaded build on itch — verified on-device 2026-07-28.**
+  An earlier version of this file claimed Safari lacked itch's isolation mode
+  and every iPhone got bounced to a fallback; that was WRONG (it cost a whole
+  misdiagnosis cycle), current iOS Safari isolates fine on itch. The guard's
+  "needs multi-threading" notice is a safety net for genuinely un-isolated
+  contexts (plain static hosts, old browsers), not the expected iOS path.
 - **A threaded wasm module cannot load without cross-origin isolation.** It
   declares shared memory; an un-isolated page hands it non-shared memory and it
-  dies with `LinkError: mismatch in shared state of memory`. The guard
-  (`if(!crossOriginIsolated)location.replace(<fallback>)`) is what keeps that
-  from ever being a black screen. Never flip the root/"Web" preset to
+  dies with `LinkError: mismatch in shared state of memory`. The "Web Threaded"
+  preset's `head_include` guard covers that with a readable full-screen notice
+  instead of a black screen. Never flip the root/"Web" preset to
   `thread_support=true`, and never strip the guard from the "Web Threaded" one.
+- **GitHub Pages is retired** (user decision 2026-07-28): the old fallback at
+  stink-o.github.io/box3d-godot may linger but is stale and receives no
+  updates; the "Deploy web demo to Pages" workflow is retired-in-place, kept
+  only until its deletion is pushed. Do not point anything new at Pages.
 - **Service workers are not a substitute for headers.** Godot's PWA isolation
   trick (and coi-serviceworker, same architecture) cannot cover a first visit
   or a hard refresh — both shipped broken here before this was learned. The
@@ -206,6 +209,14 @@ Both zips also ship as release assets (`box3d-demo-web.zip`,
   its SSE2 path. `BOX3D_NO_THREADS` is defined only for `threads=no` web builds
   and makes the wrapper clamp `worker_count` and refuse `async_step`; without
   pthreads a refused thread ABORTS (exceptions are off), it does not error.
+- **`async_step` is refused on EVERY wasm build, the threaded one included**
+  (`#ifdef __EMSCRIPTEN__` in `set_async_step`; solver `worker_count` stays
+  real). Enabling it froze the tab: the step thread is spawned from the main
+  browser thread and sits queued while the pthread pool is busy (heavy samples
+  author 4-16 solver workers), and main then busy-waits in `join_async_step()`
+  without ever returning to the event loop the queued thread needs to start.
+  The sidebar probes the refusal (`_has_async` in `main.gd`) and hides the
+  checkbox. Do not re-enable without redesigning the join to be non-blocking.
 - **Determinism on wasm is unverified** (upstream's Emscripten CI is
   build-only). Never claim the browser build is bit-exact with native.
 
@@ -219,8 +230,8 @@ shipping anywhere, serve the export locally and verify in a real browser:
    GitHub Pages is): **first load on a FRESH profile** and a **hard refresh**
    must both boot with `Build configuration: ... single-threaded` and no errors.
 2. Threaded build TWICE: behind a COOP/COEP-sending server it must boot
-   `multi-threaded`; on a plain server it must redirect to the fallback URL,
-   not black-screen.
+   `multi-threaded`; on a plain server it must show the "needs
+   multi-threading" notice, not black-screen.
 3. The shell's flags make this scriptable: `-- --shot=out.png --shot-tick=N`
    (game viewport only — never capture the desktop; the user streams),
    `--profiler`, `--settings`, `--sample="Name"` (exact display name; a typo
@@ -240,8 +251,8 @@ tracked). v0.3.0 is the shape to match — 12 assets:
 | `libbox3d_godot.windows.template_{debug,release}.x86_64.dll` | `scons platform=windows arch=x86_64 target=...` (MinGW cross-compile; verify imports are ONLY `KERNEL32.dll`+`msvcrt.dll` via `objdump -p`, and label them untested-on-Windows unless someone has run them) |
 | `libbox3d_godot.web.template_release.wasm32{,.nothreads}.wasm` | the two web builds above |
 | `box3d-demo-android.apk` | `--export-debug "Android"` (debug-signed; no release keystore exists) |
-| `box3d-demo-web.zip` | zip of the exported fallback `web/` **including the kill-switch worker** — must match what the Pages deploy serves |
-| `box3d-demo-web-threaded.zip` | zip of the threaded `webfast/` export — the one for **itch.io** (enable its SharedArrayBuffer checkbox; itch implements it as COEP credentialless, so Safari gets bounced to the fallback by the guard) or any host with real COOP/COEP headers |
+| `box3d-demo-web.zip` | zip of the exported single-threaded `web/` — self-hosting asset only (runs on any plain static host); nothing deploys it |
+| `box3d-demo-web-threaded.zip` | zip of the threaded `webfast/` export — the one for **itch.io** (enable its SharedArrayBuffer checkbox; works on desktop, Android AND iOS there) or any host with real COOP/COEP headers |
 
 Rules learned the hard way:
 

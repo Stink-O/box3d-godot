@@ -505,11 +505,17 @@ int Box3DWorld::get_worker_count() const {
 }
 
 void Box3DWorld::set_async_step(bool p_enabled) {
-#ifdef BOX3D_NO_THREADS
-	// Same reason as set_worker_count: std::thread's constructor cannot report
-	// failure without exceptions, so it aborts. Stepping stays synchronous and
-	// the demo's sidebar hides the control, because the property reads back
-	// false and the shell probes before showing it.
+#if defined(BOX3D_NO_THREADS) || defined(__EMSCRIPTEN__)
+	// Refused on nothreads builds for the set_worker_count reason (std::thread
+	// cannot report failure with exceptions off, so it aborts) — and on EVERY
+	// wasm build, the threaded one included, because the async rig deadlocks
+	// the tab: the step thread is created from the main browser thread, and
+	// when the Emscripten pthread pool is busy (heavy samples author 4-16
+	// solver workers) it sits queued until main returns to the event loop.
+	// Main instead busy-waits in join_async_step(), which nearly every API
+	// entry calls, so neither side can ever advance and the page freezes.
+	// Stepping stays synchronous (solver workers are unaffected); the demo's
+	// sidebar probes this refusal and hides the control.
 	(void)p_enabled;
 	async_step = false;
 	return;

@@ -62,9 +62,16 @@ var _charge_bar: ProgressBar = null
 ## runs first, exactly like desktop left-click, so touching a body still grabs
 ## it). Two fingers: pinch to dolly along the view, drag to pan. All of it is
 ## keyed off _touch_mode, so none of these paths exist on desktop.
+## Everything is driven by RAW per-index touches, never the emulated mouse:
+## the synthetic mouse mirrors whichever finger went down first ANYWHERE (a
+## thumb resting on the joystick owns it), and on iOS Safari it can hop
+## between fingers mid-gesture, slewing the camera with one huge delta.
+## Owning the gesture by touch index also means look/grab work with a thumb
+## on the joystick — the second finger is a first-class pointer here.
 var _touch_mode := false
 var _touches := {}                ## raw touch index -> screen position
 var _touch_looking := false       ## one-finger look drag in progress
+var _touch_pointer := -1          ## touch index that owns grab / look / orbit
 var _pinch_last_dist := 0.0
 var _pan_last_mid := Vector2.ZERO
 @export var touch_dolly_speed := 0.02   ## world units per pixel of pinch
@@ -231,9 +238,6 @@ func _reset_pose() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Raw touches, tracked ahead of the emulated-mouse handlers below (Godot
-	# mirrors the FIRST finger as a mouse, which is what drives grab & look;
-	# the second finger only exists here, as pinch/pan).
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			# A finger resting on the touch overlay (stick, SHOOT, ...) is
@@ -242,21 +246,72 @@ func _unhandled_input(event: InputEvent) -> void:
 			if TouchControls.active != null and TouchControls.active.owns_point(event.position):
 				return
 			_touches[event.index] = event.position
-			if _touches.size() == 2:
+			if _touch_mode and _touches.size() == 1:
+				# First world finger: the touch twin of a left-click. Grab the
+				# body under it, else look (or orbit, in third person). Owned
+				# by index, so it also works with a thumb on the joystick.
+				_touch_pointer = event.index
+				_try_grab_at(event.position)
+				if _grabbed == null:
+					if _follow != null:
+						_orbiting = true  # no pointer capture on a touchscreen
+					else:
+						_touch_looking = true
+			elif _touches.size() == 2:
 				# Second finger down: the gesture is now pinch/pan, not a
 				# look or a grab.
 				_touch_looking = false
+				if _touch_mode:
+					_orbiting = false
 				_end_grab()
 				var pts := _touch_points()
 				_pinch_last_dist = pts[0].distance_to(pts[1])
 				_pan_last_mid = (pts[0] + pts[1]) / 2.0
 		else:
 			_touches.erase(event.index)
+			if event.index == _touch_pointer:
+				_touch_pointer = -1
+				_touch_looking = false
+				if _touch_mode:
+					_orbiting = false
+					_end_grab()
 		return
 	elif event is InputEventScreenDrag:
+		if not _touches.has(event.index):
+			# A finger that pressed on the touch overlay (stick / SHOOT) was
+			# rejected above and stays untracked for its whole life. Letting
+			# its DRAGS insert it here made a wiggling joystick thumb count
+			# as half of a "pinch", twitching the camera in random directions
+			# while a second finger was looking around.
+			return
 		_touches[event.index] = event.position
 		if _touches.size() >= 2:
 			_update_pinch_pan()
+		elif event.index == _touch_pointer:
+			# This finger's OWN delta — never the emulated mouse's, which may
+			# be parked on another finger. (A touch-grabbed body needs nothing
+			# here: _drag_grabbed() reads _touches[_touch_pointer] each tick.)
+			# Spike guard: a real swipe never moves this far in one event, but
+			# a per-finger identity mix-up (seen on iOS Safari) teleports the
+			# "same" finger between two distant touch points. Drop the spike;
+			# the next event re-anchors cleanly.
+			if event.relative.length() > 200.0:
+				return
+			if _orbiting and _follow != null:
+				_orbit_yaw -= event.relative.x * look_sensitivity
+				_orbit_pitch = clampf(_orbit_pitch + event.relative.y * look_sensitivity, -0.6, 1.3)
+			elif _touch_looking:
+				_yaw -= event.relative.x * look_sensitivity
+				_pitch = clampf(_pitch - event.relative.y * look_sensitivity, -1.5, 1.5)
+				rotation = Vector3(_pitch, _yaw, 0.0)
+		return
+
+	# In touch mode the raw handlers above own grab / look / orbit; letting
+	# the mouse events Godot synthesizes from the first finger through would
+	# drive the camera a second time. A real mouse (device id >= 0) plugged
+	# into a touch device still works.
+	if _touch_mode and event.device == InputEvent.DEVICE_ID_EMULATION \
+			and (event is InputEventMouseButton or event is InputEventMouseMotion):
 		return
 
 	if event is InputEventMouseButton:
@@ -275,19 +330,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_LEFT and not _flying:
 			if event.pressed:
 				_try_grab()
-				# Touch: a press that landed on nothing becomes a look (or,
-				# in third person, an orbit) — the finger version of holding
-				# the right mouse button.
-				if _touch_mode and _grabbed == null and _touches.size() < 2:
-					if _follow != null:
-						_orbiting = true  # no pointer capture on a touchscreen
-					else:
-						_touch_looking = true
 			else:
 				_end_grab()
-				_touch_looking = false
-				if _touch_mode:
-					_orbiting = false
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP \
 				or event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			# Reel a held body along the aim ray: scroll up pushes it away,
@@ -306,11 +350,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		# camera and look up at the target.
 		_orbit_yaw -= event.relative.x * look_sensitivity
 		_orbit_pitch = clampf(_orbit_pitch + event.relative.y * look_sensitivity, -0.6, 1.3)
-	elif event is InputEventMouseMotion and _touch_looking and _touches.size() < 2:
-		# One-finger look: same math as fly-look, no pointer capture.
-		_yaw -= event.relative.x * look_sensitivity
-		_pitch = clampf(_pitch - event.relative.y * look_sensitivity, -1.5, 1.5)
-		rotation = Vector3(_pitch, _yaw, 0.0)
 	elif event is InputEventMouseMotion and _flying:
 		_yaw -= event.relative.x * look_sensitivity
 		_pitch = clampf(_pitch - event.relative.y * look_sensitivity, -1.5, 1.5)
@@ -480,11 +519,14 @@ func _physics_process(delta: float) -> void:
 
 
 func _try_grab() -> void:
+	_try_grab_at(get_viewport().get_mouse_position())
+
+
+func _try_grab_at(screen_pos: Vector2) -> void:
 	if _world == null:
 		return
-	var mouse := get_viewport().get_mouse_position()
-	var from := project_ray_origin(mouse)
-	var dir := project_ray_normal(mouse)
+	var from := project_ray_origin(screen_pos)
+	var dir := project_ray_normal(screen_pos)
 	var hit := WorldOps.raycast(_world, from, from + dir * 500.0, RAY_MASK)
 	if hit.get("hit", false):
 		var body = hit.get("collider")
@@ -523,11 +565,17 @@ func _drag_grabbed() -> void:
 	if not (is_instance_valid(_grabbed) and is_instance_valid(_grab_mouse_body)):
 		_end_grab()  # sample reset/switch freed the world under the grab
 		return
-	# The kinematic mouse body chases the cursor point; the joint's spring
-	# hauls the grabbed body after it.
-	var mouse := get_viewport().get_mouse_position()
-	var from := project_ray_origin(mouse)
-	var dir := project_ray_normal(mouse)
+	# The kinematic mouse body chases the pointer; the joint's spring hauls
+	# the grabbed body after it. On touch the pointer is the grab finger's
+	# own tracked position (the emulated mouse may be parked on the joystick
+	# thumb); on desktop it is the cursor.
+	var screen: Vector2
+	if _touch_pointer != -1 and _touches.has(_touch_pointer):
+		screen = _touches[_touch_pointer]
+	else:
+		screen = get_viewport().get_mouse_position()
+	var from := project_ray_origin(screen)
+	var dir := project_ray_normal(screen)
 	WorldOps.set_body_transform(_grab_mouse_body,
 			Transform3D(_grab_mouse_body.global_basis, from + dir * _grab_distance))
 	# On Box3D the solver steps the spring; on a native engine WorldOps has to.

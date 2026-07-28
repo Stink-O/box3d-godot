@@ -21,6 +21,11 @@ window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+; Sensor landscape: phones/tablets hold either landscape rotation, never
+; portrait (the 1920x1080 layout has no portrait mode; on-device portrait
+; loads also crashed the browser build). Desktop windows are unaffected;
+; the web exports pair this with a CSS rotate prompt in head_include.
+window/handheld/orientation=4
 
 [physics]
 

@@ -173,6 +173,8 @@ var _debug_hidden_node_count := -1  ## tree size at the last hide walk (skip che
 var _async_step := false
 
 var _touch: TouchControls = null  ## touch overlay, only on touchscreen devices
+var _sample_panel: PanelContainer = null  ## touch sample picker (desktop uses the popup)
+var _touch_layer: CanvasLayer = null  ## panels above the touch overlay, mobile only
 
 ## Engine selection. `_engine` is what was ASKED for (`--engine=`, written by
 ## the restart); `_engine_live` is what the behavioural probe actually found,
@@ -188,6 +190,7 @@ var _restarting := false
 var _native_notes: Array = []
 var _native_dynamic := 0  ## dynamic bodies in the rebuilt rig; the probe needs some
 var _has_recycling := false  ## this build's Box3DBody exposes contact_recycling
+var _has_async := false  ## this build's Box3DWorld accepts async_step
 
 
 func _ready() -> void:
@@ -276,6 +279,14 @@ func _ready() -> void:
 	_has_recycling = "contact_recycling" in body_probe
 	_recycling_check.visible = _has_recycling
 	body_probe.free()
+	# Async stepping is REFUSED on some builds (all web builds: a main-thread
+	# join on a queued worker deadlocks the tab), where the setter bounces and
+	# the property reads back false. Probe a scratch world so the sidebar hides
+	# the checkbox instead of offering a toggle that silently does nothing.
+	var world_probe := Box3DWorld.new()
+	world_probe.async_step = true
+	_has_async = world_probe.async_step
+	world_probe.free()
 	_sidebar_debug_check.toggled.connect(_on_sidebar_debug_changed)
 	_contact_hertz_spin.value_changed.connect(_on_contact_hertz_changed)
 	_contact_damping_spin.value_changed.connect(_on_contact_damping_changed)
@@ -567,19 +578,156 @@ func _update_engine_note() -> void:
 func _setup_touch() -> void:
 	if not DisplayServer.is_touchscreen_available():
 		return
-	# The project lays the UI out for a 1080p desktop monitor. On a ~6 inch
-	# 400+ dpi phone that UI is physically tiny, so scale the canvas by DPI:
-	# 160 dpi (Android's mdpi baseline) keeps scale 1; a 420 dpi phone gets
-	# ~2x. Capped so the top bar still fits a landscape phone's width.
-	var dpi := DisplayServer.screen_get_dpi()
-	get_window().content_scale_factor = clampf(dpi / 160.0, 1.0, 2.0)
-	# At 2x the bar can outgrow the screen on samples with extra buttons; trim
-	# the hint text with an ellipsis instead of letting it run under the
+	# The project lays the UI out for a 1080p desktop monitor; on a phone that
+	# UI is physically tiny. DPI would be the natural scale source, but web
+	# browsers report a fake 96 dpi, so the scale comes from the stretched
+	# canvas instead: with the 'expand' stretch the shorter side always spans
+	# 1080 logical px in landscape (1920 in portrait) whatever the device, and
+	# dividing that down to ~480 keeps text readable on a phone. Recomputed on
+	# resize so rotating the device rescales with it.
+	_apply_touch_scale()
+	get_window().size_changed.connect(_apply_touch_scale)
+	# The scaled-up bar can outgrow the screen on samples with extra buttons;
+	# trim the hint text with an ellipsis instead of letting it run under the
 	# right-anchored Settings/Debug/Reset cluster.
 	_info.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# The settings sidebar and the sample picker move to a layer ABOVE the
+	# touch overlay (which sits on layer 10 so its buttons beat the shell UI).
+	# Left underneath it, the joystick's input rect — most of the lower-left
+	# screen — swallowed every drag over the panels ("can't scroll except by
+	# the scrollbar") and the stick drew on top of them. Above it, an open
+	# panel occludes the stick both visually and for input.
+	_touch_layer = CanvasLayer.new()
+	_touch_layer.layer = 15
+	add_child(_touch_layer)
+	var ui: Node = _sidebar.get_parent()
+	ui.remove_child(_sidebar)
+	_touch_layer.add_child(_sidebar)
+	# The default panel style is translucent — fine over a desktop scene, but
+	# with game controls underneath it reads as broken. Solid on mobile.
+	_sidebar.add_theme_stylebox_override("panel", _touch_panel_style())
+	# Wider than desktop's 308: the scrollbar eats width, and the row labels
+	# clip at the bigger fonts otherwise.
+	_sidebar.offset_left = -384.0
+	# A landscape phone cannot show the full settings column: give the sidebar
+	# a drag-scrollable middle. Desktop keeps the plain fixed column.
+	var margin: Control = _sidebar.get_node("Margin")
+	var side_scroll := ScrollContainer.new()
+	side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	side_scroll.scroll_deadzone = 24  # a slightly wobbly tap still hits controls
+	_sidebar.remove_child(margin)
+	_sidebar.add_child(side_scroll)
+	side_scroll.add_child(margin)
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_pass_through_for_scroll(margin)
+	_setup_touch_sample_picker()
 	_touch = TouchControls.new()
 	_touch.setup(_camera)
 	add_child(_touch)
+
+
+## One scale for every touch platform, derived from the post-stretch canvas
+## (never from content_scale_factor itself, so re-running is stable). Capped:
+## above ~2.75 the top bar outgrows a portrait phone's width.
+func _apply_touch_scale() -> void:
+	var win := Vector2(get_window().size)
+	if win.x <= 0.0 or win.y <= 0.0:
+		return
+	var base := Vector2(
+			ProjectSettings.get_setting("display/window/size/viewport_width"),
+			ProjectSettings.get_setting("display/window/size/viewport_height"))
+	var stretch := minf(win.x / base.x, win.y / base.y)
+	if stretch <= 0.0:
+		return
+	# Two goals pull against each other: text toward a readable physical size
+	# (shorter side toward ~480 logical px) without the fixed-width top bar
+	# outgrowing a narrow-aspect device (longer side kept >= ~1100). The min
+	# takes whichever is the tighter constraint, so a 16:9 phone gets a
+	# smaller-but-complete UI instead of a readable-but-clipped one.
+	var short_logical := minf(win.x, win.y) / stretch
+	var long_logical := maxf(win.x, win.y) / stretch
+	get_window().content_scale_factor = clampf(
+			minf(short_logical / 480.0, long_logical / 1100.0), 1.0, 2.5)
+
+
+## The MenuButton's popup is desktop furniture: a 40-row list that scrolls on
+## hover and reads at desktop sizes. On touch it is swapped for a left-side
+## panel of big drag-scrollable rows, the mirror image of the settings sidebar.
+func _setup_touch_sample_picker() -> void:
+	var bar: Control = _menu.get_parent()
+	var btn := Button.new()
+	btn.text = "Samples"
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.toggle_mode = true
+	bar.add_child(btn)
+	bar.move_child(btn, _menu.get_index())
+	_menu.visible = false
+	btn.toggled.connect(func(on: bool): _sample_panel.visible = on)
+
+	_sample_panel = PanelContainer.new()
+	_sample_panel.visible = false
+	_sample_panel.anchor_bottom = 1.0
+	_sample_panel.offset_left = 12.0
+	_sample_panel.offset_top = 56.0
+	_sample_panel.offset_right = 384.0
+	_sample_panel.offset_bottom = -12.0
+	_sample_panel.add_theme_stylebox_override("panel", _touch_panel_style())
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.scroll_deadzone = 24
+	_sample_panel.add_child(scroll)
+	var vbox := VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vbox)
+	for category in SAMPLES:
+		var head := Label.new()
+		head.text = category
+		head.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
+		vbox.add_child(head)
+		for sample_name in SAMPLES[category]:
+			var row := Button.new()
+			row.text = sample_name
+			row.focus_mode = Control.FOCUS_NONE
+			row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			row.custom_minimum_size = Vector2(0.0, 48.0)
+			var path: String = SAMPLES[category][sample_name]
+			var title: String = sample_name
+			row.pressed.connect(func():
+				btn.button_pressed = false  # also hides the panel via toggled
+				_load(path, title))
+			vbox.add_child(row)
+	_pass_through_for_scroll(vbox)
+	_touch_layer.add_child(_sample_panel)
+
+
+## A Control whose mouse_filter is STOP (every Button/CheckBox default) ends
+## event propagation at itself even when it doesn't handle the event, so a
+## touch drag that starts on one never reaches the ScrollContainer and the
+## list refuses to pan. PASS keeps taps working — the ScrollContainer sends
+## NOTIFICATION_SCROLL_BEGIN once the drag passes its deadzone, which cancels
+## the button's press — while letting the drag bubble up and scroll. SpinBox
+## and LineEdit keep their own rect: text-selection drags should not pan.
+func _pass_through_for_scroll(node: Node) -> void:
+	for child in node.get_children():
+		if child is SpinBox or child is LineEdit:
+			continue
+		if child is Control and child.mouse_filter == Control.MOUSE_FILTER_STOP:
+			child.mouse_filter = Control.MOUSE_FILTER_PASS
+		_pass_through_for_scroll(child)
+
+
+## Solid panel background for the mobile overlays. The theme default is
+## translucent, which reads fine over a desktop scene but looks broken with
+## the joystick and scene controls underneath.
+func _touch_panel_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.14, 0.18, 1.0)
+	style.set_corner_radius_all(10)
+	style.content_margin_left = 8.0
+	style.content_margin_top = 8.0
+	style.content_margin_right = 8.0
+	style.content_margin_bottom = 8.0
+	return style
 
 
 func _physics_process(_delta: float) -> void:
@@ -949,8 +1097,9 @@ func _refresh_sidebar_from_world(world) -> void:
 		# A fresh sample's bodies start with recycling on (the Box3D default).
 		_recycling_check.set_pressed_no_signal(true)
 		# The async checkbox reflects the sticky user preference, and hides on
-		# builds whose extension predates the property.
-		_async_check.visible = "async_step" in world
+		# builds whose extension predates the property or refuses the feature
+		# (all web builds — see the _has_async probe in _ready).
+		_async_check.visible = _has_async and "async_step" in world
 		_async_hint.visible = _async_check.visible
 		_async_check.set_pressed_no_signal(_async_step)
 		# contact_hertz / contact_damping arrived together in the binding; show
@@ -1454,6 +1603,10 @@ func _save_overlay_state() -> void:
 func _add_web_notice() -> void:
 	if not OS.has_feature("web"):
 		return
+	# The Reset button's ⟲ is not in Godot's bundled font. Desktop quietly
+	# falls back to a system font for it; the web has no system fonts, so it
+	# rendered as a hex tofu box there. Plain text on web.
+	_reset.text = "Reset"
 	var panel := PanelContainer.new()
 	panel.name = "WebNotice"
 	var style := StyleBoxFlat.new()

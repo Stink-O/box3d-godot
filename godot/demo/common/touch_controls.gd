@@ -168,6 +168,14 @@ func _on_shoot_up() -> void:
 # --- Virtual joystick ---
 
 func _on_joy_input(event: InputEvent) -> void:
+	# The emulated mouse mirrors whichever finger went down FIRST anywhere on
+	# screen, and on iOS Safari it can hop between fingers mid-gesture — it
+	# made the knob flick around when a second finger touched the world. Raw
+	# ScreenTouch/Drag is the sole authority on a touchscreen; the mouse
+	# fallback below is only for real pointers (editor / desktop testing).
+	if (event is InputEventMouseButton or event is InputEventMouseMotion) \
+			and event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
 	# gui_input hands us the touches that land on the joystick's Control, in
 	# its local coordinates. One finger owns the stick until it lifts.
 	if event is InputEventScreenTouch:
