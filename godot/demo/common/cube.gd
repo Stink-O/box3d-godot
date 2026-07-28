@@ -24,7 +24,13 @@ static func pick_material() -> StandardMaterial3D:
 			var m := StandardMaterial3D.new()
 			# Same pastel look the instance uniform produced (hue spread,
 			# s = 0.5, v = 0.95), just quantized to PALETTE_SIZE hues.
-			m.albedo_color = Color.from_hsv(float(i) / PALETTE_SIZE, 0.5, 0.95)
+			# The linear_to_srgb() matches the MultiMesh renderers: their
+			# per-instance colors are consumed RAW as linear albedo (no sRGB
+			# decode), which renders the same numbers noticeably paler. Baking
+			# that shift into the material albedo gives every cube the one
+			# signature pastel, whichever renderer (or physics engine) draws it.
+			m.albedo_color = Color.from_hsv(float(i) / PALETTE_SIZE, 0.5, 0.95) \
+					.linear_to_srgb()
 			m.roughness = 0.8
 			_palette.append(m)
 	return _palette[randi() % PALETTE_SIZE]
