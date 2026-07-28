@@ -75,9 +75,17 @@ func _adopt(body: Node3D, ball_color: Color, radius: float) -> void:
 	_bodies.append(body)
 	_basis.append(Basis.from_scale(Vector3.ONE * radius))
 	_colors.append(ball_color)
-	_last.append(Vector3.INF)  # forces the first transform write
-	_mm.visible_instance_count = _bodies.size()
+	# Write the spawn pose NOW, before the instance becomes visible: a slot
+	# drawn before its first write shows stale buffer data for a frame -- the
+	# ghost balls that flickered around the emitters. And reset the body's
+	# interpolation, or its first interpolated reads blend from the pre-spawn
+	# state and streak the ghost across the tank.
+	var origin := (global_transform.affine_inverse() * body.global_transform).origin
+	_last.append(origin)
+	_mm.set_instance_transform(i, Transform3D(_basis[i], origin))
 	_mm.set_instance_color(i, ball_color)
+	_mm.visible_instance_count = _bodies.size()
+	body.reset_physics_interpolation()
 
 
 func _grow() -> void:

@@ -520,7 +520,9 @@ func _restart_args(id: String) -> PackedStringArray:
 func _identify_native() -> String:
 	if PhysicsServer3D.get_class() == "PhysicsServer3DDummy":
 		return "Dummy"
-	if _native_dynamic <= 0:
+	# The rig's own count, or anything spawned since (emitter scenes start
+	# with zero dynamic bodies and grow them at runtime).
+	if _native_dynamic <= 0 and not _any_live_dynamic():
 		return ""  # nothing to probe with; stay honest rather than guess
 	# All three counters, not just active objects: a scene that has already
 	# settled reports 0 awake bodies under GodotPhysics too, but keeps a live
@@ -532,13 +534,21 @@ func _identify_native() -> String:
 	return "Godot Physics" if signals > 0 else "Jolt Physics"
 
 
+func _any_live_dynamic() -> bool:
+	var world = _current.get_node_or_null("Box3DWorld") if _current != null else null
+	if world == null:
+		return false
+	return not world.find_children("*", "RigidBody3D", true, false).is_empty()
+
+
 func _check_engine() -> void:
-	_engine_probed = true
 	if not _native():
+		_engine_probed = true
 		return
 	var live := _identify_native()
 	if live == "":
-		return
+		return  # nothing to probe with yet; stay unprobed and retry
+	_engine_probed = true
 	_engine_live = live
 	var want: String = String(ENGINE_TITLES[_engine])
 	if live != want:
@@ -743,7 +753,11 @@ func _physics_process(_delta: float) -> void:
 		_save_shot()
 	# Identify the live server once per sample, late enough that its bodies are
 	# awake -- that is what the probe reads.
-	if _native() and not _engine_probed and _step_count >= ENGINE_PROBE_TICK:
+	# Retries every half second until it can conclude: a scene whose dynamic
+	# bodies are all spawned at runtime (Ball Flood) has nothing to probe with
+	# at tick 12 and used to stay "(unverified)" forever.
+	if _native() and not _engine_probed and _step_count >= ENGINE_PROBE_TICK \
+			and (_step_count - ENGINE_PROBE_TICK) % 30 == 0:
 		_check_engine()
 	if _sidebar.visible:
 		_update_readout()
