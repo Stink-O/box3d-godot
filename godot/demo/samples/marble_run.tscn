@@ -24,13 +24,10 @@ albedo_color = Color(0.28, 0.3, 0.36, 1)
 roughness = 0.6
 
 [sub_resource type="BoxMesh" id="M_WallBack"]
-size = Vector3(11.584961, 15, 0.4)
-
-[sub_resource type="BoxMesh" id="M_EndL"]
-size = Vector3(0.4, 15, 3.6)
+size = Vector3(11.1215626, 17.385, 0.4)
 
 [sub_resource type="BoxMesh" id="M_EndR"]
-size = Vector3(0.4, 15, 3.6)
+size = Vector3(0.4, 16.947354, 3.6)
 
 [sub_resource type="BoxMesh" id="M_TrayLipL"]
 size = Vector3(0.4, 1.2, 2.8)
@@ -95,29 +92,29 @@ mesh = SubResource("RampMesh")
 body_type = 0
 shape_type = 7
 friction = 0.25
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.5, -1.6)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.16385269, 7.6293993, -1.6)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallBack" unique_id=53865622]
 material_override = SubResource("WallMat")
 mesh = SubResource("M_WallBack")
 
-[node name="EndL" type="Box3DBody" parent="Box3DWorld" unique_id=881748614]
-body_type = 0
-shape_type = 7
-friction = 0.25
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.6, 6.5, 0)
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/EndL" unique_id=1801468169]
-material_override = SubResource("WallMat")
-mesh = SubResource("M_EndL")
-
 [node name="EndR" type="Box3DBody" parent="Box3DWorld" unique_id=466646551]
 body_type = 0
 shape_type = 7
 friction = 0.25
-transform = Transform3D(1, 0, 0, 0, 1.1298236, 0, 0, 0, 1, 5.6, 7.8376884, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.6, 7.8376884, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/EndR" unique_id=311876357]
+material_override = SubResource("WallMat")
+mesh = SubResource("M_EndR")
+
+[node name="EndR2" type="Box3DBody" parent="Box3DWorld" unique_id=1800340253]
+body_type = 0
+shape_type = 7
+friction = 0.25
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.890055, 7.8376884, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/EndR2" unique_id=775836548]
 material_override = SubResource("WallMat")
 mesh = SubResource("M_EndR")
 
@@ -133,7 +130,7 @@ mesh = SubResource("M_TrayLipL")
 
 [node name="FrontGuard" type="Box3DBody" parent="Box3DWorld" unique_id=199995550]
 body_type = 0
-box_size = Vector3(12, 15, 0.4)
+box_size = Vector3(12, 26.1, 0.4)
 friction = 0.25
 debug_visualize = false
 collision_layer = 2
@@ -141,6 +138,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.5, 1.6)
 
 [node name="Emitter" parent="Box3DWorld" unique_id=678430257 instance=ExtResource("2_emitter")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.6, 14.25, 0)
-rate = 0.2
-lifetime = 90.0
-max_alive = 400
+rate = 0.01
+speed = 2.0
+lifetime = 360.0
+max_alive = 2048
