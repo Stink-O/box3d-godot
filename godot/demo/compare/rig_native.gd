@@ -215,8 +215,8 @@ static func _apply_dynamics(rb: RigidBody3D, b: Dictionary, props: Array,
 		rb.contact_monitor = true
 		rb.max_contacts_reported = CONTACT_REPORTS
 
-	# Only generated bodies carry these (an authored scene's initial motion is
-	# script-imparted and never reaches the rig): the gyro tops spawn spinning.
+	# Generated bodies carry these directly (the gyro tops spawn spinning);
+	# authored bodies get them from the sample's rig_body_motion().
 	if b.has("linear_velocity"):
 		rb.linear_velocity = b["linear_velocity"]
 	if b.has("angular_velocity"):

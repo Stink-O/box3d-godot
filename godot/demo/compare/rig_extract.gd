@@ -120,8 +120,21 @@ static func from_scene(path: String) -> Dictionary:
 	# initial "linear_velocity" / "angular_velocity".
 	if root.has_method(&"rig_bodies"):
 		_add_generated_bodies(root.rig_bodies(), rig)
+	# Initial motion imparted by script to bodies AUTHORED in the .tscn (the
+	# T-handle's spin): the property does not exist in the scene file and
+	# _ready never runs here, so the sample publishes it through
+	# rig_body_motion() -- body name -> {"linear_velocity", "angular_velocity"}
+	# -- and its own _ready reads the same dictionary, keeping one source.
+	if root.has_method(&"rig_body_motion"):
+		_apply_body_motion(root.rig_body_motion(), rig)
 	_resolve_joints(ctx)
 	_write_unsupported(ctx)
+	# A sample can name a gap only it knows about -- physics the rebuild runs
+	# without complaint but does not reproduce (gyro_torque's whole premise).
+	# Appended after the counted gaps so those keep leading the badge.
+	if root.has_method(&"rig_notes"):
+		for note in root.rig_notes():
+			rig["unsupported"].append(String(note))
 
 	root.free()
 	return rig
@@ -306,6 +319,27 @@ static func _add_generated_bodies(entries: Array, rig: Dictionary) -> void:
 		if e.has("angular_velocity"):
 			body["angular_velocity"] = e["angular_velocity"]
 		bodies.append(body)
+
+
+## Stamp script-imparted starting velocities onto already-extracted bodies,
+## matched by node name. A name that matches nothing is a typo worth hearing
+## about -- silently dropping it would look exactly like the bug this fixes.
+static func _apply_body_motion(motion: Dictionary, rig: Dictionary) -> void:
+	var bodies: Array = rig["bodies"]
+	for key: Variant in motion:
+		var want := String(key)
+		var found := false
+		for b: Dictionary in bodies:
+			if String(b.get("name", "")) != want:
+				continue
+			found = true
+			var m: Dictionary = motion[key]
+			if m.has("linear_velocity"):
+				b["linear_velocity"] = m["linear_velocity"]
+			if m.has("angular_velocity"):
+				b["angular_velocity"] = m["angular_velocity"]
+		if not found:
+			push_warning("[rig] rig_body_motion names '%s', which is not a body" % want)
 
 
 # --- Visuals ----------------------------------------------------------------
