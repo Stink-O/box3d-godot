@@ -991,6 +991,7 @@ func _on_body_count_toggled(pressed: bool) -> void:
 	_body_count_label.visible = pressed
 	if pressed:
 		_update_body_count()
+	_save_overlay_state()
 
 
 func _update_body_count() -> void:
@@ -1307,14 +1308,15 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	_apply_debug()  # carry the debug-draw toggle into the newly loaded sample
 	_apply_async()  # same for the async-step preference
 	# A sample can ask for the body counter (Ball Flood, whose whole point IS
-	# the number). Opting in switches it on; switching it back off is the
-	# user's, and their choice then sticks until the next opt-in sample. On a
+	# the number). Opting in switches it on only when the sample is freshly
+	# PICKED: a same-path reload (engine switch, Reset) keeps whatever the
+	# user chose, like the stats overlay and profiler keep theirs. On a
 	# native engine the flag arrives as metadata (the script does not).
 	var wants_counter := false
 	if _current != null:
 		wants_counter = bool(_current.get_meta("wants_body_counter", false)) \
 				or ("wants_body_counter" in _current and _current.wants_body_counter)
-	if wants_counter:
+	if wants_counter and fresh_sample:
 		_body_count_check.set_pressed_no_signal(true)
 		_body_count_label.visible = true
 	if _body_count_label.visible:
@@ -1672,6 +1674,10 @@ func _restore_overlay_state() -> void:
 		var on := bool(layout.get_value("shell", "solver_profiler"))
 		_profiler_check.set_pressed_no_signal(on)
 		_profiler.visible = on
+	if layout.has_section_key("shell", "body_counter"):
+		var on := bool(layout.get_value("shell", "body_counter"))
+		_body_count_check.set_pressed_no_signal(on)
+		_body_count_label.visible = on
 
 
 func _save_overlay_state() -> void:
@@ -1679,6 +1685,7 @@ func _save_overlay_state() -> void:
 	layout.load(SHELL_LAYOUT_PATH)  # keep the panels' own sections intact
 	layout.set_value("shell", "stats_overlay", _stats_overlay.visible)
 	layout.set_value("shell", "solver_profiler", _profiler.visible)
+	layout.set_value("shell", "body_counter", _body_count_label.visible)
 	layout.save(SHELL_LAYOUT_PATH)
 
 
