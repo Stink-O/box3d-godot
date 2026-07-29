@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://dxugjy148iedm" path="res://common/fly_camera.gd" id="3_cam"]
 [ext_resource type="Script" path="res://common/stats_overlay.gd" id="4_stats"]
 [ext_resource type="Script" path="res://compare/profiler_panel.gd" id="5_prof"]
+[ext_resource type="Script" path="res://common/body_count_drag.gd" id="6_bcd"]
 
 [node name="Main" type="Node3D" unique_id=1603281943]
 script = ExtResource("1_main")
@@ -143,6 +144,7 @@ text = "⟲  Reset"
 
 [node name="BodyCount" type="Label" parent="UI"]
 visible = false
+script = ExtResource("6_bcd")
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
