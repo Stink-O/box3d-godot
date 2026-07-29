@@ -77,6 +77,12 @@ func _ready() -> void:
 
 	_mmi = MultiMeshInstance3D.new()
 	_mmi.multimesh = _mm
+	# Same as ball_cloud.gd: physics_interpolation=true also enables the
+	# RenderingServer's own per-tick MultiMesh buffer interpolation, a second
+	# blend on top of the manually interpolated transforms _process writes.
+	# Interpolate in one place only.
+	_mmi.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	RenderingServer.multimesh_set_physics_interpolated(_mm.get_rid(), false)
 	add_child(_mmi)
 
 

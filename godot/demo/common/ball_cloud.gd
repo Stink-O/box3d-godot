@@ -66,6 +66,16 @@ func _ready() -> void:
 	_mm.visible_instance_count = 0
 	_mmi = MultiMeshInstance3D.new()
 	_mmi.multimesh = _mm
+	# physics_interpolation=true also switches on the RenderingServer's OWN
+	# MultiMesh interpolation: it snapshots the instance buffer per physics
+	# tick and renders a blend of prev/cur. This loop already writes manually
+	# interpolated transforms every frame, so that second layer only harms --
+	# and a slot made visible mid-flight has no valid prev snapshot, so the
+	# server blends it in from stale buffer data: a wrong-place ball for a
+	# frame or two, the ghosts around the emitters that survived every fix
+	# aimed at OUR transform writes. Interpolate in exactly one place: here.
+	_mmi.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	RenderingServer.multimesh_set_physics_interpolated(_mm.get_rid(), false)
 	add_child(_mmi)
 
 
