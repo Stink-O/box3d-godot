@@ -116,11 +116,18 @@ func _process(_delta: float) -> void:
 		if not is_instance_valid(b):
 			_release(i)
 			continue
-		# A newborn ball stays pinned to its spawn pose: until the engine has
-		# two physics ticks of history for the node, the interpolated read
-		# below returns junk, and writing it drew ghost balls popping around
-		# the emitters for a frame.
+		# A newborn has no interpolation history yet, so for its first two
+		# physics ticks track it with the RAW transform: it moves tick-stepped
+		# for ~33 ms, which vanishes into the shower. Both earlier attempts
+		# were the ghosts -- an unguarded interpolated read blends in from
+		# stale history, and pinning the ball at its spawn pose (the previous
+		# fix) hung every newborn mid-air beside the stream before it snapped
+		# down to catch up.
 		if now - _born[i] < 2:
+			var raw := (inv * b.global_transform).origin
+			if raw != _last[i]:
+				_last[i] = raw
+				_mm.set_instance_transform(i, Transform3D(_basis[i], raw))
 			i += 1
 			continue
 		# Interpolated, like the grid renderer: raw physics transforms step
