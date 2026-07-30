@@ -59,11 +59,11 @@ To build instead, see [Building](godot/README.md#building).
 ### Try it in a browser first
 
 **[Play it on itch.io](https://stinkysunstep.itch.io/box3d-godot)** -- the demo
-in a browser, no download, multi-threaded solver, full-size scenes. Safari
-lacks the isolation mode itch uses, so it drops those visitors onto the
-single-threaded fallback automatically. Both browser builds are also
+in a browser, no download, multi-threaded solver, full-size scenes. Desktop,
+Android and iOS all run that threaded build there. Both browser builds are also
 downloadable from [Releases](https://github.com/Stink-O/box3d-godot/releases)
-if you want to host your own.
+if you want to host your own; the single-threaded one is the one to pick for a
+plain static host, which cannot send the headers the threaded build needs.
 
 **It is a preview, not the real thing.** Running the demo in Godot is the
 intended way and the only one that shows the binding at full speed. The browser
