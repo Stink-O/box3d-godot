@@ -77,6 +77,15 @@ scons platform=android arch=x86_64 target=template_release   # etc.
 - `arm32` does not compile — upstream bug (#92). Do not "fix" it by editing
   `core.h` or by disabling SIMD.
 - Keep `-j` modest (leave the user most of their cores) when they're active.
+- **scons "up to date" does not mean current across platforms.** Object files
+  land next to the sources as `src/*.os` with NO platform in the name, so every
+  target overwrites the same objects and the shared `.sconsign.dblite` can call
+  a target current when its `.so` predates the last source change. Building for
+  a release found Linux/Android binaries 19 hours older than
+  `godot/src/box3d_world.cpp` and rebuilt none of them. For a release, delete
+  `*.os`, `*.o` and `.sconsign.dblite` between targets and let each one build
+  from scratch. (Deleting `*.o` also clears godot-cpp, so the full sweep is
+  slow — that is the price of an asset that is certainly the tagged tree.)
 
 ## Determinism red lines
 
@@ -258,7 +267,17 @@ Rules learned the hard way:
 
 - **Build everything AFTER the final commit**, from the exact tree being
   tagged. Stale assets on a draft (built before an upstream sync or a binding
-  landed) shipped a broken demo once already.
+  landed) shipped a broken demo once already. See the scons caveat under
+  "Building": an incremental build will happily call a stale target current.
+- **`--headless --import` REWRITES `project.godot` and silently drops
+  settings.** It strips every `;` comment (which is where the expensive
+  lessons live) and, observed on Godot 4.7, deletes
+  `renderer/rendering_method.web="gl_compatibility"` and
+  `lights_and_shadows/directional_shadow/size.mobile`. Exporting from that
+  file yields a web build asking for Forward+, which Godot 4.7 cannot run in a
+  browser. Always `git checkout godot/demo/project.godot` after an import and
+  BEFORE any export, then grep the file to confirm the web renderer key
+  survived.
 - `gh release` commands need `-R Stink-O/box3d-godot` or they hit upstream.
 - Draft first; publishing is the user's click unless they say otherwise.
 - New GDScript `class_name` ⇒ `--headless --import` before ANY export, or the
