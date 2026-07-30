@@ -1,3 +1,7 @@
+<p align="center">
+  <img alt="Box3D for Godot" width="640" src="godot/branding/GodotBox3DLogo.svg">
+</p>
+
 # Box3D for Godot
 
 A **[Godot 4](https://godotengine.org) GDExtension** that embeds
