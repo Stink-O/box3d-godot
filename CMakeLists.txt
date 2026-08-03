@@ -76,11 +76,16 @@ endif()
 
 # Deterministic math
 # https://box2d.org/posts/2024/08/determinism/
-if (MINGW OR APPLE OR UNIX)
-	add_compile_options(-ffp-contract=off)
-elseif (MSVC AND CMAKE_C_COMPILER_ID STREQUAL "Clang")
-	# clang-cl defaults to contraction on and silently drops the GNU spelling
-	add_compile_options(/clang:-ffp-contract=off)
+# Contraction into FMA is the one value changing transform enabled by default, and whether
+# it fires depends on the target. Test the compiler, not the platform, so every gcc and
+# clang gets the flag including a clang that is neither MinGW nor clang-cl.
+if (CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+	if (CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+		# clang-cl defaults to contraction on and silently drops the GNU spelling
+		add_compile_options(/clang:-ffp-contract=off)
+	else()
+		add_compile_options(-ffp-contract=off)
+	endif()
 endif()
 
 option(BOX3D_DISABLE_SIMD "Disable SIMD math (slower)" OFF)

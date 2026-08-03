@@ -192,6 +192,27 @@ void Camera::SetOrbit( float yawRadians, float pitchRadians, float radius )
 	RebuildBasisAndView( *this );
 }
 
+void Camera::SetTarget( b3Pos target )
+{
+	// The sim->display map is a uniform scale plus an optional quarter turn, so apply it directly
+	// rather than through the float matrix. In large world mode that keeps the range the pivot is
+	// double for; a matrix multiply would round it away.
+	const double s = 1.0 / m_lengthUnitsPerMeter;
+	m_pivot.x = s * target.x;
+	if ( m_zUp )
+	{
+		m_pivot.y = s * target.z;
+		m_pivot.z = -s * target.y;
+	}
+	else
+	{
+		m_pivot.y = s * target.y;
+		m_pivot.z = s * target.z;
+	}
+
+	RebuildBasisAndView( *this );
+}
+
 void Camera::SetView( float yawDegrees, float pitchDegrees, float radius, b3Pos pivot )
 {
 	SetPivot( pivot );
@@ -322,6 +343,12 @@ void Camera::OnEvent( const sapp_event* e )
 				case SAPP_KEYCODE_D:
 					m_dDown = true;
 					break;
+				case SAPP_KEYCODE_Q:
+					m_qDown = true;
+					break;
+				case SAPP_KEYCODE_E:
+					m_eDown = true;
+					break;
 				case SAPP_KEYCODE_LEFT_ALT:
 				case SAPP_KEYCODE_RIGHT_ALT:
 					m_altDown = true;
@@ -345,6 +372,12 @@ void Camera::OnEvent( const sapp_event* e )
 				case SAPP_KEYCODE_D:
 					m_dDown = false;
 					break;
+				case SAPP_KEYCODE_Q:
+					m_qDown = false;
+					break;
+				case SAPP_KEYCODE_E:
+					m_eDown = false;
+					break;
 				case SAPP_KEYCODE_LEFT_ALT:
 				case SAPP_KEYCODE_RIGHT_ALT:
 					m_altDown = false;
@@ -363,6 +396,8 @@ void Camera::OnEvent( const sapp_event* e )
 			m_aDown = false;
 			m_sDown = false;
 			m_dDown = false;
+			m_qDown = false;
+			m_eDown = false;
 			m_altDown = false;
 			break;
 		default:
@@ -425,6 +460,7 @@ void Camera::Update( float dt, int width, int height )
 
 		float wasdF = 0.0f; // +forward = backwards, since forward = pivot->eye
 		float wasdR = 0.0f;
+		float wasdU = 0.0f; // Q/E rise and fall, along world up rather than the view basis
 		if ( m_wDown )
 			wasdF -= 1.0f;
 		if ( m_sDown )
@@ -433,9 +469,13 @@ void Camera::Update( float dt, int width, int height )
 			wasdR += 1.0f;
 		if ( m_aDown )
 			wasdR -= 1.0f;
+		if ( m_eDown )
+			wasdU += 1.0f;
+		if ( m_qDown )
+			wasdU -= 1.0f;
 
 		b3Pos eye = eyeBefore;
-		if ( wasdF != 0.0f || wasdR != 0.0f )
+		if ( wasdF != 0.0f || wasdR != 0.0f || wasdU != 0.0f )
 		{
 			// Right = normalize(worldUp x forward), matching Box3D's
 			// UpdateTransform. worldUp = (0,1,0).
@@ -449,9 +489,9 @@ void Camera::Update( float dt, int width, int height )
 				right.z /= rlen;
 			}
 			const float step = m_speed * dt;
-			eye.x += forward.x * wasdF * step + right.x * wasdR * step;
-			eye.y += forward.y * wasdF * step + right.y * wasdR * step;
-			eye.z += forward.z * wasdF * step + right.z * wasdR * step;
+			eye.x += forward.x * wasdF * step + right.x * wasdR * step + worldUp.x * wasdU * step;
+			eye.y += forward.y * wasdF * step + right.y * wasdR * step + worldUp.y * wasdU * step;
+			eye.z += forward.z * wasdF * step + right.z * wasdR * step + worldUp.z * wasdU * step;
 		}
 
 		// Back-derive the pivot so Position() stays consistent and a return

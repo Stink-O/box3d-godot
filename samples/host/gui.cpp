@@ -13,9 +13,11 @@
 #include "gui.h"
 
 #include "gfx/draw.h"
+#include "gfx/fonts.h"
 #include "gfx/projection.h"
 #include "gfx/renderer.h"
 #include "gfx/text.h"
+#include "gfx/world_text.h"
 #include "imgui.h"
 #include "implot.h"
 #include "sokol_app.h"
@@ -135,7 +137,6 @@ void InitUI( const sg_environment* env, DrawUiFcn* drawGuiFcn )
 	desc.sample_count = env->defaults.sample_count;
 	desc.ini_filename = "imgui.ini";
 	desc.logger.func = slog_func;
-	// Skip ImGui's auto-pick so we always get the vector font we add below.
 	desc.no_default_font = true;
 	simgui_setup( &desc );
 
@@ -168,9 +169,9 @@ void InitUI( const sg_environment* env, DrawUiFcn* drawGuiFcn )
 		style.ScaleAllSizes( s_uiScale );
 	}
 
-	// 13px base for the proportional UI font, scaled to a whole physical
-	// pixel. Rasterizer density is 1.0 (DisplayFramebufferScale 1.0), so the
-	// atlas bakes at exactly this - floorf keeps it on a whole-pixel size.
+	// 13px base, scaled to a whole physical pixel. Rasterizer density is 1.0
+	// (DisplayFramebufferScale 1.0), so the atlas bakes at exactly this -
+	// floorf keeps it on a whole-pixel size.
 	style.FontSizeBase = floorf( 13.0f * s_uiScale );
 
 	s_uiInitialized = true;
@@ -288,12 +289,11 @@ void EndPanel( void )
 }
 
 // Text overlay. Drain the per-frame label arena (filled by DrawString /
-// DrawScreenString and the Box3D adapter's DrawString callback). World
-// entries project to screen pixels with the last rendered camera, screen
-// entries pass through their pixel position, and both emit into ImGui's
-// background draw list - labels sit on the scene but under any ImGui
-// windows. The drain runs in StartUIFrame because the calling app
-// guarantees RenderFrame already ran this frame, so GetCameraState
+// DrawScreenString and the Box3D adapter's DrawString callback). Screen
+// entries pass through their pixel position into ImGui's background draw
+// list, so labels sit on the scene but under any ImGui windows. World
+// entries belong to the SDF pass. The drain runs in StartUIFrame because the calling
+// app guarantees RenderFrame already ran this frame, so GetCameraState
 // returns the matrices the scene was actually rasterized with.
 static void RenderText()
 {
@@ -321,6 +321,11 @@ static void RenderText()
 	for ( int i = 0; i < n; ++i )
 	{
 		const TextEntry* e = GetTextAt( i );
+		if ( e->space == TEXT_SPACE_WORLD )
+		{
+			continue;
+		}
+
 		float sx, sy;
 		if ( !ResolveTextScreenPos( e, cam.view, cam.proj, vpW, vpH, &sx, &sy ) )
 		{
@@ -336,8 +341,12 @@ static void RenderText()
 				v = 1.0f;
 			return (uint32_t)( v * 255.0f + 0.5f );
 		};
-		const uint32_t col = IM_COL32( byte( e->color.x ), byte( e->color.y ), byte( e->color.z ), byte( e->color.w ) );
-		dl->AddText( nullptr, 0.0f, ImVec2( origin.x + sx, origin.y + sy ), col, e->text );
+		const uint32_t alpha = byte( e->color.w );
+		const uint32_t col = IM_COL32( byte( e->color.x ), byte( e->color.y ), byte( e->color.z ), alpha );
+
+		const float x = origin.x + sx;
+		const float y = origin.y + sy;
+		dl->AddText( nullptr, 0.0f, ImVec2( x, y ), col, e->text );
 	}
 }
 

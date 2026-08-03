@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define BOX3D_USER_SHAPE_CAPACITY 65536
 #define BOX3D_FREELIST_END ( -1 )
@@ -107,9 +108,6 @@ typedef struct
 	int firstFree;
 	int allocCount;
 
-	// For the ground grid
-	b3ShapeId groundShapeId;
-
 	// Per-shape PBR overrides
 	MaterialOverride materialOverrides[BOX3D_MATERIAL_OVERRIDE_CAPACITY];
 	int materialOverrideCount;
@@ -155,7 +153,6 @@ void InitAdapter( void )
 	}
 	s_adapter.firstFree = 0;
 	s_adapter.allocCount = 0;
-	s_adapter.groundShapeId = b3_nullShapeId;
 	s_adapter.materialOverrideCount = 0;
 	s_adapter.selectedBodyId = b3_nullBodyId;
 	s_adapter.selectedShapeId = b3_nullShapeId;
@@ -195,7 +192,6 @@ void ResetAdapterPool( void )
 	s_adapter.firstFree = 0;
 	s_adapter.allocCount = 0;
 
-	s_adapter.groundShapeId = b3_nullShapeId;
 	s_adapter.materialOverrideCount = 0;
 	s_adapter.selectedBodyId = b3_nullBodyId;
 	s_adapter.selectedShapeId = b3_nullShapeId;
@@ -264,7 +260,12 @@ int GetLastCompoundDrawStats( int* outTotal )
 
 void SetGroundShape( b3ShapeId shapeId )
 {
-	s_adapter.groundShapeId = shapeId;
+	if ( b3Shape_IsValid( shapeId ) == false )
+	{
+		return;
+	}
+
+	b3Shape_SetName( shapeId, BOX3D_GROUND_SHAPE_NAME );
 }
 
 void SetShapeMaterial( b3ShapeId shapeId, Vec4 color, float metallic, float roughness )
@@ -454,7 +455,7 @@ static void PopulateCommonFields( DebugShape* us, const b3DebugShape* debugShape
 {
 	const b3BodyId bodyId = b3Shape_GetBody( debugShape->shapeId );
 	us->bodyType = b3Body_GetType( bodyId );
-	us->isGround = B3_ID_EQUALS( debugShape->shapeId, s_adapter.groundShapeId );
+	us->isGround = strcmp( b3Shape_GetName( debugShape->shapeId ), BOX3D_GROUND_SHAPE_NAME ) == 0;
 	us->shapeId = debugShape->shapeId;
 	us->bodyId = bodyId;
 	RefreshMaterialFromOverride( us );

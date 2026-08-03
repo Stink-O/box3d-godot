@@ -16,6 +16,9 @@ extern "C"
 // draw origin to the grid period and keep the grid crisp far from the origin.
 #define BOX3D_GROUND_GRID_CELL_SIZE 1.0f
 
+// Shapes carrying this name draw with the grid instead of a solid material.
+#define BOX3D_GROUND_SHAPE_NAME "ground"
+
 void InitAdapter( void );
 
 // Unconditionally flush the debug-shape pool: release the GPU mesh references
@@ -31,7 +34,10 @@ b3DebugDraw* GetGuiDraw( void );
 void ApplyGuiFlags( b3DebugDraw* out );
 int GetDebugShapeCount( void );
 
-// Tag a Box3D shape so the renderer draws it with the procedural ground grid.
+// Tag a Box3D shape so the renderer draws it with the procedural ground grid. The tag is the shape
+// name, which lives in the world rather than in the renderer, so it is captured by a recording and
+// comes back on replay. Ignores an invalid shape, which lets a scene hand over a ground it may not
+// have created.
 void SetGroundShape( b3ShapeId shapeId );
 void SetShapeMaterial( b3ShapeId shapeId, Vec4 color, float metallic, float roughness );
 void SetTransparentDynamic( bool enabled );
