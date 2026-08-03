@@ -11,7 +11,7 @@ extends Node3D
 ## engine = box3d | godot | jolt
 ##
 ## Box3D runs the sample scene AS AUTHORED: Box3DWorld and Box3DBody nodes,
-## untouched. The native engines cannot, because 18 of the 32 samples carry
+## untouched. The native engines cannot, because 18 of the samples carry
 ## `: Box3DBody` static annotations and common/cube.gd and common/bomb.gd
 ## literally `extends Box3DBody`, so swapping nodes breaks type-checking before
 ## physics is involved. Instead RigExtract reads the authored scene into a
@@ -195,7 +195,7 @@ func _load_native(path: String) -> void:
 	add_child(_stage)
 
 	var built := RigNative.build(rig, _stage)
-	# Per-world gravity has no native node equivalent and 30 of the 32 samples
+	# Per-world gravity has no native node equivalent and 30 of the samples
 	# set it (car uses -10, gyro_torque uses zero), so it goes on the space.
 	var space := get_viewport().find_world_3d().space
 	RigNative.apply_world_settings(rig, space)

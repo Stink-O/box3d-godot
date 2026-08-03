@@ -26,7 +26,7 @@ upstream engine sources are unchanged; everything Godot-specific lives in
   distance, ball, fixed, motor, wheel, parallel); contact & sensor events;
   ray/shape/overlap queries; a character controller; continuous collision; and
   live solver tuning.
-- Ships a **sample browser** demo (~28 samples stacks, ragdoll, a drivable
+- Ships a **sample browser** demo (33 samples stacks, ragdoll, a drivable
   car, joints, queries, and toys).
 - Runs on **Android** (arm64 + x86_64), verified on real hardware under
   Vulkan, with touch controls and a mobile-scaled UI in the demo. Build and

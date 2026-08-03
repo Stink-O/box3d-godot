@@ -90,7 +90,7 @@ static func build(rig: Dictionary, parent: Node3D) -> Dictionary:
 			"warnings": _collect_warnings(ctx)}
 
 
-## Per-world gravity has no native node equivalent, and 30 of the 32 samples
+## Per-world gravity has no native node equivalent, and 30 of the samples
 ## set it (car -10, gyro_torque zero). Both servers route a SPACE rid through
 ## area_set_param to that space's default area, which is where the project's
 ## default_gravity lands too, so this overrides exactly that.

@@ -1374,7 +1374,7 @@ func _build_native(path: String) -> Node3D:
 	var rig := RigExtract.from_scene(path)
 	var built := RigNative.build(rig, world)
 	# Per-world gravity has no native node equivalent; NativeWorld forwards it to
-	# the space. 30 of the 32 samples set a value of their own.
+	# the space. 30 of the samples set a value of their own.
 	var gravity: Vector3 = rig.get("gravity", Vector3(0, -9.8, 0))
 	world.gravity = gravity
 

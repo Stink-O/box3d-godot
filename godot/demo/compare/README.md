@@ -38,7 +38,7 @@ below.
 Box3D runs each sample **exactly as authored**: the `Box3DWorld` and `Box3DBody`
 nodes in the `.tscn`, untouched.
 
-The native engines cannot do that. 18 of the 32 samples carry `: Box3DBody`
+The native engines cannot do that. 18 of the samples carry `: Box3DBody`
 static type annotations, and `common/cube.gd` and `common/bomb.gd` literally
 `extends Box3DBody`, so swapping nodes for `RigidBody3D` breaks GDScript
 type-checking before physics is even involved. `tests/test_samples.gd` also
@@ -64,7 +64,7 @@ description natively.
 | `profiler_panel.gd` | the profiler UI, cloned from upstream's sample app |
 | `profile_feeds.gd` | three profiler data sources behind one interface |
 | `compare.gd` / `overlay.gd` | the harness shell and its HUD |
-| `_verify.gd` | headless check that all 32 samples extract and rebuild |
+| `_verify.gd` | headless check that every sample extracts and rebuilds |
 
 ## Choosing the engine, and why it needs a relaunch
 
@@ -180,7 +180,7 @@ dishonest. Each of these is a real divergence, not a rounding difference:
 
 ## Samples that do not port
 
-Six of the 32 are Box3D-only, which is a result rather than a gap in the
+Six of them are Box3D-only, which is a result rather than a gap in the
 harness. They still run, badged:
 
 | sample | why |
@@ -212,7 +212,7 @@ shows only the authored ground plane.
 "$GODOT" --headless --path godot/demo res://compare/_verify.tscn --quit-after 600
 ```
 
-Extracts and rebuilds all 32 samples, asserting rig well-formedness (every shape
+Extracts and rebuilds every sample under `samples/`, asserting rig well-formedness (every shape
 carries its kind-specific parameters, every body has a shape, every joint
 endpoint is in range). Prints one line per scene plus `[verify] ALL -> PASS`.
 
