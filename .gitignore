@@ -9,6 +9,7 @@ CMakeUserPresets.json
 .cache/
 .idea/
 .claude/
+CLAUDE.md
 .tmp/
 .fetchcontent-cache/
 *.b3rec
