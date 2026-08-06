@@ -273,6 +273,8 @@ var _debug_draw := false
 var _step_count := 0
 var _updating_sidebar := false  ## guard while pushing values into the controls
 var _sample_blurb: Label  ## muted one-liner in the sidebar, see DESCRIPTIONS
+var _sample_blurb_toggle: Button  ## discloses the blurb; collapsed on every sample load
+var _side_scroll: ScrollContainer  ## the sidebar's scrollable middle, all platforms
 ## Box3D fixes the worker count when the world is created, so the sidebar
 ## can't live-edit it like the other settings. Instead a change reloads the
 ## sample with this override applied before the world exists. Sticky across
@@ -318,6 +320,7 @@ func _ready() -> void:
 	# kill -9 from leaving the demo silently switched to another engine.
 	_sweep_override()
 	_parse_engine_arg()
+	_make_sidebar_scrollable()  # before _setup_touch: touch layers onto _side_scroll
 	_setup_touch()
 	_build_menu()
 
@@ -740,17 +743,11 @@ func _setup_touch() -> void:
 	# Wider than desktop's 308: the scrollbar eats width, and the row labels
 	# clip at the bigger fonts otherwise.
 	_sidebar.offset_left = -384.0
-	# A landscape phone cannot show the full settings column: give the sidebar
-	# a drag-scrollable middle. Desktop keeps the plain fixed column.
-	var margin: Control = _sidebar.get_node("Margin")
-	var side_scroll := ScrollContainer.new()
-	side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	side_scroll.scroll_deadzone = 24  # a slightly wobbly tap still hits controls
-	_sidebar.remove_child(margin)
-	_sidebar.add_child(side_scroll)
-	side_scroll.add_child(margin)
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_pass_through_for_scroll(margin)
+	# The sidebar is scrollable on every platform (_make_sidebar_scrollable);
+	# touch additionally needs a drag deadzone and pass-through so a finger
+	# drag anywhere on the panel scrolls it, not just the scrollbar.
+	_side_scroll.scroll_deadzone = 24  # a slightly wobbly tap still hits controls
+	_pass_through_for_scroll(_side_scroll.get_node("Margin"))
 	_setup_touch_sample_picker()
 	_touch = TouchControls.new()
 	_touch.setup(_camera)
@@ -991,20 +988,54 @@ func _hide_visuals_under(node: Node) -> void:
 		_hide_visuals_under(child)
 
 
-## A muted line under the sidebar title saying what the current sample shows.
-## The sidebar is hidden behind the Settings button (or Tab), so this is for
-## someone who went looking; the same text is the sample entry's tooltip.
+## The settings column has outgrown short windows (and keeps growing), so the
+## sidebar's middle scrolls on every platform. Touch layers its own deadzone
+## and drag pass-through on top of this later.
+func _make_sidebar_scrollable() -> void:
+	var margin: Control = _sidebar.get_node("Margin")
+	_side_scroll = ScrollContainer.new()
+	_side_scroll.name = "SideScroll"
+	_side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_sidebar.remove_child(margin)
+	_sidebar.add_child(_side_scroll)
+	_side_scroll.add_child(margin)
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+
+## What the current sample shows, behind a small disclosure so it never takes
+## sidebar space uninvited: collapsed on every sample load, revealed on click.
+## The same text is the sample entry's tooltip in the picker.
 func _build_sample_blurb() -> void:
-	var vbox: Control = _sidebar.get_node("Margin/VBox")
+	var vbox: Control = _side_scroll.get_node("Margin/VBox")
+	_sample_blurb_toggle = Button.new()
+	_sample_blurb_toggle.name = "SampleBlurbToggle"
+	_sample_blurb_toggle.toggle_mode = true
+	_sample_blurb_toggle.flat = true
+	_sample_blurb_toggle.focus_mode = Control.FOCUS_NONE
+	_sample_blurb_toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_sample_blurb_toggle.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
+	_sample_blurb_toggle.add_theme_font_size_override("font_size", 12)
 	_sample_blurb = Label.new()
 	_sample_blurb.name = "SampleBlurb"
 	_sample_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_sample_blurb.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
 	_sample_blurb.add_theme_font_size_override("font_size", 12)
+	_sample_blurb.visible = false
+	_sample_blurb_toggle.toggled.connect(func(pressed: bool) -> void:
+		_sample_blurb.visible = pressed and not _sample_blurb.text.is_empty()
+		_update_blurb_toggle_text())
+	vbox.add_child(_sample_blurb_toggle)
 	vbox.add_child(_sample_blurb)
 	# Above the sidebar's own "Solver" title, so it reads as being about the
 	# sample rather than about the controls under it.
-	vbox.move_child(_sample_blurb, 0)
+	vbox.move_child(_sample_blurb_toggle, 0)
+	vbox.move_child(_sample_blurb, 1)
+
+
+func _update_blurb_toggle_text() -> void:
+	var arrow := "v" if _sample_blurb_toggle.button_pressed else ">"
+	_sample_blurb_toggle.text = "%s About this sample" % arrow
 
 
 func _on_sidebar_toggled(pressed: bool) -> void:
@@ -1481,7 +1512,11 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	if _sample_blurb != null:
 		var blurb: String = DESCRIPTIONS.get(sample_name, "")
 		_sample_blurb.text = "" if blurb.is_empty() else "%s: %s" % [sample_name, blurb]
-		_sample_blurb.visible = not _sample_blurb.text.is_empty()
+		# Collapsed on every load; the toggle only exists where there is text.
+		_sample_blurb.visible = false
+		_sample_blurb_toggle.set_pressed_no_signal(false)
+		_sample_blurb_toggle.visible = not _sample_blurb.text.is_empty()
+		_update_blurb_toggle_text()
 	_info_flash_id += 1  # cancel any pending flash from the previous sample
 	_show_controls_hint()
 	_update_engine_note()  # this sample's port notes, if it is running natively
