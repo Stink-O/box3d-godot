@@ -16,14 +16,30 @@ extends Node3D
 ## Upstream's Explode button is the shell's Activate: a 10 m blast at the
 ## centre with 10000 impulse per unit area and a falloff of 5. Watch the
 ## pieces scatter, bounce off the walls (restitution 0.8) and be reeled to a
-## halt by their motors. The blast peaks over 300 m/s, so the odd piece does
-## punch through a wall -- upstream's bodies are not bullets either.
+## halt by their motors. The pieces carry upstream's water density, so the
+## blast lands at upstream's tens of m/s rather than the hundreds the node's
+## default density used to produce -- nothing punches through a wall now.
 
 const N := 10
 const START := Vector2(-5.0, 15.0)
 const RESTITUTION := 0.8
 const MAX_FORCE := 1000.0
 const MAX_TORQUE := 1000.0
+
+## `b3DefaultShapeDef().density`, which upstream's pieces are built with
+## (src/types.c:73, "density of water"). Box3DBody defaults to 1 instead, and
+## THAT is what made this sample unplayable: at density 1 a 0.7 m cube weighs
+## 0.34 kg, so the joint's 1000 N budget is 2900 m/s^2 of braking and the mouse
+## spring -- capped at 100 body weights, i.e. 336 N -- could never win. At
+## upstream's density the same cube is 343 kg, the motor brakes at 2.9 m/s^2,
+## and the grab pushes pieces around exactly as upstream's does. The explosion
+## was the only thing strong enough to move them before.
+const DENSITY := 1000.0
+
+## `b3DefaultBodyDef` leaves angularDamping at 0; the node defaults to 0.05.
+## The whole point of the sample is that the drag comes from the joints and
+## nothing else.
+const ANGULAR_DAMPING := 0.0
 
 const CAPSULE_RADIUS := 0.25
 ## Upstream's capsule runs along X between (-0.25, 0) and (0.25, 0):
@@ -100,6 +116,8 @@ func _make_piece(kind: int, pos: Vector3) -> Box3DBody:
 	var body := Box3DBody.new()
 	body.gravity_scale = 0.0
 	body.restitution = RESTITUTION
+	body.density = DENSITY
+	body.angular_damping = ANGULAR_DAMPING
 	var visual := MeshInstance3D.new()
 	match kind:
 		0:

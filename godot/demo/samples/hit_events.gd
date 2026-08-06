@@ -152,20 +152,10 @@ func _build_ground() -> void:
 	_world.add_child(ground)
 
 
+## Box3D's winding is the opposite of Godot's; Box3DGeometry.make_array_mesh is
+## where that is reversed, so the ground is drawn facing the side it collides on.
 func _ground_surface(verts: PackedVector3Array, idx: PackedInt32Array) -> ArrayMesh:
-	var flipped := PackedInt32Array()
-	for t in idx.size() / 3:
-		flipped.append_array([idx[t * 3], idx[t * 3 + 2], idx[t * 3 + 1]])
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_INDEX] = flipped
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var st := SurfaceTool.new()
-	st.create_from(mesh, 0)
-	st.generate_normals()
-	return st.commit()
+	return Box3DGeometry.make_array_mesh({"vertices": verts, "indices": idx})
 
 
 ## Upstream's construction loop, one for one: capsules are accumulated on a

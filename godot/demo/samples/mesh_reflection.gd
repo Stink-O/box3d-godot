@@ -109,7 +109,10 @@ func _apply_scale() -> void:
 	# b3Shape_SetMesh's scale argument, live: the shape keeps its triangles and
 	# is re-fitted at the new scale (src/shape.c:1640-1675).
 	_mirror.set_mesh_scale(s)
-	_mirror_visual.scale = s
+	# The visual is rebuilt at that scale rather than node-scaled: a mirroring
+	# scale reverses every triangle, and baking it into the surface is what
+	# keeps the drawn side and the collidable side the same one.
+	_mirror_visual.mesh = _surface(_vertices, _indices, s)
 
 
 func _build_ground() -> void:
@@ -140,10 +143,9 @@ func _build_copy(p_at: Vector3, p_scale: Vector3, p_mirrored: bool) -> void:
 
 	var visual := MeshInstance3D.new()
 	visual.name = "BuildingVisual"
-	visual.mesh = _surface(_vertices, _indices)
+	visual.mesh = _surface(_vertices, _indices, p_scale)
 	visual.material_override = _material(
 			Color(0.78, 0.5, 0.35) if p_mirrored else Color(0.45, 0.6, 0.72))
-	visual.scale = p_scale
 	body.add_child(visual)
 
 	if p_mirrored:
@@ -263,26 +265,19 @@ func _grid_indices() -> PackedInt32Array:
 	return idx
 
 
-## The same triangles as a Godot surface. Box3D's winding is the opposite of
-## Godot's, so each triangle is reversed to face outward.
-func _surface(p_vertices: PackedVector3Array, p_indices: PackedInt32Array) -> ArrayMesh:
-	var flipped := PackedInt32Array()
-	for t in p_indices.size() / 3:
-		flipped.append_array([p_indices[t * 3], p_indices[t * 3 + 2], p_indices[t * 3 + 1]])
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = p_vertices
-	arrays[Mesh.ARRAY_INDEX] = flipped
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var st := SurfaceTool.new()
-	st.create_from(mesh, 0)
-	st.generate_normals()
-	return st.commit()
+## The same triangles as a Godot surface, at the same scale the collider is
+## given. Box3D's winding is the opposite of Godot's and a mirroring scale
+## reverses it once more; Box3DGeometry.make_array_mesh is where both are
+## resolved, which is why the mirrored copy is REBUILT at the new scale rather
+## than drawn through a negatively scaled node.
+func _surface(p_vertices: PackedVector3Array, p_indices: PackedInt32Array,
+		p_scale := Vector3.ONE) -> ArrayMesh:
+	return Box3DGeometry.make_array_mesh(
+			{"vertices": p_vertices, "indices": p_indices}, p_scale)
 
 
 func _material(p_color: Color) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = p_color
-	mat.roughness = 0.6
+	mat.roughness = 0.8
 	return mat

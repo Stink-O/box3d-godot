@@ -104,6 +104,7 @@
 		<member name="clip_plane_velocity" type="bool" setter="set_clip_plane_velocity" getter="get_clip_plane_velocity" default="true">
 			Whether the planes the character touches clip a velocity passed to [method clip_velocity]. On by default, which is ordinary hard collision: the component of the velocity heading into a wall is removed, so a character walking into it stops rather than accumulating speed it cannot use.
 			Turn it off for soft collision, together with a finite [member push_limit]: the character keeps its speed through the give instead of losing it into a plane that is deliberately yielding. With this off, [method clip_velocity] returns the velocity unchanged.
+			Like [member push_limit], this can be overridden per obstacle with [code]mover_clip_velocity[/code] metadata on the shape or body, matching upstream's per-shape user data.
 		</member>
 		<member name="collision_layer" type="int" setter="set_collision_layer" getter="get_collision_layer" default="-1">
 			Which layers the character itself is [b]on[/b]. Query filtering is two-way, so this is the half that shapes test their own [member Box3DBody.collision_mask] against: a shape whose mask excludes this layer ignores the character, while the character's [member collision_mask] decides which shapes it collides with. Both tests must pass.
@@ -123,7 +124,7 @@
 			How far a collision plane may push the capsule out of an overlap in one solve, in metres.
 			[code]0[/code] means [b]no limit[/b] -- the maximally rigid plane Box3D uses by default, and the behaviour every character had before this existed. The same "0 is unlimited" convention as [member Box3DJoint.force_threshold]; no inspector spinbox can express the infinity it stands for.
 			Any positive value makes the collision [b]soft[/b]: the capsule is only eased out of an overlap, so it sinks into what it hits and recovers over several frames, which is how a pushable crate or a springy ceiling behaves. Upstream pairs a soft limit with [member clip_plane_velocity] off so the mover keeps its speed through the give.
-			[b]Softness is per character, not per obstacle.[/b] Upstream reads this from each shape's own user data; this binding reads it from the character, so one value applies to everything a given character touches.
+			[b]Softness can also be authored per obstacle[/b], matching upstream's shape user data: a [code]mover_push_limit[/code] (float) or [code]mover_clip_velocity[/code] (bool) metadata entry on a [Box3DCollisionShape] or [Box3DBody] overrides the character-wide value for that shape only. [code]mover_ignore[/code] (bool) metadata excludes a shape from the mover entirely, and [code]mover_ignore_cast[/code] skips it during the sweep but keeps its overlap planes, upstream's ally filter. Without metadata, this property applies to everything the character touches.
 		</member>
 		<member name="radius" type="float" setter="set_radius" getter="get_radius" default="0.4">
 			Radius of the character capsule, in metres.

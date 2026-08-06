@@ -67,17 +67,14 @@ func _build_mesh() -> ArrayMesh:
 	]
 	# Closed surface over those six points: top face, two sloping flanks and
 	# the two end caps. b3CreateHull only needs the point cloud, but a closed
-	# mesh is what makes the visual read as a solid.
-	var tris := [
-		[0, 1, 3], [0, 3, 2],           # top
-		[0, 4, 5], [0, 5, 1],           # -z flank
-		[2, 3, 5], [2, 5, 4],           # +z flank
-		[0, 2, 4], [1, 5, 3],           # end caps
-	]
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for t in tris:
-		for i in t:
-			st.add_vertex(v[i])
-	st.generate_normals()
-	return st.commit()
+	# mesh is what makes the visual read as a solid. Wound Box3D's way --
+	# counter-clockwise by the right-hand rule, normal pointing out of the
+	# wedge -- and reversed for Godot by Box3DGeometry.make_array_mesh, which
+	# also gives each face its own flat normal.
+	var idx := PackedInt32Array([
+		0, 3, 1, 0, 2, 3,               # top
+		0, 5, 4, 0, 1, 5,               # -z flank
+		2, 5, 3, 2, 4, 5,               # +z flank
+		0, 4, 2, 1, 3, 5,               # end caps
+	])
+	return Box3DGeometry.make_array_mesh({"vertices": PackedVector3Array(v), "indices": idx})

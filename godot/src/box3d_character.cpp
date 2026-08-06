@@ -4,6 +4,7 @@
 #include "box3d_character.h"
 
 #include "box3d_body.h"
+#include "box3d_collision_shape.h"
 #include "box3d_conversions.h"
 #include "box3d_world.h"
 
@@ -17,6 +18,63 @@ using namespace godot;
 
 namespace {
 
+// --- upstream's MoverShapeUserData, as node metadata -----------------------
+//
+// b3CollisionPlane.pushLimit / .clipVelocity are filled in by the APPLICATION,
+// not by Box3D: upstream's mover reads them out of each shape's user data
+// (samples/mover.cpp:55-62, samples/mover.h:11-15) so one character can meet a
+// rigid wall, a springy enemy and a barely-there ally in the same sweep. This
+// binding already spends b3Shape user data on the authoring node, so the
+// equivalent per-shape channel is Godot metadata on that node — set it on a
+// Box3DCollisionShape, or on the Box3DBody to cover every shape it owns:
+//
+//   mover_push_limit   float, metres of push-out allowed per solve (upstream's
+//                      MoverShapeUserData::maxPush; absent = FLT_MAX = rigid)
+//   mover_clip_velocity  bool, upstream's MoverShapeUserData::clipVelocity
+//   mover_ignore       bool, upstream's m_ignoreShapeIds list
+//                      (samples/mover.cpp:14-26): the shape presents no planes
+//                      and does not stop the sweep, i.e. walk straight through
+//   mover_ignore_cast  bool, upstream's cast filter dropping category 2
+//                      (samples/mover.cpp:178-181): the shape still presents
+//                      planes but never blocks the sweep, which is what lets a
+//                      soft ally be pushed through instead of being a wall
+//
+// Anything not set falls back to the character's own push_limit /
+// clip_plane_velocity, so a scene that sets no metadata behaves exactly as it
+// did before.
+struct MoverShapeSettings {
+	float push_limit = FLT_MAX;
+	bool clip_velocity = true;
+	bool ignore = false;
+	bool ignore_cast = false;
+};
+
+const char *META_PUSH_LIMIT = "mover_push_limit";
+const char *META_CLIP_VELOCITY = "mover_clip_velocity";
+const char *META_IGNORE = "mover_ignore";
+const char *META_IGNORE_CAST = "mover_ignore_cast";
+
+void read_mover_meta(Object *p_object, MoverShapeSettings &r_settings, bool &r_push_set, bool &r_clip_set) {
+	if (p_object == nullptr) {
+		return;
+	}
+	if (!r_push_set && p_object->has_meta(META_PUSH_LIMIT)) {
+		const double limit = p_object->get_meta(META_PUSH_LIMIT);
+		r_settings.push_limit = limit > 0.0 ? (float)limit : FLT_MAX;
+		r_push_set = true;
+	}
+	if (!r_clip_set && p_object->has_meta(META_CLIP_VELOCITY)) {
+		r_settings.clip_velocity = (bool)p_object->get_meta(META_CLIP_VELOCITY);
+		r_clip_set = true;
+	}
+	if (p_object->has_meta(META_IGNORE) && (bool)p_object->get_meta(META_IGNORE)) {
+		r_settings.ignore = true;
+	}
+	if (p_object->has_meta(META_IGNORE_CAST) && (bool)p_object->get_meta(META_IGNORE_CAST)) {
+		r_settings.ignore_cast = true;
+	}
+}
+
 // Collects the collision planes from b3World_CollideMover, plus upstream's
 // "plane extras" (samples/mover.h:16-20): the contact point and the shape that
 // produced each plane, which is what lets the node report what it touched.
@@ -29,26 +87,60 @@ struct MoverContext {
 	std::vector<b3CollisionPlane> planes;
 	std::vector<b3Vec3> points; // relative to origin, as delivered
 	std::vector<b3ShapeId> shapes;
+	std::vector<Box3DBody *> bodies; // one per plane, may be null
+	Box3DWorld *world = nullptr;
 	float push_limit = FLT_MAX;
 	bool clip_velocity = true;
+
+	// The character's own settings, overridden per shape by the metadata above.
+	MoverShapeSettings settings_for(b3ShapeId p_shape, Box3DBody **r_body) const {
+		MoverShapeSettings settings;
+		settings.push_limit = push_limit;
+		settings.clip_velocity = clip_velocity;
+		bool push_set = false;
+		bool clip_set = false;
+		// The shape's own node wins over the body's, as upstream's per-shape
+		// user data wins over anything scene-wide.
+		read_mover_meta(static_cast<Object *>((Box3DCollisionShape *)b3Shape_GetUserData(p_shape)),
+				settings, push_set, clip_set);
+		Box3DBody *body = world != nullptr ? world->body_from_shape(p_shape) : nullptr;
+		read_mover_meta(static_cast<Object *>(body), settings, push_set, clip_set);
+		if (r_body != nullptr) {
+			*r_body = body;
+		}
+		return settings;
+	}
 };
 
 bool plane_result_cb(b3ShapeId p_shape, const b3PlaneResult *p_results, int p_count, void *p_context) {
 	MoverContext *ctx = static_cast<MoverContext *>(p_context);
+	Box3DBody *body = nullptr;
+	const MoverShapeSettings settings = ctx->settings_for(p_shape, &body);
+	if (settings.ignore) {
+		// Upstream ignores these planes but keeps looking (mover.cpp:46-52).
+		return true;
+	}
 	for (int i = 0; i < p_count; ++i) {
 		b3CollisionPlane cp;
 		cp.plane = p_results[i].plane;
-		// Upstream reads these per shape, from the shape's own user data
-		// (samples/mover.cpp:55-62). This binding has no per-shape mover
-		// settings yet, so they come from the character; see the node notes.
-		cp.pushLimit = ctx->push_limit;
+		cp.pushLimit = settings.push_limit;
 		cp.push = 0.0f;
-		cp.clipVelocity = ctx->clip_velocity;
+		cp.clipVelocity = settings.clip_velocity;
 		ctx->planes.push_back(cp);
 		ctx->points.push_back(p_results[i].point);
 		ctx->shapes.push_back(p_shape);
+		ctx->bodies.push_back(body);
 	}
 	return true;
+}
+
+// b3MoverFilterFcn for b3World_CastMover: upstream's MoverFilterCallback
+// (samples/mover.cpp:14-26) plus the ally half of its cast filter. Returning
+// false drops the shape from the sweep.
+bool mover_cast_filter_cb(b3ShapeId p_shape, void *p_context) {
+	const MoverContext *ctx = static_cast<const MoverContext *>(p_context);
+	const MoverShapeSettings settings = ctx->settings_for(p_shape, nullptr);
+	return !(settings.ignore || settings.ignore_cast);
 }
 
 } // namespace
@@ -123,41 +215,85 @@ Vector3 Box3DCharacterBody::move_and_slide(const Vector3 &p_velocity, double p_d
 	const b3Pos target = to_b3_pos(start + free_move);
 
 	MoverContext ctx;
+	ctx.world = world;
 	ctx.push_limit = push_limit > 0.0 ? (float)push_limit : FLT_MAX;
 	ctx.clip_velocity = clip_plane_velocity;
 	for (int iteration = 0; iteration < MAX_ITERATIONS; ++iteration) {
 		ctx.planes.clear();
 		ctx.points.clear();
 		ctx.shapes.clear();
+		ctx.bodies.clear();
 		b3World_CollideMover(world_id, position, &mover, filter, plane_result_cb, &ctx);
 
 		// Slides the remaining move along every touching plane and pushes out
 		// of any overlap in one solve.
 		b3Vec3 target_delta = b3SubPos(target, position);
 		b3PlaneSolverResult result = b3SolvePlanes(target_delta, ctx.planes.data(), (int)ctx.planes.size());
-		last_solver_iterations = result.iterationCount;
+		// Upstream's m_totalIterations is the sum over the whole sweep loop
+		// (samples/mover.cpp:183, :200), not the last pass's count.
+		last_solver_iterations += result.iterationCount;
 
 		// Keep the planes this pass solved: the solve is what fills each
 		// plane's push, and the last pass is the one that describes where the
 		// capsule ended up. Points are delivered relative to the collide
 		// origin (samples/mover.cpp:73), so they are offset back to world here.
 		last_planes = ctx.planes;
+		last_bodies = ctx.bodies;
 		last_points.clear();
-		last_bodies.clear();
 		for (size_t i = 0; i < ctx.planes.size(); ++i) {
 			last_points.push_back(to_gd_pos(b3OffsetPos(position, ctx.points[i])));
-			last_bodies.push_back(world->body_from_shape(ctx.shapes[i]));
 		}
 
-		// The sweep clips the slide against anything in the way. No custom
-		// filter callback: the mask filter above is the whole contract, and a
-		// b3MoverFilterFcn is allowed to be null (test/test_large_world.c:239).
-		float fraction = b3World_CastMover(world_id, position, &mover, result.delta, filter, nullptr, nullptr);
+		// The sweep clips the slide against anything in the way. The filter
+		// callback is upstream's (samples/mover.cpp:204): the mask filter
+		// covers layers, and the callback drops the shapes this character is
+		// told to walk through.
+		float fraction = b3World_CastMover(world_id, position, &mover, result.delta, filter, mover_cast_filter_cb, &ctx);
 		b3Vec3 delta = b3MulSV(fraction, result.delta);
 		position = b3OffsetPos(position, delta);
 
 		if (b3LengthSquared(delta) < TOLERANCE * TOLERANCE) {
 			break;
+		}
+	}
+
+	// Upstream's other half of the mover contact (samples/mover.cpp:215-248):
+	// b3World_CollideMover treats a dynamic body as an immovable plane, so the
+	// character solves against a crate but the crate never learns it was hit.
+	// This applies the missing normal impulse, computed exactly as a contact
+	// solver would (effective mass at the contact point, no negative impulse),
+	// with the mover's own inverse mass taken as 0 — a mover is infinitely
+	// heavy, which is why its own velocity comes back unchanged.
+	const b3Vec3 mover_velocity = to_b3(p_velocity);
+	for (size_t i = 0; i < last_planes.size(); ++i) {
+		Box3DBody *body = last_bodies[i];
+		if (body == nullptr) {
+			continue;
+		}
+		const b3BodyId body_id = body->get_body_id();
+		if (!b3Body_IsValid(body_id) || b3Body_GetType(body_id) != b3_dynamicBody) {
+			continue;
+		}
+
+		const b3Pos point = to_b3_pos(last_points[i]);
+		const b3Vec3 normal = b3Neg(last_planes[i].plane.normal);
+
+		const float inv_mass_b = b3Body_GetInverseMass(body_id);
+		const b3Matrix3 inv_i_b = b3Body_GetWorldInverseRotationalInertia(body_id);
+
+		const b3Pos center_b = b3Body_GetWorldCenter(body_id);
+		const b3Vec3 r_b = b3SubPos(point, center_b);
+		const b3Vec3 rn_b = b3Cross(r_b, normal);
+		const float k_normal = inv_mass_b + b3Dot(rn_b, b3MulMV(inv_i_b, rn_b));
+		const float normal_mass = k_normal > 0.0f ? 1.0f / k_normal : 0.0f;
+
+		const b3Vec3 v_b = b3Body_GetLinearVelocity(body_id);
+		const b3Vec3 omega_b = b3Body_GetAngularVelocity(body_id);
+		const b3Vec3 vr_b = b3Add(v_b, b3Cross(omega_b, r_b));
+		const float vn = b3Dot(b3Sub(vr_b, mover_velocity), normal);
+		const float impulse = b3MaxFloat(-normal_mass * vn, 0.0f);
+		if (impulse > 0.0f) {
+			b3Body_ApplyLinearImpulse(body_id, b3MulSV(impulse, normal), point, true);
 		}
 	}
 

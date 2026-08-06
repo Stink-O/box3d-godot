@@ -29,10 +29,17 @@ const GRID_N_WEB := 22
 const SPHERE_RADIUS := 0.4
 const SPACING := 1.0  # bodies at (k, -i, 0)
 
-## b3ShapeDef.filter: category 2, masking category 2 out. No sphere ever
-## touches another one.
-const CATEGORY := 2
-const MASK := 0xFFFFFFFD  # ~2u
+## b3ShapeDef.filter: one category, masked out of itself, so no sphere ever
+## touches another one -- upstream's `categoryBits = 2, maskBits = ~2u`.
+##
+## The BIT is deliberately not upstream's 2: layer 2 is the demo shell's
+## invisible-guard layer, and the camera's grab ray and its projectiles both
+## skip it (`RAY_MASK = 0xFFFFFFFF ^ 2`, common/fly_camera.gd:39). On category 2
+## the whole grid was unclickable -- every left-drag grab raycast filtered the
+## spheres out before it could hit one. Which bit carries the "don't touch your
+## neighbours" rule is arbitrary; not colliding with the shell is not.
+const CATEGORY := 4
+const MASK := 0xFFFFFFFB  # ~4u
 
 var camera_home := Vector3.ZERO
 var camera_look_at := Vector3.ZERO

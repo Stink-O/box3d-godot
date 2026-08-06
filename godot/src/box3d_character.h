@@ -49,9 +49,17 @@ class Box3DCharacterBody : public Node3D {
 	// with clipVelocity = false, so the mover keeps its speed through the give.
 	// 0 here means FLT_MAX: no inspector spinbox can express it, and it matches
 	// the 0-is-unlimited convention Box3DJoint's thresholds already use.
+	//
+	// These two are the character-wide defaults. Upstream sets them PER SHAPE,
+	// out of the shape's user data (samples/mover.cpp:55-62), which this node
+	// reads as metadata on the Box3DCollisionShape or Box3DBody that owns the
+	// shape: `mover_push_limit`, `mover_clip_velocity`, plus `mover_ignore` and
+	// `mover_ignore_cast` for upstream's ignore list and ally cast filter. See
+	// the block comment at the top of the .cpp.
 	double push_limit = 0.0;
 	bool clip_plane_velocity = true;
-	// b3PlaneSolverResult.iterationCount from the last solve, for diagnostics.
+	// b3PlaneSolverResult.iterationCount, summed over the passes of the last
+	// move, for diagnostics (upstream's m_totalIterations, mover.cpp:183/200).
 	int last_solver_iterations = 0;
 
 	// Collision planes from the last move_and_slide, kept so the node can
@@ -78,7 +86,16 @@ public:
 	PackedStringArray _get_configuration_warnings() const override;
 
 	// Move by velocity*delta, sliding along and stopping at world geometry.
-	// Returns the actual resulting velocity (may differ after sliding).
+	// Returns the achieved translation over p_delta, i.e. upstream's
+	// "position delta is more holistic" branch (samples/mover.cpp:256-260).
+	// The other branch is clip_velocity() below, which is what upstream uses
+	// when its Clip Velocity box is ticked; a caller that carries its own
+	// velocity (gravity, a jump impulse, a pogo suspension) wants that one,
+	// because the return value cannot separate those from the achieved slide.
+	//
+	// Dynamic bodies the capsule pushes against are given the normal impulse
+	// the contact implies (samples/mover.cpp:215-248) — the mover itself is
+	// treated as infinitely heavy, so its own velocity is never reduced.
 	Vector3 move_and_slide(const Vector3 &p_velocity, double p_delta);
 
 	void set_radius(double p_radius);

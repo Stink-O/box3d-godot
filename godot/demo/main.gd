@@ -152,7 +152,7 @@ const DESCRIPTIONS := {
 	"Gyroscopic Precession": "Sixty four spinning tops. A leaning top does not fall over, it circles, because its spin turns gravity's torque sideways.",
 	"Spinning Books": "Three identical slabs spun about each of their three axes in free fall. Two spins are stable and the third, about the middle axis, tumbles.",
 	"Class Ring": "A ring of welded capsules with a heavy gem, spun on its rim. It needs a 960 Hz step to behave: at 60 Hz the contact patch cannot keep up with the rim and the ring never falls over properly.",
-	"Character Controller": "A kinematic capsule walking an obstacle course of ordinary bodies. It slides along walls, climbs steps and pushes crates, using box3d's own mover sweep rather than a physics body.",
+	"Character Controller": "Upstream's mover on its own course: a capsule hovering on a spring suspension that walks, sprints, jumps, climbs stairs, shoves a heavy ball, springs a hinged door, and passes softly through an ally. WASD moves, Shift sprints, Space jumps.",
 	"Contact Pit": "Every peg reports its contacts, so each one flashes as a ball hits it. A steady rain of balls keeps the ricochets coming.",
 	"Bowling": "Ten pins and a rolling ball. Shoot more balls down the lane with F or reset to re-rack.",
 	"Radar Sweep": "A ray sweeping around an emitter, raycasting the world every frame. Whatever it hits lights up and a marker sits at the impact point.",
@@ -1606,11 +1606,18 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	_update_all_reverts()
 	# Show the Activate button only for samples that expose an activate() action.
 	_activate.visible = _current != null and _current.has_method("activate")
-	# Same idea for the sample toggle (set_toggled + get_toggle_label). A fresh
-	# load always starts un-toggled.
+	# Same idea for the sample toggle (set_toggled + get_toggle_label). The
+	# switch has to MATCH the sample's startup behaviour, not assume it is off:
+	# a sample that loads with its effect already running (Live Geometry
+	# resizing, Wind blowing) says so with get_toggle_initial() -> bool. The
+	# state is only mirrored onto the switch -- set_toggled() is NOT called, so
+	# the sample's own initial value stays the single source of truth.
 	var has_toggle: bool = _current != null and _current.has_method("set_toggled")
 	_sample_toggle.visible = has_toggle
-	_sample_toggle.set_pressed_no_signal(false)
+	var toggle_on := false
+	if has_toggle and _current.has_method("get_toggle_initial"):
+		toggle_on = bool(_current.get_toggle_initial())
+	_sample_toggle.set_pressed_no_signal(toggle_on)
 	if has_toggle and _current.has_method("get_toggle_label"):
 		_sample_toggle.text = _current.get_toggle_label()
 	if _touch != null:

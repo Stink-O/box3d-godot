@@ -163,21 +163,10 @@ func _grid_indices() -> PackedInt32Array:
 	return idx
 
 
-## The same grid as a Godot surface. Box3D's mesh winding is the opposite of
-## Godot's, so the visual reverses each triangle to face up.
+## The same grid as a Godot surface. The triangles are box3d's -- CCW by the
+## right-hand rule, normal pointing at the collidable side -- and
+## Box3DGeometry.make_array_mesh is the one place that reverses them for
+## Godot's opposite front-face convention.
 func _grid_surface() -> ArrayMesh:
-	var verts := _grid_vertices()
-	var idx := _grid_indices()
-	var flipped := PackedInt32Array()
-	for t in idx.size() / 3:
-		flipped.append_array([idx[t * 3], idx[t * 3 + 2], idx[t * 3 + 1]])
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_INDEX] = flipped
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var st := SurfaceTool.new()
-	st.create_from(mesh, 0)
-	st.generate_normals()
-	return st.commit()
+	return Box3DGeometry.make_array_mesh(
+			{"vertices": _grid_vertices(), "indices": _grid_indices()})

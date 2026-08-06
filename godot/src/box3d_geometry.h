@@ -127,12 +127,21 @@ public:
 	// Turns any of the Dictionaries above into a drawable ArrayMesh: assign it
 	// to a MeshInstance3D, or to Box3DBody.collision_mesh for a HULL collider.
 	//
-	// The winding is FLIPPED on the way through. Box3D triangles are CCW as
-	// upstream writes them and Godot's front face is the other order, which is
-	// the same flip Box3DBody's Godot-Mesh path already applies. Normals are
-	// per-face, and vertices are expanded rather than shared, because a hull
-	// and a box both want flat shading.
-	static Ref<ArrayMesh> make_array_mesh(const Dictionary &p_geometry);
+	// The winding is FLIPPED on the way through. Box3D triangles are CCW by the
+	// right-hand rule (the face normal points at the collidable side) and
+	// Godot's front face is the other order, which is the same flip
+	// Box3DBody's Godot-Mesh path already applies. The per-face normal that
+	// comes out is Box3D's own face normal, i.e. it points at the side the
+	// flipped triangle is visible from — supplying its negative lights every
+	// face from behind. Vertices are expanded rather than shared, because a
+	// hull and a box both want flat shading.
+	//
+	// p_scale is b3Shape_SetMesh's scale argument, applied to the vertices
+	// before the normals are taken. A scale with a negative determinant
+	// MIRRORS the mesh, which reverses every triangle's orientation, so the
+	// winding is reversed once more to keep the visible side the collidable
+	// one. Scaling the MeshInstance3D instead leaves that to the renderer.
+	static Ref<ArrayMesh> make_array_mesh(const Dictionary &p_geometry, const Vector3 &p_scale = Vector3(1, 1, 1));
 };
 
 } // namespace godot

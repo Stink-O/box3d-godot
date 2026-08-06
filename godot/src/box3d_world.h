@@ -23,6 +23,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace godot {
@@ -93,6 +94,28 @@ private:
 	};
 	MultiMeshInstance3D *debug_mm[DEBUG_PRIM_MAX] = {};
 	PackedFloat32Array debug_buffer[DEBUG_PRIM_MAX]; // reused bulk upload buffers
+	// A triangle soup has no primitive to instance, so the five MultiMeshes
+	// above cannot draw one: a mesh collider (Box3DBody's raw mesh_vertices
+	// path, or Box3DCollisionShape.set_mesh) used to get no shell at all, which
+	// made a set_mesh body the one shape Debug could not see. Each live mesh
+	// shape gets its own MeshInstance3D instead, drawing the collider's OWN
+	// triangles as a wireframe read back from Box3D (b3Shape_GetMesh), so what
+	// is drawn is the geometry the solver holds and not the node's visual.
+	// Keyed by b3StoreShapeId; the surface is rebuilt only when the shape's
+	// mesh blob, triangle count or scale changes, which is what makes a live
+	// set_mesh_scale cycle cost one rebuild instead of one per frame.
+	struct DebugMeshShell {
+		MeshInstance3D *mi = nullptr; // owns its ArrayMesh and its material
+		const void *data = nullptr; // the b3MeshData the surface was built from
+		Vector3 scale = Vector3(1, 1, 1);
+		int triangle_count = 0;
+		bool used = false;
+	};
+	std::unordered_map<uint64_t, DebugMeshShell> debug_mesh_shells;
+	// Line vertices a single mesh shell will draw. A ground mesh is a few
+	// thousand triangles; a shell past this is refused rather than turned into
+	// a million-vertex line soup nobody can read anyway.
+	static const int debug_mesh_shell_triangle_limit = 20000;
 	// Upstream debug draw (b3World_Draw + b3DebugDraw, box3d.h:56,
 	// types.h:2973-3057). The MultiMesh shells above stay the shape renderer —
 	// b3World_Draw only draws shapes through b3CreateDebugShapeCallback, which
@@ -198,6 +221,12 @@ private:
 	// every registered body. See the definition for why the two are equivalent.
 	void sync_bodies_from_move_events();
 	void update_debug_draw();
+	// Draws one mesh collider's own triangles, in the body's frame and the
+	// body's state color. No-op for any shape that is not a live mesh.
+	void push_mesh_shell(b3ShapeId p_shape, const Transform3D &p_transform, const Color &p_color);
+	// Hides (and forgets) every mesh shell the last refresh did not touch, so a
+	// freed body or a shape retyped away from a mesh leaves nothing behind.
+	void sweep_mesh_shells();
 	// True when at least one b3DebugDraw option above is on, i.e. when
 	// b3World_Draw has anything to report. Everything overlay-related is
 	// skipped when this is false, so an unused overlay costs one bool test.

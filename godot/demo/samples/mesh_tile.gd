@@ -170,22 +170,11 @@ func _box_mesh_indices() -> PackedInt32Array:
 
 
 ## The same triangles as a Godot surface, so what is drawn is what box3d
-## collides. Box3D's winding is the opposite of Godot's, so each one is
-## reversed to face outward.
+## collides. Box3D's winding is the opposite of Godot's, and reversing it is
+## Box3DGeometry.make_array_mesh's job -- one bridge, one flat-shaded face per
+## triangle.
 func _box_surface(p_vertices: PackedVector3Array, p_indices: PackedInt32Array) -> ArrayMesh:
-	var flipped := PackedInt32Array()
-	for t in p_indices.size() / 3:
-		flipped.append_array([p_indices[t * 3], p_indices[t * 3 + 2], p_indices[t * 3 + 1]])
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = p_vertices
-	arrays[Mesh.ARRAY_INDEX] = flipped
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var st := SurfaceTool.new()
-	st.create_from(mesh, 0)
-	st.generate_normals()
-	return st.commit()
+	return Box3DGeometry.make_array_mesh({"vertices": p_vertices, "indices": p_indices})
 
 
 func get_tiles() -> Array[Box3DBody]:

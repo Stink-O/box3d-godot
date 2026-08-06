@@ -8,6 +8,7 @@
 #include "box3d_conversions.h"
 #include "box3d_joint.h"
 
+#include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/box_mesh.hpp>
 #include <godot_cpp/classes/capsule_mesh.hpp>
 #include <godot_cpp/classes/cylinder_mesh.hpp>
@@ -22,6 +23,7 @@
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/sphere_mesh.hpp>
+#include <godot_cpp/classes/standard_material3d.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/string.hpp>
 
@@ -1948,6 +1950,101 @@ void Box3DWorld::refresh_debug_overlay_visibility() {
 	}
 }
 
+void Box3DWorld::push_mesh_shell(b3ShapeId p_shape, const Transform3D &p_transform, const Color &p_color) {
+	if (!b3Shape_IsValid(p_shape) || b3Shape_GetType(p_shape) != b3_meshShape) {
+		return;
+	}
+	const b3Mesh mesh = b3Shape_GetMesh(p_shape);
+	if (mesh.data == nullptr || mesh.data->triangleCount <= 0) {
+		return;
+	}
+	DebugMeshShell &shell = debug_mesh_shells[b3StoreShapeId(p_shape)];
+	shell.used = true;
+	if (shell.mi == nullptr) {
+		Ref<StandardMaterial3D> mat;
+		mat.instantiate();
+		// Unshaded so the state color reads as itself, and two-sided because a
+		// mesh collider is one-sided: the wireframe has to be visible from the
+		// side the triangles do NOT face, which is exactly where a mesh's
+		// behaviour surprises people.
+		mat->set_shading_mode(BaseMaterial3D::SHADING_MODE_UNSHADED);
+		mat->set_cull_mode(BaseMaterial3D::CULL_DISABLED);
+		Ref<ArrayMesh> array_mesh;
+		array_mesh.instantiate();
+		shell.mi = memnew(MeshInstance3D);
+		shell.mi->set_name(String("Box3DDebugMesh") + String::num_uint64(b3StoreShapeId(p_shape)));
+		shell.mi->set_as_top_level(true); // the transform below is world space
+		shell.mi->set_physics_interpolation_mode(Node::PHYSICS_INTERPOLATION_MODE_OFF);
+		shell.mi->set_mesh(array_mesh);
+		shell.mi->set_material_override(mat);
+		add_child(shell.mi);
+	}
+	const Vector3 scale = to_gd(mesh.scale);
+	// The blob pointer changes on set_mesh, the scale on set_mesh_scale; a
+	// rebuild is only needed when one of them moves.
+	if (shell.data != (const void *)mesh.data || shell.scale != scale ||
+			shell.triangle_count != mesh.data->triangleCount) {
+		shell.data = (const void *)mesh.data;
+		shell.scale = scale;
+		shell.triangle_count = mesh.data->triangleCount;
+		Ref<ArrayMesh> array_mesh = shell.mi->get_mesh();
+		if (array_mesh.is_valid()) {
+			array_mesh->clear_surfaces();
+			const b3Vec3 *points = b3GetMeshVertices(mesh.data);
+			const b3MeshTriangle *triangles = b3GetMeshTriangles(mesh.data);
+			if (points != nullptr && triangles != nullptr &&
+					shell.triangle_count <= debug_mesh_shell_triangle_limit) {
+				PackedVector3Array lines;
+				lines.resize((int64_t)shell.triangle_count * 6);
+				Vector3 *w = lines.ptrw();
+				// A mirroring scale reverses every triangle, so the right-hand
+				// normal below points into the shape; flip the lift with it and
+				// the wireframe stays on the outside either way.
+				const real_t lift_scale = scale.x * scale.y * scale.z < 0 ? -0.01f : 0.01f;
+				for (int t = 0; t < shell.triangle_count; ++t) {
+					const Vector3 a = to_gd(points[triangles[t].index1]) * scale;
+					const Vector3 b = to_gd(points[triangles[t].index2]) * scale;
+					const Vector3 c = to_gd(points[triangles[t].index3]) * scale;
+					// Lifted a little along the face normal so the wireframe
+					// sits ON the collider rather than z-fighting the sample's
+					// own visual, which is usually the same triangles.
+					const Vector3 lift = lift_scale * (b - a).cross(c - a).normalized();
+					w[t * 6 + 0] = a + lift;
+					w[t * 6 + 1] = b + lift;
+					w[t * 6 + 2] = b + lift;
+					w[t * 6 + 3] = c + lift;
+					w[t * 6 + 4] = c + lift;
+					w[t * 6 + 5] = a + lift;
+				}
+				Array arrays;
+				arrays.resize(Mesh::ARRAY_MAX);
+				arrays[Mesh::ARRAY_VERTEX] = lines;
+				array_mesh->add_surface_from_arrays(Mesh::PRIMITIVE_LINES, arrays);
+			}
+		}
+	}
+	Ref<StandardMaterial3D> mat = shell.mi->get_material_override();
+	if (mat.is_valid()) {
+		mat->set_albedo(p_color);
+	}
+	shell.mi->set_transform(p_transform);
+	shell.mi->set_visible(true);
+}
+
+void Box3DWorld::sweep_mesh_shells() {
+	for (auto it = debug_mesh_shells.begin(); it != debug_mesh_shells.end();) {
+		if (it->second.used) {
+			it->second.used = false;
+			++it;
+			continue;
+		}
+		if (it->second.mi != nullptr) {
+			it->second.mi->queue_free();
+		}
+		it = debug_mesh_shells.erase(it);
+	}
+}
+
 void Box3DWorld::update_debug_draw() {
 	if (!b3World_IsValid(world_id)) {
 		return;
@@ -2171,6 +2268,18 @@ void fragment() {
 				if (cs == nullptr) {
 					continue;
 				}
+				// A shape retyped by set_mesh keeps whatever shape_type it was
+				// authored as (there is no MESH to author), so the switch below
+				// would draw the token box it started life as. Ask the solver
+				// what the shape actually IS. Mesh vertices are body-space —
+				// set_mesh does not fold in the child node's transform — so the
+				// shell rides the body, not the child.
+				if (cs->get_geometry_type() == Box3DCollisionShape::GEOMETRY_MESH) {
+					const b3WorldTransform mxf = b3Body_GetTransform(id);
+					push_mesh_shell(cs->get_shape_id(),
+							Transform3D(Basis(to_gd(mxf.q)), to_gd_pos(mxf.p)), col);
+					continue;
+				}
 				Transform3D cxf = cs->get_global_transform();
 				float cr2 = (float)cs->get_capsule_radius();
 				switch (cs->get_shape_type()) {
@@ -2244,10 +2353,23 @@ void fragment() {
 			case Box3DBody::BOX:
 				push_shell(DEBUG_BOX, basis, origin, body->get_box_size() * ns.abs(), col);
 				break;
+			case Box3DBody::MESH: {
+				// The raw mesh_vertices path: one shape, drawn from the
+				// triangles the solver holds. b3Body_GetShapes is only reached
+				// for mesh bodies, so the common body pays nothing.
+				b3ShapeId sid;
+				if (b3Body_GetShapes(id, &sid, 1) == 1) {
+					push_mesh_shell(sid, Transform3D(basis, origin), col);
+				}
+			} break;
 			default:
-				break; // Hull / mesh colliders are not shelled
+				break; // Hull colliders are not shelled
 		}
 	}
+
+	// Whatever this pass did not touch is gone (body freed, shape retyped, or
+	// its debug_visualize turned off).
+	sweep_mesh_shells();
 
 	for (int p = 0; p < DEBUG_PRIM_MAX; ++p) {
 		Ref<MultiMesh> mm = debug_mm[p]->get_multimesh();
@@ -2279,6 +2401,13 @@ void Box3DWorld::set_debug_draw(bool p_enabled) {
 	for (int p = 0; p < DEBUG_PRIM_MAX; ++p) {
 		if (debug_mm[p] != nullptr) {
 			debug_mm[p]->set_visible(p_enabled);
+		}
+	}
+	// The mesh shells are separate nodes, so they need the same switch; the
+	// next refresh re-shows the ones that still exist.
+	for (auto &entry : debug_mesh_shells) {
+		if (entry.second.mi != nullptr) {
+			entry.second.mi->set_visible(p_enabled);
 		}
 	}
 }

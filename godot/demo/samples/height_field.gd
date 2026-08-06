@@ -112,6 +112,11 @@ func _process(delta: float) -> void:
 ## The same wave box3d generates, as a Godot surface: height(i, j) is
 ## sin(2 * PI * rowFrequency * i) * sin(2 * PI * columnFrequency * j) and the
 ## grid point sits at scale * (j, height, i) (src/height_field.c:1384-1444).
+##
+## The triangles are wound box3d's way -- counter-clockwise by the right-hand
+## rule, so the face normal points at the collidable side -- and handed to
+## Box3DGeometry.make_array_mesh, which is the one place that knows how to turn
+## that into a Godot surface (Godot's front face is the other order).
 func _build_surface() -> ArrayMesh:
 	var verts := PackedVector3Array()
 	verts.resize(COUNT_X * COUNT_Z)
@@ -130,13 +135,4 @@ func _build_surface() -> ArrayMesh:
 			var i22 := i21 + 1
 			indices.append_array([i11, i21, i12, i12, i21, i22])
 
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_INDEX] = indices
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var st := SurfaceTool.new()
-	st.create_from(mesh, 0)
-	st.generate_normals()
-	return st.commit()
+	return Box3DGeometry.make_array_mesh({"vertices": verts, "indices": indices})

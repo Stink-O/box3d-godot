@@ -87,6 +87,10 @@ func get_toggle_label() -> String:
 	return "Bullet"
 
 
+func get_toggle_initial() -> bool:
+	return _is_bullet  # upstream starts with m_isBullet = true (sample_events.cpp:767)
+
+
 func set_toggled(on: bool) -> void:
 	_is_bullet = on
 	launch()
@@ -221,17 +225,11 @@ func _add_sensor(sensor_name: String, type: int, pos: Vector3) -> Box3DBody:
 	# A quarter turn about z stands the gate up across the line of fire.
 	body.transform = Transform3D(Basis(Vector3.BACK, 0.5 * PI), pos)
 
-	var flipped := PackedInt32Array()
-	for t in idx.size() / 3:
-		flipped.append_array([idx[t * 3], idx[t * 3 + 2], idx[t * 3 + 1]])
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_INDEX] = flipped
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	# The gate as a Godot surface: make_array_mesh reverses Box3D's winding and
+	# gives every triangle the face normal the visible side wants (this used to
+	# ship a normal-less surface, which the glass material lit from nowhere).
 	var visual := MeshInstance3D.new()
-	visual.mesh = mesh
+	visual.mesh = Box3DGeometry.make_array_mesh({"vertices": verts, "indices": idx})
 	visual.material_override = _glass(Color(0.35, 0.85, 1.0, 0.25))
 	body.add_child(visual)
 

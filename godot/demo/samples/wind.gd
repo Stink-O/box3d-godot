@@ -108,6 +108,10 @@ func get_toggle_label() -> String:
 	return "Wind"
 
 
+func get_toggle_initial() -> bool:
+	return _blowing  # upstream starts blowing (m_wind = {6,0,0}, sample_shapes.cpp:710)
+
+
 func set_toggled(on: bool) -> void:
 	_blowing = on
 

@@ -90,8 +90,14 @@ func _ready() -> void:
 
 
 ## The shell's reusable toggle: freeze the animation, keep the world running.
+## The scene loads ALREADY resizing (there is nothing to look at otherwise), so
+## the switch reports that state instead of claiming the effect is off.
 func get_toggle_label() -> String:
 	return "Resize"
+
+
+func get_toggle_initial() -> bool:
+	return _running
 
 
 func set_toggled(p_on: bool) -> void:

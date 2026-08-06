@@ -471,6 +471,13 @@ func get_toggle_label() -> String:
 	return "Motor"
 
 
+## The switch reports startup state, it does not impose it: the lift loads with
+## its motor running, as upstream does (m_enableMotor = true,
+## sample_joint.cpp:2656).
+func get_toggle_initial() -> bool:
+	return _motor_on
+
+
 func set_toggled(on: bool) -> void:
 	_motor_on = on
 	if _driver_joint != null:
@@ -527,6 +534,10 @@ func _tooth_mesh() -> ArrayMesh:
 		Vector3(hx, -tip_half, -hz), Vector3(hx, tip_half, -hz),
 		Vector3(hx, tip_half, hz), Vector3(hx, -tip_half, hz),
 	])
+	# Each quad is wound Box3D's way: counter-clockwise by the right-hand rule,
+	# so the face normal points OUT of the block. _surface_from reverses that
+	# for Godot. Handing these straight to SurfaceTool (which is what this used
+	# to do) drew every tooth inside out -- 64 of them, all lit from behind.
 	var faces := [
 		[0, 3, 2, 1],  # -x base
 		[4, 5, 6, 7],  # +x tip
@@ -535,14 +546,10 @@ func _tooth_mesh() -> ArrayMesh:
 		[1, 2, 6, 5],  # +y
 		[0, 4, 7, 3],  # -y
 	]
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var idx := PackedInt32Array()
 	for f in faces:
-		for tri in [[f[0], f[1], f[2]], [f[0], f[2], f[3]]]:
-			for v in tri:
-				st.add_vertex(p[v])
-	st.generate_normals()
-	return st.commit()
+		idx.append_array([f[0], f[1], f[2], f[0], f[2], f[3]])
+	return _surface_from(p, idx)
 
 
 ## b3CreateRock's 10-point Fibonacci lattice (src/hull.c:1859-1892), turned
@@ -561,9 +568,10 @@ func _rock_mesh() -> ArrayMesh:
 			ROCK_RADIUS * z))
 
 	# Brute-force convex hull over ten points: a triple is a face when every
-	# other point is on one side of its plane.
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# other point is on one side of its plane. Faces come out wound Box3D's way
+	# (right-hand normal pointing out of the hull); _surface_from reverses them
+	# for Godot.
+	var idx := PackedInt32Array()
 	var count := points.size()
 	for a in count:
 		for b in range(a + 1, count):
@@ -587,15 +595,10 @@ func _rock_mesh() -> ArrayMesh:
 					continue
 				# Wind the face so its normal points away from the interior.
 				if positive > 0:
-					st.add_vertex(points[a])
-					st.add_vertex(points[c])
-					st.add_vertex(points[b])
+					idx.append_array([a, c, b])
 				else:
-					st.add_vertex(points[a])
-					st.add_vertex(points[b])
-					st.add_vertex(points[c])
-	st.generate_normals()
-	return st.commit()
+					idx.append_array([a, b, c])
+	return _surface_from(points, idx)
 
 
 func _random_quat() -> Quaternion:
@@ -605,23 +608,11 @@ func _random_quat() -> Quaternion:
 		_rng.randf_range(-PI, PI))
 
 
-## Box3D's mesh winding is the opposite of Godot's, so the visual reverses each
-## triangle: the walls then face the same way the collision normals do, into
-## the basin, and the camera sees past the near ones.
+## Box3D's mesh winding is the opposite of Godot's, and reversing it is
+## Box3DGeometry.make_array_mesh's job: the walls then face the same way the
+## collision normals do, into the basin, and the camera sees past the near ones.
 func _surface_from(p_verts: PackedVector3Array, p_idx: PackedInt32Array) -> ArrayMesh:
-	var flipped := PackedInt32Array()
-	for t in p_idx.size() / 3:
-		flipped.append_array([p_idx[t * 3], p_idx[t * 3 + 2], p_idx[t * 3 + 1]])
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = p_verts
-	arrays[Mesh.ARRAY_INDEX] = flipped
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var st := SurfaceTool.new()
-	st.create_from(mesh, 0)
-	st.generate_normals()
-	return st.commit()
+	return Box3DGeometry.make_array_mesh({"vertices": p_verts, "indices": p_idx})
 
 
 func _add_box_visual(p_body: Box3DBody, p_size: Vector3, p_material: Material) -> void:

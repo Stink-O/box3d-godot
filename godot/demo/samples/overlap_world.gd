@@ -303,26 +303,18 @@ func _torus_indices() -> PackedInt32Array:
 	return idx
 
 
-## The same torus as a Godot surface, with Box3D's winding reversed.
+## The same torus as a Godot surface. Box3DGeometry.make_array_mesh reverses
+## Box3D's winding for Godot's opposite front-face convention.
 func _torus_surface(p_vertices: PackedVector3Array, p_indices: PackedInt32Array) -> ArrayMesh:
-	var flipped := PackedInt32Array()
-	for t in p_indices.size() / 3:
-		flipped.append_array([p_indices[t * 3], p_indices[t * 3 + 2], p_indices[t * 3 + 1]])
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = p_vertices
-	arrays[Mesh.ARRAY_INDEX] = flipped
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var st := SurfaceTool.new()
-	st.create_from(mesh, 0)
-	st.generate_normals()
-	return st.commit()
+	return Box3DGeometry.make_array_mesh({"vertices": p_vertices, "indices": p_indices})
 
 
 ## b3CreateWave's grid, drawn: height[i][j] = sin(2*PI*rowFreq*i) *
 ## sin(2*PI*colFreq*j), the point at scale * (j, height, i)
-## (src/height_field.c:1384-1444).
+## (src/height_field.c:1384-1444). The triangles are box3d's own -- the face
+## normal points up, at the side that collides -- so they go through
+## make_array_mesh like every other surface here; drawn raw they faced DOWN and
+## the field was invisible from above.
 func _field_surface() -> ArrayMesh:
 	var verts := PackedVector3Array()
 	for i in FIELD_COUNT:
@@ -337,16 +329,7 @@ func _field_surface() -> ArrayMesh:
 			var i3 := i2 + FIELD_COUNT
 			var i4 := i3 - 1
 			idx.append_array([i1, i3, i2, i1, i4, i3])
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_INDEX] = idx
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var st := SurfaceTool.new()
-	st.create_from(mesh, 0)
-	st.generate_normals()
-	return st.commit()
+	return Box3DGeometry.make_array_mesh({"vertices": verts, "indices": idx})
 
 
 func get_probe_hits() -> Array[bool]:

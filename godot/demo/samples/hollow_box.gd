@@ -149,23 +149,12 @@ func _hollow_box_indices() -> PackedInt32Array:
 	])
 
 
-## The same room as a Godot surface. Godot's front faces wind the opposite way
-## from Box3D's, so reversing each triangle here keeps the visible side on the
-## same side as the collision normal -- the walls face inward, which is also
-## what lets the camera see past the near ones into the room.
+## The same room as a Godot surface, through Box3DGeometry.make_array_mesh:
+## Godot's front faces wind the opposite way from Box3D's, and the bridge
+## reverses them, which keeps the visible side on the same side as the
+## collision normal. b3CreateHollowBoxMesh winds INWARD, so that visible side
+## is the inside -- which is what makes this a room the camera can see into
+## rather than a solid block.
 func _hollow_box_surface() -> ArrayMesh:
-	var verts := _hollow_box_vertices()
-	var idx := _hollow_box_indices()
-	var flipped := PackedInt32Array()
-	for t in idx.size() / 3:
-		flipped.append_array([idx[t * 3], idx[t * 3 + 2], idx[t * 3 + 1]])
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_INDEX] = flipped
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var st := SurfaceTool.new()
-	st.create_from(mesh, 0)
-	st.generate_normals()
-	return st.commit()
+	return Box3DGeometry.make_array_mesh(
+			{"vertices": _hollow_box_vertices(), "indices": _hollow_box_indices()})

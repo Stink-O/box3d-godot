@@ -254,7 +254,7 @@ Dictionary Box3DGeometry::create_platform_mesh(const Vector3 &p_center, double p
 			(float)p_top_width, (float)p_bottom_width));
 }
 
-Ref<ArrayMesh> Box3DGeometry::make_array_mesh(const Dictionary &p_geometry) {
+Ref<ArrayMesh> Box3DGeometry::make_array_mesh(const Dictionary &p_geometry, const Vector3 &p_scale) {
 	Ref<ArrayMesh> mesh;
 	mesh.instantiate();
 	const PackedVector3Array points = p_geometry.get("vertices", PackedVector3Array());
@@ -263,6 +263,10 @@ Ref<ArrayMesh> Box3DGeometry::make_array_mesh(const Dictionary &p_geometry) {
 	if (triangle_count == 0 || points.is_empty()) {
 		return mesh;
 	}
+	// A mirroring scale (negative determinant) turns every triangle inside out,
+	// so the flip below has to be undone for it — exactly what b3Shape_SetMesh's
+	// negative scale does to the collider.
+	const bool mirrored = p_scale.x * p_scale.y * p_scale.z < 0.0;
 	PackedVector3Array vertices;
 	PackedVector3Array normals;
 	vertices.resize(triangle_count * 3);
@@ -278,14 +282,23 @@ Ref<ArrayMesh> Box3DGeometry::make_array_mesh(const Dictionary &p_geometry) {
 			normals.resize(t * 3);
 			break;
 		}
-		const Vector3 a = points[i0];
-		const Vector3 b = points[i1];
-		const Vector3 c = points[i2];
-		// Flipped: Box3D winds CCW, Godot's front face is the other order.
-		const Vector3 normal = (c - a).cross(b - a).normalized();
-		vertices[t * 3 + 0] = a;
-		vertices[t * 3 + 1] = c;
-		vertices[t * 3 + 2] = b;
+		const Vector3 a = points[i0] * p_scale;
+		const Vector3 b = points[i1] * p_scale;
+		const Vector3 c = points[i2] * p_scale;
+		// Box3D winds CCW by the right-hand rule and Godot's front face is the
+		// other order, so the triangle is emitted reversed — unless the scale
+		// mirrored it, which reverses it once already.
+		const Vector3 v0 = a;
+		const Vector3 v1 = mirrored ? b : c;
+		const Vector3 v2 = mirrored ? c : b;
+		// The normal Godot's own convention gives this triangle, i.e.
+		// Plane(v0, v1, v2).normal: it points at the side the face is visible
+		// from, which for a Box3D mesh is the collidable side. Supplying its
+		// negative (the older code did) lights every face from behind.
+		const Vector3 normal = (v0 - v2).cross(v0 - v1).normalized();
+		vertices[t * 3 + 0] = v0;
+		vertices[t * 3 + 1] = v1;
+		vertices[t * 3 + 2] = v2;
 		normals[t * 3 + 0] = normal;
 		normals[t * 3 + 1] = normal;
 		normals[t * 3 + 2] = normal;
@@ -319,5 +332,5 @@ void Box3DGeometry::_bind_methods() {
 	ClassDB::bind_static_method("Box3DGeometry", D_METHOD("create_box_mesh", "center", "extent", "identify_edges"), &Box3DGeometry::create_box_mesh, DEFVAL(true));
 	ClassDB::bind_static_method("Box3DGeometry", D_METHOD("create_hollow_box_mesh", "center", "extent"), &Box3DGeometry::create_hollow_box_mesh);
 	ClassDB::bind_static_method("Box3DGeometry", D_METHOD("create_platform_mesh", "center", "height", "top_width", "bottom_width"), &Box3DGeometry::create_platform_mesh);
-	ClassDB::bind_static_method("Box3DGeometry", D_METHOD("make_array_mesh", "geometry"), &Box3DGeometry::make_array_mesh);
+	ClassDB::bind_static_method("Box3DGeometry", D_METHOD("make_array_mesh", "geometry", "scale"), &Box3DGeometry::make_array_mesh, DEFVAL(Vector3(1, 1, 1)));
 }

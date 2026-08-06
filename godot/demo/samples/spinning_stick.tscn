@@ -22,7 +22,7 @@ metallic = 0.15
 script = ExtResource("1_stick")
 
 [node name="Box3DWorld" type="Box3DWorld" parent="."]
-gravity = Vector3(0, -9.8, 0)
+gravity = Vector3(0, -10, 0)
 
 [node name="Floor" type="Box3DBody" parent="Box3DWorld"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)

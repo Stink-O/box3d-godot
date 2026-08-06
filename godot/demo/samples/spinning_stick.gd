@@ -9,8 +9,9 @@ extends Node3D
 ## the wall.
 ##
 ## Upstream's numbers are kept: wall 0.25 x 1 x 20 m with its top at y = 1,
-## stick 4 x 0.2 x 0.2 m dropped from y = 20 with rolling resistance 0.1, and
-## an angular velocity drawn uniformly from [-50, 50] rad/s per axis. Like
+## stick 4 x 0.2 x 0.2 m at box3d's own defaults (density 1000, angular damping
+## 0) dropped from y = 20 with rolling resistance 0.1, gravity -10, and an
+## angular velocity drawn uniformly from [-50, 50] rad/s per axis. Like
 ## upstream it relies on box3d's default sweep -- `continuous` (isBullet) and
 ## `allow_fast_rotation` are both left off, and the stick still stays out of
 ## the wall.
@@ -25,6 +26,15 @@ const STICK_START := Vector3(0.0, 20.0, 0.5)
 const DROP_SPEED := 100.0
 const SPIN_RANGE := 50.0
 const ROLLING_RESISTANCE := 0.1
+## b3DefaultShapeDef's density is 1000 kg/m^3, "density of water"
+## (src/types.c:72-73), while Box3DBody.density defaults to 1. Upstream's stick
+## weighs 160 kg; at the node default it weighs 160 g, and a 160 g stick hit by
+## its own 100 m/s impact is thrown clean off the 20 x 20 ground.
+const DENSITY := 1000.0
+## b3DefaultBodyDef leaves angularDamping at 0 (src/types.c:32-45); the node
+## defaults it to 0.05. This sample IS the spin, and 0.05 bleeds it away: the
+## stick lost a fifth of its rate in the first 10 s and kept slowing.
+const ANGULAR_DAMPING := 0.0
 
 var camera_home := Vector3(12.8, 10.5, 12.8)
 var camera_look_at := Vector3(0.0, 2.0, 0.0)
@@ -64,6 +74,8 @@ func set_toggled(on: bool) -> void:
 func _drop() -> void:
 	var stick := Box3DBody.new()
 	stick.box_size = STICK_SIZE
+	stick.density = DENSITY
+	stick.angular_damping = ANGULAR_DAMPING
 	stick.rolling_resistance = ROLLING_RESISTANCE
 	stick.allow_fast_rotation = _fast_rotation
 	stick.position = STICK_START
