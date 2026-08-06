@@ -119,7 +119,14 @@ bool Box3DReplayPlayer::open(const PackedByteArray &p_data, int p_worker_count) 
 		ERR_PRINT("Box3DReplayPlayer: no recording bytes.");
 		return false;
 	}
-	const int count = p_worker_count < 1 ? 1 : p_worker_count;
+	int count = p_worker_count < 1 ? 1 : p_worker_count;
+#ifdef BOX3D_NO_THREADS
+	// Same clamp as Box3DWorld::set_worker_count: a single-threaded wasm build
+	// has no pthreads, and b3RecPlayer_Create goes to b3CreateScheduler ->
+	// pthread_create for any count above 1 — with exceptions disabled that
+	// refusal aborts the process, so clamp rather than trust the caller.
+	count = 1;
+#endif
 	// Upstream installs the recording's length scale before it finishes
 	// validating the header, and every failure path returns without restoring
 	// it (src/recording_replay.c:2809-2813 vs :2833-2869). Snapshot it here so

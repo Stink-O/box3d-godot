@@ -1,0 +1,17 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://samples/rewind.gd" id="1_rewind"]
+
+[node name="Rewind" type="Node3D"]
+script = ExtResource("1_rewind")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Status" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.6, 0)
+billboard = 1
+text = "recording (frame 0, 0 KiB)"
+font_size = 48
+outline_size = 15
+modulate = Color(0.65, 0.9, 1, 1)

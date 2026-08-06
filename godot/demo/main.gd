@@ -103,6 +103,9 @@ const SAMPLES := {
 	"Benchmark": {
 		"Joint Grid": "res://samples/joint_grid.tscn",
 	},
+	"Recording": {
+		"Rewind": "res://samples/rewind.tscn",
+	},
 }
 
 
@@ -152,7 +155,7 @@ const DESCRIPTIONS := {
 	"Gyroscopic Precession": "Sixty four spinning tops. A leaning top does not fall over, it circles, because its spin turns gravity's torque sideways.",
 	"Spinning Books": "Three identical slabs spun about each of their three axes in free fall. Two spins are stable and the third, about the middle axis, tumbles.",
 	"Class Ring": "A ring of welded capsules with a heavy gem, spun on its rim. It needs a 960 Hz step to behave: at 60 Hz the contact patch cannot keep up with the rim and the ring never falls over properly.",
-	"Character Controller": "Upstream's mover on its own course: a capsule hovering on a spring suspension that walks, sprints, jumps, climbs stairs, shoves a heavy ball, springs a hinged door, and passes softly through an ally. WASD moves, Shift sprints, Space jumps.",
+	"Character Controller": "Upstream's mover on its full course: a capsule riding a spring suspension (the hover gap is the suspension, shown by the green ray) over ramps, stairs, platforms and a wave field with real holes. WASD moves, Shift sprints, Space jumps, C toggles velocity clipping, V shows the mover debug; the switch follows in third person.",
 	"Contact Pit": "Every peg reports its contacts, so each one flashes as a ball hits it. A steady rain of balls keeps the ricochets coming.",
 	"Bowling": "Ten pins and a rolling ball. Shoot more balls down the lane with F or reset to re-rack.",
 	"Radar Sweep": "A ray sweeping around an emitter, raycasting the world every frame. Whatever it hits lights up and a marker sits at the impact point.",
@@ -176,6 +179,7 @@ const DESCRIPTIONS := {
 	"Reflection": "The same mesh drawn twice, once as authored and once mirrored, with the mirroring changed live. A negative scale reflects the collider too, not just the drawing; Activate cycles through the sign combinations.",
 	"Manifold": "The narrow phase called directly on two shapes that are in no world at all, which is what a spawn check or a level tool needs. Yellow points are touching, white ones are close but not yet touching, and the line out of each is the contact normal. Activate steps through the nine shape pairs.",
 	"Joint Grid": "A lattice of a thousand bodies tied together by two thousand joints, hung from a static top row. A joint heavy scene is a different cost profile from a contact heavy one.",
+	"Rewind": "The world records itself as it runs, then freezes and scrubs the last few seconds backwards as ghosts before running them forward again. The ghosts are a second simulation rebuilt from the recorded bytes rather than stored positions, and every replayed frame is checked against the hash the recording embedded.",
 }
 
 ## What a game would actually use each sample's feature for, one short line, no
@@ -247,6 +251,7 @@ const USE_CASES := {
 	"Reflection": "Mirrored level pieces reused with a negative scale",
 	"Manifold": "Build-placement checks that ask whether two shapes touch before anything is spawned",
 	"Joint Grid": "Budgeting for joint-heavy scenes like chain nets and cloth",
+	"Rewind": "Killcams, action replays and reproducing a reported desync from the bytes",
 }
 
 ## Which solver runs the samples. Box3D is the default and the tested path; the

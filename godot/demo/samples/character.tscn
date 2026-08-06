@@ -12,17 +12,17 @@ albedo_color = Color(0.4, 0.44, 0.5, 1)
 roughness = 0.7
 
 [sub_resource type="StandardMaterial3D" id="EnemyMat"]
-albedo_color = Color(0.78, 0.08, 0.52, 1)
+albedo_color = Color(0.7804, 0.0824, 0.5216, 1)
 roughness = 0.4
 metallic = 0.1
 
 [sub_resource type="StandardMaterial3D" id="FriendMat"]
-albedo_color = Color(0.2, 0.8, 0.2, 1)
+albedo_color = Color(0.1961, 0.8039, 0.1961, 1)
 roughness = 0.4
 metallic = 0.1
 
 [sub_resource type="StandardMaterial3D" id="GhostMat"]
-albedo_color = Color(1, 0.98, 0.94, 1)
+albedo_color = Color(1, 0.9804, 0.9412, 1)
 roughness = 0.6
 
 [sub_resource type="StandardMaterial3D" id="BallMat"]
@@ -196,9 +196,10 @@ mesh = SubResource("M_Char")
 material_override = SubResource("CharMat")
 
 [node name="Hint" type="Label3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.5, 3.4, 9)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 5.5, 9)
 billboard = 1
-text = "W A S D walk, Shift sprint, Space jump (release right-mouse to steer)
+text = "W A S D walk, Shift sprint, Space jump  .  C: clip velocity  .  V: debug draw
+\"Third Person\" up top is the chase camera (right-drag to orbit). Activate respawns.
 Green ally: soft, walk through it. Violet enemy: springy. White slab: ignored entirely."
 font_size = 36
 outline_size = 12
