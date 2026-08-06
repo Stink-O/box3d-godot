@@ -1,0 +1,96 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://samples/bounce_house.gd" id="1_bounce"]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(20, 2, 20)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="WallXMesh"]
+size = Vector3(0.2, 10, 20)
+
+[sub_resource type="BoxMesh" id="WallZMesh"]
+size = Vector3(20, 10, 0.2)
+
+[sub_resource type="StandardMaterial3D" id="WallMat"]
+transparency = 1
+albedo_color = Color(0.45, 0.6, 0.75, 0.25)
+roughness = 0.35
+cull_mode = 2
+
+[sub_resource type="SphereMesh" id="BallMesh"]
+radius = 0.5
+height = 1.0
+
+[sub_resource type="StandardMaterial3D" id="BallMat"]
+albedo_color = Color(0.95, 0.72, 0.25, 1)
+roughness = 0.35
+metallic = 0.3
+
+[node name="BounceHouse" type="Node3D"]
+script = ExtResource("1_bounce")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+body_type = 0
+box_size = Vector3(20, 2, 20)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="WallXPos" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 4, 0)
+body_type = 0
+box_size = Vector3(0.2, 10, 20)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallXPos"]
+mesh = SubResource("WallXMesh")
+material_override = SubResource("WallMat")
+
+[node name="WallXNeg" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 4, 0)
+body_type = 0
+box_size = Vector3(0.2, 10, 20)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallXNeg"]
+mesh = SubResource("WallXMesh")
+material_override = SubResource("WallMat")
+
+[node name="WallZNeg" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, -10)
+body_type = 0
+box_size = Vector3(20, 10, 0.2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallZNeg"]
+mesh = SubResource("WallZMesh")
+material_override = SubResource("WallMat")
+
+[node name="WallZPos" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 10)
+body_type = 0
+box_size = Vector3(20, 10, 0.2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WallZPos"]
+mesh = SubResource("WallZMesh")
+material_override = SubResource("WallMat")
+
+[node name="Ball" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 4, 0)
+body_type = 2
+shape_type = 1
+sphere_radius = 0.5
+friction = 0.0
+restitution = 1.0
+gravity_scale = 0.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")

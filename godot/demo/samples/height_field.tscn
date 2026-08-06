@@ -1,0 +1,17 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://samples/height_field.gd" id="1_hf"]
+
+[node name="HeightField" type="Node3D"]
+script = ExtResource("1_hf")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Terrain" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -99, 0, -99)
+body_type = 0
+shape_type = 8
+height_field_size = Vector2i(100, 100)
+height_field_scale = Vector3(2, 1.5, 2)
+height_field_wave = Vector2(0.03333, 0.1)

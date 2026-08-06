@@ -1,0 +1,45 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://samples/weeble.gd" id="1_weeble"]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(60, 2, 60)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="CapsuleMesh" id="WeebleMesh"]
+radius = 1.0
+height = 4.0
+
+[sub_resource type="StandardMaterial3D" id="WeebleMat"]
+albedo_color = Color(0.86, 0.45, 0.3, 1)
+roughness = 0.45
+
+[node name="Weeble" type="Node3D"]
+script = ExtResource("1_weeble")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+body_type = 0
+box_size = Vector3(60, 2, 60)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="Weeble" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
+shape_type = 2
+capsule_radius = 1.0
+capsule_height = 4.0
+rolling_resistance = 0.1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Weeble"]
+mesh = SubResource("WeebleMesh")
+material_override = SubResource("WeebleMat")

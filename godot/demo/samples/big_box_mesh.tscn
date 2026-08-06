@@ -1,0 +1,28 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://samples/big_box_mesh.gd" id="1_bigbox"]
+
+[sub_resource type="BoxMesh" id="GroundMesh"]
+size = Vector3(100, 2, 100)
+
+[sub_resource type="StandardMaterial3D" id="GroundMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[node name="BigBoxMesh" type="Node3D"]
+script = ExtResource("1_bigbox")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Ground" type="Box3DBody" parent="Box3DWorld"]
+body_type = 0
+shape_type = 6
+friction = 0.5
+mesh_weld_tolerance = 0.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+mesh = SubResource("GroundMesh")
+material_override = SubResource("GroundMat")

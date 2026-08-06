@@ -1,0 +1,73 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://samples/spinning_books.gd" id="1_books"]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(20, 2, 20)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="BookMesh"]
+size = Vector3(0.7, 0.16, 1)
+
+[sub_resource type="StandardMaterial3D" id="BookMatX"]
+albedo_color = Color(0.86, 0.3, 0.28, 1)
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="BookMatY"]
+albedo_color = Color(0.4, 0.78, 0.42, 1)
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="BookMatZ"]
+albedo_color = Color(0.28, 0.55, 0.86, 1)
+roughness = 0.45
+
+[node name="SpinningBooks" type="Node3D"]
+script = ExtResource("1_books")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+body_type = 0
+box_size = Vector3(20, 2, 20)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="Books" type="Node3D" parent="Box3DWorld"]
+
+[node name="BookX" type="Box3DBody" parent="Box3DWorld/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 2, 0)
+box_size = Vector3(0.7, 0.16, 1)
+gravity_scale = 0.0
+angular_damping = 0.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Books/BookX"]
+mesh = SubResource("BookMesh")
+material_override = SubResource("BookMatX")
+
+[node name="BookY" type="Box3DBody" parent="Box3DWorld/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+box_size = Vector3(0.7, 0.16, 1)
+gravity_scale = 0.0
+angular_damping = 0.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Books/BookY"]
+mesh = SubResource("BookMesh")
+material_override = SubResource("BookMatY")
+
+[node name="BookZ" type="Box3DBody" parent="Box3DWorld/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 2, 0)
+box_size = Vector3(0.7, 0.16, 1)
+gravity_scale = 0.0
+angular_damping = 0.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Books/BookZ"]
+mesh = SubResource("BookMesh")
+material_override = SubResource("BookMatZ")

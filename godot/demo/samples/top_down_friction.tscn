@@ -1,0 +1,61 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://samples/top_down_friction.gd" id="1_tdf"]
+
+[sub_resource type="BoxMesh" id="RailMesh"]
+size = Vector3(20, 1, 8)
+
+[sub_resource type="BoxMesh" id="PostMesh"]
+size = Vector3(1, 20, 8)
+
+[sub_resource type="StandardMaterial3D" id="ArenaMat"]
+albedo_color = Color(0.24, 0.26, 0.3, 1)
+roughness = 0.5
+metallic = 0.1
+
+[node name="TopDownFriction" type="Node3D"]
+script = ExtResource("1_tdf")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Ground" type="Box3DBody" parent="Box3DWorld"]
+body_type = 0
+
+[node name="Bottom" type="Box3DCollisionShape" parent="Box3DWorld/Ground"]
+shape_type = 0
+box_size = Vector3(20, 1, 8)
+
+[node name="BottomMesh" type="MeshInstance3D" parent="Box3DWorld/Ground"]
+mesh = SubResource("RailMesh")
+material_override = SubResource("ArenaMat")
+
+[node name="Left" type="Box3DCollisionShape" parent="Box3DWorld/Ground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 10, 0)
+shape_type = 0
+box_size = Vector3(1, 20, 8)
+
+[node name="LeftMesh" type="MeshInstance3D" parent="Box3DWorld/Ground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 10, 0)
+mesh = SubResource("PostMesh")
+material_override = SubResource("ArenaMat")
+
+[node name="Right" type="Box3DCollisionShape" parent="Box3DWorld/Ground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 10, 0)
+shape_type = 0
+box_size = Vector3(1, 20, 8)
+
+[node name="RightMesh" type="MeshInstance3D" parent="Box3DWorld/Ground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 10, 0)
+mesh = SubResource("PostMesh")
+material_override = SubResource("ArenaMat")
+
+[node name="Top" type="Box3DCollisionShape" parent="Box3DWorld/Ground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 0)
+shape_type = 0
+box_size = Vector3(20, 1, 8)
+
+[node name="TopMesh" type="MeshInstance3D" parent="Box3DWorld/Ground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 0)
+mesh = SubResource("RailMesh")
+material_override = SubResource("ArenaMat")

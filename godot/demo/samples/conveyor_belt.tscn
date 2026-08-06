@@ -1,0 +1,93 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://samples/conveyor_belt.gd" id="1_belt"]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(40, 2, 40)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="BeltMesh"]
+size = Vector3(20, 0.5, 4)
+
+[sub_resource type="StandardMaterial3D" id="BeltMat"]
+albedo_color = Color(0.28, 0.55, 0.86, 1)
+roughness = 0.4
+
+[sub_resource type="BoxMesh" id="CrateMesh"]
+size = Vector3(1, 1, 1)
+
+[sub_resource type="StandardMaterial3D" id="CrateMat"]
+albedo_color = Color(0.86, 0.6, 0.32, 1)
+roughness = 0.6
+
+[node name="ConveyorBelt" type="Node3D"]
+script = ExtResource("1_belt")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+body_type = 0
+box_size = Vector3(40, 2, 40)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh")
+material_override = SubResource("FloorMat")
+
+[node name="Belt" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(0.980067, 0, -0.198669, 0, 1, 0, 0.198669, 0, 0.980067, -5, 5, 0)
+body_type = 0
+box_size = Vector3(20, 0.5, 4)
+friction = 0.8
+tangent_velocity = Vector3(2, 0, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Belt"]
+mesh = SubResource("BeltMesh")
+material_override = SubResource("BeltMat")
+
+[node name="Crates" type="Node3D" parent="Box3DWorld"]
+
+[node name="Crate_0" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 7, 0)
+box_size = Vector3(1, 1, 1)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_0"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="Crate_1" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 7, 0)
+box_size = Vector3(1, 1, 1)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_1"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="Crate_2" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 7, 0)
+box_size = Vector3(1, 1, 1)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_2"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="Crate_3" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 7, 0)
+box_size = Vector3(1, 1, 1)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_3"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")
+
+[node name="Crate_4" type="Box3DBody" parent="Box3DWorld/Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 7, 0)
+box_size = Vector3(1, 1, 1)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Crates/Crate_4"]
+mesh = SubResource("CrateMesh")
+material_override = SubResource("CrateMat")

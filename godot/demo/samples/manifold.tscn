@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://samples/manifold.gd" id="1_manifold"]
+
+[node name="Manifold" type="Node3D"]
+script = ExtResource("1_manifold")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)

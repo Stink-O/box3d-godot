@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://samples/class_ring.gd" id="1_ring"]
+
+[node name="ClassRing" type="Node3D"]
+script = ExtResource("1_ring")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+auto_step = false
+substep_count = 8

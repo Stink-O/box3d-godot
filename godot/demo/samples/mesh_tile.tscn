@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://samples/mesh_tile.gd" id="1_meshtile"]
+
+[node name="MeshTile" type="Node3D"]
+script = ExtResource("1_meshtile")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)

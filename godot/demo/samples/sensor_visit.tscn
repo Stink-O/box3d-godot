@@ -1,0 +1,40 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://samples/sensor_visit.gd" id="1_sensor"]
+
+[sub_resource type="BoxMesh" id="SensorMesh"]
+size = Vector3(4, 4, 4)
+
+[sub_resource type="StandardMaterial3D" id="SensorMat"]
+transparency = 1
+albedo_color = Color(0.35, 0.85, 1, 0.25)
+roughness = 0.2
+cull_mode = 2
+
+[sub_resource type="PlaneMesh" id="GridMesh"]
+size = Vector2(20, 20)
+
+[sub_resource type="StandardMaterial3D" id="GridMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[node name="SensorVisit" type="Node3D"]
+script = ExtResource("1_sensor")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Sensor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+body_type = 1
+box_size = Vector3(4, 4, 4)
+is_sensor = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Sensor"]
+mesh = SubResource("SensorMesh")
+material_override = SubResource("SensorMat")
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = SubResource("GridMesh")
+material_override = SubResource("GridMat")

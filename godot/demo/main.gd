@@ -9,10 +9,15 @@ const SAMPLES := {
 		"Cube Pile": "res://samples/cube_pile.tscn",
 		"Joint Sampler": "res://samples/joint_sampler.tscn",
 		"Body Types": "res://samples/body_types.tscn",
+		"Disable Body": "res://samples/disable_body.tscn",
+		"Weeble": "res://samples/weeble.tscn",
 	},
 	"Shapes": {
 		"Shape Zoo": "res://samples/shape_zoo.tscn",
 		"Restitution": "res://samples/restitution.tscn",
+		"Conveyor Belt": "res://samples/conveyor_belt.tscn",
+		"Wind": "res://samples/wind.tscn",
+		"Live Geometry": "res://samples/live_geometry.tscn",
 	},
 	"Stacking & Friction": {
 		"Friction Ramp": "res://samples/friction_ramp.tscn",
@@ -20,12 +25,16 @@ const SAMPLES := {
 		"Large Pyramid": "res://samples/large_pyramid.tscn",
 		"Huge Pyramid": "res://samples/huge_pyramid.tscn",
 		"Mixed Stacks": "res://samples/mixed_stacks.tscn",
+		"Jenga Stack": "res://samples/jenga.tscn",
+		"Wedge": "res://samples/wedge.tscn",
 	},
 	"Constraints": {
 		"Motion Locks": "res://samples/motion_locks.tscn",
 	},
 	"Compound": {
 		"Compound Shapes": "res://samples/compound.tscn",
+		"Tile Floor": "res://samples/tile_floor.tscn",
+		"Mesh Tile": "res://samples/mesh_tile.tscn",
 	},
 	"Toys": {
 		"Pool Break": "res://samples/pool.tscn",
@@ -42,10 +51,15 @@ const SAMPLES := {
 		"Ragdoll": "res://samples/ragdoll.tscn",
 		"Motorized": "res://samples/motor.tscn",
 		"Newton's Cradle": "res://samples/cradle.tscn",
+		"Motor Joint": "res://samples/motor_joint.tscn",
+		"Top Down Friction": "res://samples/top_down_friction.tscn",
+		"Gear Lift": "res://samples/gear_lift.tscn",
 	},
 	"Gyroscopes": {
 		"Gyroscopic Torque": "res://samples/gyro_torque.tscn",
 		"Gyroscopic Precession": "res://samples/gyro_precession.tscn",
+		"Spinning Books": "res://samples/spinning_books.tscn",
+		"Class Ring": "res://samples/class_ring.tscn",
 	},
 	"Gameplay": {
 		"Character Controller": "res://samples/character.tscn",
@@ -55,13 +69,113 @@ const SAMPLES := {
 	"Queries": {
 		"Radar Sweep": "res://samples/raycast.tscn",
 		"Explosion": "res://samples/explosion.tscn",
+		"Overlap World": "res://samples/overlap_world.tscn",
 	},
 	"Continuous": {
 		"Bullets (CCD)": "res://samples/bullets.tscn",
+		"Bounce House": "res://samples/bounce_house.tscn",
+		"Spinning Stick": "res://samples/spinning_stick.tscn",
+		"Bullet vs Stack": "res://samples/bullet_vs_stack.tscn",
 	},
 	"Vehicles": {
 		"Car": "res://samples/car.tscn",
 	},
+	"Events": {
+		"Sensor Visit": "res://samples/sensor_visit.tscn",
+		"Persistent Contact": "res://samples/persistent_contact.tscn",
+		"Hit": "res://samples/hit_events.tscn",
+		"Sensor Hits": "res://samples/sensor_hits.tscn",
+	},
+	"Robustness": {
+		"Overlap Recovery": "res://samples/overlap_recovery.tscn",
+		"High Mass Ratio": "res://samples/high_mass_ratio.tscn",
+	},
+	"Mesh": {
+		"Height Field": "res://samples/height_field.tscn",
+		"Big Box": "res://samples/big_box_mesh.tscn",
+		"Grid": "res://samples/grid_mesh.tscn",
+		"Hollow Box": "res://samples/hollow_box.tscn",
+		"Reflection": "res://samples/mesh_reflection.tscn",
+	},
+	"Collision": {
+		"Manifold": "res://samples/manifold.tscn",
+	},
+	"Benchmark": {
+		"Joint Grid": "res://samples/joint_grid.tscn",
+	},
+}
+
+
+## What each sample is showing, one or two plain sentences. Optional: a sample
+## with no entry here simply has no description. Shown on hover over its entry
+## in the Samples menu (and on the touch sample list), and as a muted line at
+## the top of the settings sidebar while it is open, so it is there for anyone
+## who goes looking and out of the way for everyone else.
+const DESCRIPTIONS := {
+	"Cube Pile": "Four thousand boxes dropped into a heap, the demo's headline stress test. Watch the step time in the profiler as the pile settles and goes to sleep.",
+	"Joint Sampler": "One of each joint type side by side: hinge, slider, ball, weld, distance, wheel and motor. The slider's motor oscillates and the chain sways so every joint is doing something.",
+	"Body Types": "Static, kinematic and dynamic bodies together. The kinematic platform is driven by its node transform and shoves dynamic crates around; nothing pushes back on it.",
+	"Disable Body": "A welded capsule chain hanging from an anchor, with the middle link switchable. Disabling a link removes it from the simulation and the tail below it hangs in mid air until something wakes it.",
+	"Weeble": "A capsule that will not stay knocked over, because its centre of mass sits well below its middle. Tip it right over with Activate and watch it walk itself back upright.",
+	"Shape Zoo": "One of every collider box3d offers, dropped together: spheres, capsules, boxes, cylinders, cones and convex hulls.",
+	"Restitution": "A row of balls with restitution rising from 0 to 1, dropped from the same height. Each one bounces back to a different fraction of the drop.",
+	"Conveyor Belt": "The ramp never moves. Its surface has a tangent velocity, so it carries crates uphill the way a real belt does, and the crates stop dead when they leave it.",
+	"Wind": "A jointed ribbon in a steady 6 m/s wind. This is real aerodynamic drag and lift on each plate's cross section, not a push, which is why the ribbon streams and flutters. Turn the wind off with the toggle and it falls limp.",
+	"Live Geometry": "Colliders being resized while the simulation runs: a growing box lifts a tower, a sphere breathes and its mass follows r cubed, and two spheres on a bar swap size so the body rolls toward the heavy end. Freeze it with the toggle and the whole scene goes to sleep.",
+	"Friction Ramp": "Identical boxes on one slope with different friction. The low friction ones slide away, the high friction ones stay put.",
+	"Pyramid": "The classic stacking test: a pyramid of boxes that has to stay square and then fall asleep.",
+	"Large Pyramid": "The same pyramid, much taller. Deep stacks are where a solver's contact accuracy shows.",
+	"Huge Pyramid": "Sixteen thousand boxes in one pyramid. It stands because matching contacts are recycled between steps rather than rebuilt.",
+	"Mixed Stacks": "Stacks built from different shapes at once, so the manifolds between unlike colliders have to hold each other up.",
+	"Jenga Stack": "Sixty beams, two per layer, each layer turned a quarter turn. It settles by a few centimetres as the gaps close, then sleeps.",
+	"Wedge": "A six vertex hull balanced on its own ridge. The contact is a line rather than a face, which is the case a manifold is most likely to get wrong; here it should settle and sleep instead of jittering off.",
+	"Motion Locks": "Bodies with individual axes locked. The pucks are held flat to the table and the beads are held to a single axis, so they glide instead of tumbling.",
+	"Compound Shapes": "Single bodies made of several child colliders, so one rigid body can have any shape you like.",
+	"Tile Floor": "Two and a half thousand slabs baked into ONE collider. The world keeps a single broad phase entry and the compound's own tree finds the slab under the marble.",
+	"Mesh Tile": "One box mesh placed four times at different heights, so the tiles meet in steps. Props dropped on it land on the tile below them, not on the gap.",
+	"Pool Break": "Fifteen balls racked and broken by the cue ball. Rolling resistance is what makes them slow and settle rather than roll forever.",
+	"Marble Run": "Marbles cascade down a zig zag of tilted ramps into the tray at the bottom. Rolling contact, nothing scripted.",
+	"Tumbling Tower": "A tall tower built to be knocked down. Shoot it with F or grab a block out of it and watch the rest go.",
+	"Ball Pit": "A tank of hundreds of balls, the sphere-on-sphere contact case at scale.",
+	"Wrecking Ball": "The rope is a real chain of jointed links, not an animation, so the ball's swing builds from the joints themselves before it smashes the wall.",
+	"Ball Fountain": "A spout sprays balls into the air and they rain back into the basin, a steady few hundred bodies coming and going.",
+	"Ball Flood": "Three emitters hose balls into a tank as fast as they can fire and nothing is ever recycled, so the body count only climbs. The body count readout is the point.",
+	"Dominoes": "A line of slabs toppled by a nudge to the first one. Reset to run it again.",
+	"Bridge": "A plank bridge on hinge joints that sags under whatever crosses it.",
+	"Ragdoll": "A jointed figure of capsules linked by ball joints with cone and twist limits, so it collapses like a body rather than a bag of parts.",
+	"Motorized": "Hinge motors driving a turntable and a windmill. The turntable's riders slide off as it spins up; the motor holds its speed against their weight.",
+	"Newton's Cradle": "Five balls on rigid rods. Momentum passes along the touching row and comes out at the far end, which needs the contacts to be solved together rather than one at a time.",
+	"Motor Joint": "A soft six degree of freedom drive: give it a target frame and it pulls the body there against gravity, within a force budget. The bar tracks its moving target within a few centimetres.",
+	"Top Down Friction": "A hundred pieces in a gravity free arena, each held still by its own motor joint acting as top down friction. Set off the blast and they scatter, then the joints bring them all back to a dead stop.",
+	"Gear Lift": "Eighty three revolute joints and one prismatic: a motorised gear turns a second gear, which winds two chains over its rim and hauls a gate up out of a stairwell. Switch the motor off and the gate sinks back down.",
+	"Gyroscopic Torque": "The Dzhanibekov effect: a T handle spun about its intermediate axis flips over and over on its own. This only happens if the solver integrates the inertia tensor properly.",
+	"Gyroscopic Precession": "Sixty four spinning tops. A leaning top does not fall over, it circles, because its spin turns gravity's torque sideways.",
+	"Spinning Books": "Three identical slabs spun about each of their three axes in free fall. Two spins are stable and the third, about the middle axis, tumbles.",
+	"Class Ring": "A ring of welded capsules with a heavy gem, spun on its rim. It needs a 960 Hz step to behave: at 60 Hz the contact patch cannot keep up with the rim and the ring never falls over properly.",
+	"Character Controller": "A kinematic capsule walking an obstacle course of ordinary bodies. It slides along walls, climbs steps and pushes crates, using box3d's own mover sweep rather than a physics body.",
+	"Contact Pit": "Every peg reports its contacts, so each one flashes as a ball hits it. A steady rain of balls keeps the ricochets coming.",
+	"Bowling": "Ten pins and a rolling ball. Shoot more balls down the lane with F or reset to re-rack.",
+	"Radar Sweep": "A ray sweeping around an emitter, raycasting the world every frame. Whatever it hits lights up and a marker sits at the impact point.",
+	"Explosion": "A radial blast applied to everything in range, with the impulse falling off with distance. Press Activate to set it off under the building.",
+	"Overlap World": "Every shape type crossed with every body type, with three rows of query probes sweeping through them. A probe turns red for the frame it overlaps something; the three rows are the three kinds of shape an overlap query can use, a sphere, a tilted capsule and an arbitrary point cloud.",
+	"Bullets (CCD)": "Fast bullets fired at a thin wall. With continuous collision on they are caught; switch it off with C and they pass straight through.",
+	"Bounce House": "One frictionless, perfectly elastic ball fired across a walled pen at 170 m/s with no gravity. It should never escape the pen and never lose speed.",
+	"Spinning Stick": "A stick dropped onto the edge of a thin wall at 100 m/s while spinning at up to 50 rad/s. The toggle switches fast rotation handling on and off.",
+	"Bullet vs Stack": "A small, very dense sphere fired at 500 m/s through a ten box tower with a thin backstop behind it. The tower is demolished and neither the bullet nor any box gets past the wall.",
+	"Car": "A jointed vehicle: wheel joints with springs and motors, driven only through the wheels. Everything the chassis does comes from suspension and tyre contact.",
+	"Sensor Visit": "A sensor takes part in collision detection but never pushes anything. The box reports what enters and leaves it while bodies pass straight through.",
+	"Persistent Contact": "One sphere rolling across a triangle mesh floor with its live contact drawn every frame, so you can watch a single manifold be held and updated rather than rebuilt.",
+	"Hit": "Impact events with an approach speed attached. A welded capsule tower is toppled onto a striped mesh floor and every hard landing reports where it hit, how fast, and which surface material it hit.",
+	"Sensor Hits": "Three sensors, one static, one kinematic and one on a motorised joint, shot through at 200 to 300 m/s. With bullet handling on, every pass is caught going in and coming out.",
+	"Overlap Recovery": "Ten boxes spawned deliberately interlocked. They push apart smoothly instead of exploding, because the depenetration speed is capped.",
+	"High Mass Ratio": "Pyramids topped by a box of the same size but 100, 200 and 400 times the mass. Heavy on light is the hardest case for a solver to hold up.",
+	"Height Field": "A terrain stored as one height per grid point rather than as triangles, so it costs a fraction of the memory and a cast only visits the cells it crosses. The probe sphere tracks the surface as it moves.",
+	"Big Box": "A ground made of twelve enormous triangles. A contact can sit a long way from any vertex here, so any precision loss shows up as a body that drifts or sinks. Activate cycles the shape resting on it.",
+	"Grid": "A tessellated plane collided at twice the size it was authored, since a mesh carries its own scale. A body rolling across it should not catch on the edges between triangles.",
+	"Hollow Box": "The same twelve triangles wound inward, which makes them a room rather than a box. Props start halfway through the walls and are pushed back inside.",
+	"Reflection": "The same mesh drawn twice, once as authored and once mirrored, with the mirroring changed live. A negative scale reflects the collider too, not just the drawing; Activate cycles through the sign combinations.",
+	"Manifold": "The narrow phase called directly on two shapes that are in no world at all, which is what a spawn check or a level tool needs. Yellow points are touching, white ones are close but not yet touching, and the line out of each is the contact normal. Activate steps through the nine shape pairs.",
+	"Joint Grid": "A lattice of a thousand bodies tied together by two thousand joints, hung from a static top row. A joint heavy scene is a different cost profile from a contact heavy one.",
 }
 
 ## Which solver runs the samples. Box3D is the default and the tested path; the
@@ -158,6 +272,7 @@ var _current_name := ""
 var _debug_draw := false
 var _step_count := 0
 var _updating_sidebar := false  ## guard while pushing values into the controls
+var _sample_blurb: Label  ## muted one-liner in the sidebar, see DESCRIPTIONS
 ## Box3D fixes the worker count when the world is created, so the sidebar
 ## can't live-edit it like the other settings. Instead a change reloads the
 ## sample with this override applied before the world exists. Sticky across
@@ -216,6 +331,7 @@ func _ready() -> void:
 	_menu.focus_mode = Control.FOCUS_NONE
 	_sidebar_toggle.focus_mode = Control.FOCUS_NONE
 	_sidebar_toggle.toggled.connect(_on_sidebar_toggled)
+	_build_sample_blurb()
 
 	# Engine selector: same shell, different solver underneath.
 	_engine_option.focus_mode = Control.FOCUS_NONE
@@ -705,6 +821,7 @@ func _setup_touch_sample_picker() -> void:
 			row.focus_mode = Control.FOCUS_NONE
 			row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			row.custom_minimum_size = Vector2(0.0, 48.0)
+			row.tooltip_text = DESCRIPTIONS.get(sample_name, "")
 			var path: String = SAMPLES[category][sample_name]
 			var title: String = sample_name
 			row.pressed.connect(func():
@@ -872,6 +989,22 @@ func _hide_visuals_under(node: Node) -> void:
 			child.visible = false
 			_debug_hidden.append(child)
 		_hide_visuals_under(child)
+
+
+## A muted line under the sidebar title saying what the current sample shows.
+## The sidebar is hidden behind the Settings button (or Tab), so this is for
+## someone who went looking; the same text is the sample entry's tooltip.
+func _build_sample_blurb() -> void:
+	var vbox: Control = _sidebar.get_node("Margin/VBox")
+	_sample_blurb = Label.new()
+	_sample_blurb.name = "SampleBlurb"
+	_sample_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_sample_blurb.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
+	_sample_blurb.add_theme_font_size_override("font_size", 12)
+	vbox.add_child(_sample_blurb)
+	# Above the sidebar's own "Solver" title, so it reads as being about the
+	# sample rather than about the controls under it.
+	vbox.move_child(_sample_blurb, 0)
 
 
 func _on_sidebar_toggled(pressed: bool) -> void:
@@ -1212,6 +1345,9 @@ func _build_menu() -> void:
 		popup.add_separator(category)
 		for sample_name in SAMPLES[category]:
 			popup.add_item(sample_name, id)
+			var blurb: String = DESCRIPTIONS.get(sample_name, "")
+			if not blurb.is_empty():
+				popup.set_item_tooltip(popup.get_item_index(id), blurb)
 			_items[id] = {"path": SAMPLES[category][sample_name], "name": sample_name}
 			id += 1
 	if not popup.id_pressed.is_connected(_on_menu_id):
@@ -1342,6 +1478,10 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 		_sample_toggle.text = _current.get_toggle_label()
 	if _touch != null:
 		_touch.set_sample(path)  # joystick/JUMP/key pills for samples that use them
+	if _sample_blurb != null:
+		var blurb: String = DESCRIPTIONS.get(sample_name, "")
+		_sample_blurb.text = "" if blurb.is_empty() else "%s: %s" % [sample_name, blurb]
+		_sample_blurb.visible = not _sample_blurb.text.is_empty()
 	_info_flash_id += 1  # cancel any pending flash from the previous sample
 	_show_controls_hint()
 	_update_engine_note()  # this sample's port notes, if it is running natively

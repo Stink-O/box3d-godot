@@ -1,0 +1,57 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://samples/persistent_contact.gd" id="1_pcontact"]
+
+[sub_resource type="PlaneMesh" id="GridMesh"]
+size = Vector2(40, 40)
+subdivide_width = 19
+subdivide_depth = 19
+
+[sub_resource type="StandardMaterial3D" id="GridMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="SphereMesh" id="BallMesh"]
+radius = 0.5
+height = 1.0
+
+[sub_resource type="StandardMaterial3D" id="BallMat"]
+albedo_color = Color(0.95, 0.72, 0.25, 1)
+roughness = 0.4
+metallic = 0.2
+
+[node name="PersistentContact" type="Node3D"]
+script = ExtResource("1_pcontact")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+
+[node name="Ground" type="Box3DBody" parent="Box3DWorld"]
+body_type = 0
+shape_type = 6
+collision_mesh = SubResource("GridMesh")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ground"]
+mesh = SubResource("GridMesh")
+material_override = SubResource("GridMat")
+
+[node name="Ball" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 1, 0.5)
+body_type = 2
+shape_type = 1
+sphere_radius = 0.5
+density = 20.0
+rolling_resistance = 0.01
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Status" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, 0)
+billboard = 1
+text = "manifold points = 0"
+font_size = 48
+outline_size = 15
+modulate = Color(1, 0.92, 0.6, 1)

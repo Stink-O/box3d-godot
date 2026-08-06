@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://samples/joint_grid.gd" id="1_jgrid"]
+
+[node name="JointGrid" type="Node3D"]
+script = ExtResource("1_jgrid")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -9.8, 0)
+worker_count = 8
