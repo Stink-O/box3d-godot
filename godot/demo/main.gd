@@ -178,6 +178,77 @@ const DESCRIPTIONS := {
 	"Joint Grid": "A lattice of a thousand bodies tied together by two thousand joints, hung from a static top row. A joint heavy scene is a different cost profile from a contact heavy one.",
 }
 
+## What a game would actually use each sample's feature for, one short line, no
+## trailing full stop. Keys match DESCRIPTIONS; a sample with no entry here
+## simply shows no use case line. Rendered under the blurb in the sidebar and
+## on the second line of the picker tooltip.
+const USE_CASES := {
+	"Cube Pile": "Debris fields and rubble piles that still have to hold frame rate",
+	"Joint Sampler": "Picking the right joint for a door, a lift or a vehicle",
+	"Body Types": "Moving platforms and lifts that carry the player",
+	"Disable Body": "Switching destroyed or distant parts out of the simulation without deleting them",
+	"Weeble": "Punching bags and buoys that right themselves",
+	"Shape Zoo": "Choosing a collider that fits the art without paying for a hull you don't need",
+	"Restitution": "Bouncy balls, grenades and anything that should rebound",
+	"Conveyor Belt": "Conveyors, treadmills and moving walkways",
+	"Wind": "Flags, banners and cloth strips that answer to the weather",
+	"Live Geometry": "Props that grow or shrink in play, like an inflating balloon",
+	"Friction Ramp": "Ice, mud and other surfaces that change how things slide",
+	"Pyramid": "Stackable crates the player can build with",
+	"Large Pyramid": "Tall crate stacks that have to stay put instead of jittering apart",
+	"Huge Pyramid": "Checking a big destructible structure survives before you ship it",
+	"Mixed Stacks": "Clutter piles built from whatever props are to hand",
+	"Jenga Stack": "Tower games where the player pulls pieces out of a stack",
+	"Wedge": "Angular props like rocks and rubble that come to rest on an edge",
+	"Motion Locks": "Air hockey pucks, rail-bound crates and 2.5D movement",
+	"Compound Shapes": "Awkward props like tables and machinery as one rigid body",
+	"Tile Floor": "Baking a whole tiled floor into one cheap collider",
+	"Mesh Tile": "Level geometry assembled from one mesh repeated at different heights",
+	"Pool Break": "Balls that roll to a natural stop instead of rolling forever",
+	"Marble Run": "Marble tracks, pinball ramps and chute puzzles",
+	"Tumbling Tower": "Destructible towers the player knocks down",
+	"Ball Pit": "Ball pits, coin showers and pickups heaped in a container",
+	"Wrecking Ball": "Cranes, wrecking balls and anything hung on a swinging rope",
+	"Ball Fountain": "Fountains and spawner effects with bodies constantly coming and going",
+	"Ball Flood": "Finding the body count where your target hardware gives up",
+	"Dominoes": "Chain-reaction puzzles and toppling set pieces",
+	"Bridge": "Rope bridges and planks that sag under whatever crosses them",
+	"Ragdoll": "Ragdolls that collapse like a body when a character dies",
+	"Motorized": "Turntables, windmills and powered machinery that holds its speed",
+	"Newton's Cradle": "Puzzles where an impact travels along a row of touching objects",
+	"Motor Joint": "Tractor beams and carry tools that pull a prop to where you point",
+	"Top Down Friction": "Top-down games where sliding objects settle on their own",
+	"Gear Lift": "Gear trains, winches and gates driven by machinery",
+	"Gyroscopic Torque": "Tumbling debris in zero gravity that spins the way real objects do",
+	"Gyroscopic Precession": "Spinning tops, gyroscopes and wobbling wheels",
+	"Spinning Books": "Thrown props that tumble differently depending on the spin axis",
+	"Class Ring": "Tuning the step rate for fast-spinning props like coins and wheels",
+	"Character Controller": "Player and NPC movement that walks, climbs steps and shoves props",
+	"Contact Pit": "Sound, sparks and score fired off every time something is hit",
+	"Bowling": "Bowling, skittles and knock-down mini games",
+	"Radar Sweep": "Enemy vision cones, scanners and laser sights",
+	"Explosion": "Grenades and exploding barrels that throw nearby objects clear",
+	"Overlap World": "Checking a spot is clear before spawning a body or placing a building",
+	"Bullets (CCD)": "Fast projectiles that must never tunnel through walls",
+	"Bounce House": "Frictionless arcade balls that keep their speed forever",
+	"Spinning Stick": "Thrown weapons that spin fast without passing through geometry",
+	"Bullet vs Stack": "High-powered weapons that punch through cover but not through the level",
+	"Car": "Drivable vehicles with real suspension and tyre grip",
+	"Sensor Visit": "Pickups and trigger zones",
+	"Persistent Contact": "Effects that need one contact tracked over time, like skid marks",
+	"Hit": "Impact sounds and effects that scale with how hard something landed",
+	"Sensor Hits": "Triggers that catch bullet-speed passes, like finish lines and target hoops",
+	"Overlap Recovery": "Spawning bodies in tight spaces without them exploding apart",
+	"High Mass Ratio": "Heavy objects resting on lighter ones, like a car parked on crates",
+	"Height Field": "Large outdoor terrain that is cheap to store and cheap to cast against",
+	"Big Box": "Ground planes built from a handful of enormous triangles",
+	"Grid": "Reusing one authored mesh at another scale without seams a body catches on",
+	"Hollow Box": "Rooms and interiors built from a single inward-facing mesh",
+	"Reflection": "Mirrored level pieces reused with a negative scale",
+	"Manifold": "Build-placement checks that ask whether two shapes touch before anything is spawned",
+	"Joint Grid": "Budgeting for joint-heavy scenes like chain nets and cloth",
+}
+
 ## Which solver runs the samples. Box3D is the default and the tested path; the
 ## native engines exist so the same shell -- same menu, camera, tools, reset --
 ## can be pointed at a different solver. Selecting one restarts the process
@@ -273,6 +344,8 @@ var _debug_draw := false
 var _step_count := 0
 var _updating_sidebar := false  ## guard while pushing values into the controls
 var _sample_blurb: Label  ## muted one-liner in the sidebar, see DESCRIPTIONS
+var _sample_use_case: Label  ## dimmer line under it, see USE_CASES
+var _sample_blurb_box: Control  ## holds both labels, hidden while collapsed
 var _sample_blurb_toggle: Button  ## discloses the blurb; collapsed on every sample load
 var _side_scroll: ScrollContainer  ## the sidebar's scrollable middle, all platforms
 ## Box3D fixes the worker count when the world is created, so the sidebar
@@ -818,7 +891,7 @@ func _setup_touch_sample_picker() -> void:
 			row.focus_mode = Control.FOCUS_NONE
 			row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			row.custom_minimum_size = Vector2(0.0, 48.0)
-			row.tooltip_text = DESCRIPTIONS.get(sample_name, "")
+			row.tooltip_text = _sample_tooltip(sample_name)
 			var path: String = SAMPLES[category][sample_name]
 			var title: String = sample_name
 			row.pressed.connect(func():
@@ -1006,6 +1079,11 @@ func _make_sidebar_scrollable() -> void:
 ## What the current sample shows, behind a small disclosure so it never takes
 ## sidebar space uninvited: collapsed on every sample load, revealed on click.
 ## The same text is the sample entry's tooltip in the picker.
+##
+## Sizes and alphas here are the quiet end of the sidebar's scale, not the
+## faint end: the block is meant to be read comfortably once it is open, while
+## still sitting below the controls in the visual order. The use case line is
+## one step smaller and dimmer again so it reads as a footnote to the blurb.
 func _build_sample_blurb() -> void:
 	var vbox: Control = _side_scroll.get_node("Margin/VBox")
 	_sample_blurb_toggle = Button.new()
@@ -1014,23 +1092,51 @@ func _build_sample_blurb() -> void:
 	_sample_blurb_toggle.flat = true
 	_sample_blurb_toggle.focus_mode = Control.FOCUS_NONE
 	_sample_blurb_toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_sample_blurb_toggle.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
-	_sample_blurb_toggle.add_theme_font_size_override("font_size", 12)
+	_sample_blurb_toggle.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
+	_sample_blurb_toggle.add_theme_font_size_override("font_size", 13)
+	# The two labels ride together in a margin container: one show/hide for the
+	# whole block, and a few px of air before the controls under it.
+	var box := MarginContainer.new()
+	box.name = "SampleBlurbBox"
+	box.add_theme_constant_override("margin_bottom", 8)
+	box.visible = false
+	_sample_blurb_box = box
+	var text_vbox := VBoxContainer.new()
+	text_vbox.name = "SampleBlurbText"
+	text_vbox.add_theme_constant_override("separation", 4)
+	box.add_child(text_vbox)
 	_sample_blurb = Label.new()
 	_sample_blurb.name = "SampleBlurb"
 	_sample_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_sample_blurb.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
-	_sample_blurb.add_theme_font_size_override("font_size", 12)
-	_sample_blurb.visible = false
+	_sample_blurb.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
+	_sample_blurb.add_theme_font_size_override("font_size", 13)
+	text_vbox.add_child(_sample_blurb)
+	_sample_use_case = Label.new()
+	_sample_use_case.name = "SampleUseCase"
+	_sample_use_case.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_sample_use_case.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
+	_sample_use_case.add_theme_font_size_override("font_size", 12)
+	_sample_use_case.visible = false
+	text_vbox.add_child(_sample_use_case)
 	_sample_blurb_toggle.toggled.connect(func(pressed: bool) -> void:
-		_sample_blurb.visible = pressed and not _sample_blurb.text.is_empty()
+		_sample_blurb_box.visible = pressed and not _sample_blurb.text.is_empty()
 		_update_blurb_toggle_text())
 	vbox.add_child(_sample_blurb_toggle)
-	vbox.add_child(_sample_blurb)
+	vbox.add_child(box)
 	# Above the sidebar's own "Solver" title, so it reads as being about the
 	# sample rather than about the controls under it.
 	vbox.move_child(_sample_blurb_toggle, 0)
-	vbox.move_child(_sample_blurb, 1)
+	vbox.move_child(box, 1)
+
+
+## Picker tooltip for a sample: the description, plus the use case on its own
+## line where there is one. Empty for a sample with no description at all.
+func _sample_tooltip(sample_name: String) -> String:
+	var blurb: String = DESCRIPTIONS.get(sample_name, "")
+	if blurb.is_empty():
+		return ""
+	var use_case: String = USE_CASES.get(sample_name, "")
+	return blurb if use_case.is_empty() else "%s\nUse case: %s" % [blurb, use_case]
 
 
 func _update_blurb_toggle_text() -> void:
@@ -1376,7 +1482,7 @@ func _build_menu() -> void:
 		popup.add_separator(category)
 		for sample_name in SAMPLES[category]:
 			popup.add_item(sample_name, id)
-			var blurb: String = DESCRIPTIONS.get(sample_name, "")
+			var blurb: String = _sample_tooltip(sample_name)
 			if not blurb.is_empty():
 				popup.set_item_tooltip(popup.get_item_index(id), blurb)
 			_items[id] = {"path": SAMPLES[category][sample_name], "name": sample_name}
@@ -1511,9 +1617,14 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 		_touch.set_sample(path)  # joystick/JUMP/key pills for samples that use them
 	if _sample_blurb != null:
 		var blurb: String = DESCRIPTIONS.get(sample_name, "")
+		var use_case: String = USE_CASES.get(sample_name, "")
 		_sample_blurb.text = "" if blurb.is_empty() else "%s: %s" % [sample_name, blurb]
+		_sample_use_case.text = "" if use_case.is_empty() else "Use case: %s" % use_case
+		# A sample can have a blurb and no use case, so the line carries its own
+		# visibility inside the block.
+		_sample_use_case.visible = not _sample_use_case.text.is_empty()
 		# Collapsed on every load; the toggle only exists where there is text.
-		_sample_blurb.visible = false
+		_sample_blurb_box.visible = false
 		_sample_blurb_toggle.set_pressed_no_signal(false)
 		_sample_blurb_toggle.visible = not _sample_blurb.text.is_empty()
 		_update_blurb_toggle_text()
