@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DRecording" inherits="RefCounted" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		The write side of Box3D's recording system: a byte buffer a [Box3DWorld] records itself into.
+	</brief_description>
+	<description>
+		Hand one of these to [method Box3DWorld.start_recording] and every mutation of that world -- every body, shape and joint created, destroyed or written -- plus every step lands in the buffer. [method Box3DWorld.stop_recording] ends the session, and the bytes can then be replayed by a [Box3DReplayPlayer].
+		[b]A recording is a determinism instrument, not a savegame and not an animation.[/b] Box3D embeds a state hash of the world after every step, and replay recomputes those hashes and compares. Because a player can stand the same bytes up at a [i]different[/i] worker count, and a different worker count re-partitions the constraint graph, a replay that reports no divergence is a live cross-thread determinism check.
+		[b]What the hash covers, so nobody over-reads a clean replay:[/b] every live body's transform and, where the body has a solver state, its linear and angular velocity. Contacts, joints, impulses and sleep flags are [b]not[/b] hashed. A matching replay proves the bodies ended up in the same places at the same speeds; it does not prove the contact set was identical along the way.
+		[b]The one contract that bites:[/b] the bytes are only a complete, loadable recording once the session is stopped -- stopping is what appends the geometry registry and backpatches the header. [method get_data] and [method save_to_file] therefore [b]refuse[/b] while a session is live. Stop first.
+		Recording is safe while [member Box3DWorld.async_step] is on, and is neither refused nor disables it: Box3D only writes to the buffer from the thread that called the step, and the buffer carries its own mutex.
+		A world being destroyed stops its recording for you, so a scene that quits mid-recording still leaves a complete buffer.
+		The conventional file extension is [code].b3rec[/code].
+		[codeblock]
+		var rec := Box3DRecording.create()
+		world.start_recording(rec)
+		for i in 150:
+		    await get_tree().physics_frame
+		world.stop_recording()
+		rec.save_to_file("user://run.b3rec")
+		[/codeblock]
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="create" qualifiers="static">
+			<return type="Box3DRecording" />
+			<param index="0" name="byte_capacity" type="int" default="0" />
+			<description>
+				Creates an empty recording buffer.
+				[param byte_capacity] is a reallocation hint, not a cap: the default buffer is 64 KiB and grows on demand, so a long recording of a heavy scene is tens of megabytes either way. Sizing it up front only saves the regrowth.
+			</description>
+		</method>
+		<method name="get_data" qualifiers="const">
+			<return type="PackedByteArray" />
+			<description>
+				A copy of the recorded bytes, ready for [method Box3DReplayPlayer.open].
+				Copied at the moment of the call and never held, because Box3D's own pointer is only valid until the next byte is written.
+				[b]Returns an empty array, with an error, while a session is still running[/b] -- the bytes are not a loadable recording until [method Box3DWorld.stop_recording] has written the geometry registry. See [method is_recording].
+			</description>
+		</method>
+		<method name="get_size" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many bytes have been recorded so far. Live during a session, so this is the one honest progress readout while recording.
+			</description>
+		</method>
+		<method name="is_recording" qualifiers="const">
+			<return type="bool" />
+			<description>
+				[code]true[/code] between [method Box3DWorld.start_recording] and [method Box3DWorld.stop_recording] on this buffer, i.e. exactly while [method get_data] and [method save_to_file] refuse.
+			</description>
+		</method>
+		<method name="save_to_file" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="path" type="String" />
+			<description>
+				Writes [method get_data] through Godot's [FileAccess], so [code]user://[/code] and any globalizable path work in an exported game on every platform. Box3D's own file API is plain [code]fopen[/code] and cannot see inside a [code].pck[/code], which is why it is not bound.
+				Refuses while a session is running, for the same reason [method get_data] does.
+			</description>
+		</method>
+	</methods>
+</class>

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DWheelJoint" inherits="Box3DJoint" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Box3D's vehicle joint: a sprung, optionally driven and steered wheel.
+	</brief_description>
+	<description>
+		Attaches a wheel ([member body_b]) to a chassis ([member body_a]). The wheel rides a suspension spring along [b]this node's local Y axis[/b] (green), spins about [b]its local Z axis[/b] (blue, the axle), and can steer about the suspension axis.
+		One joint per wheel: drive the rear pair with the spin motor, steer the front pair with the steering target. See the demo's Car sample, which mirrors upstream Box3D's Driving sample.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_spin_speed" qualifiers="const">
+			<return type="float" />
+			<description>
+				Current wheel spin in radians per second. Multiply by the wheel radius for road speed, or compare against [member spin_motor_speed] to detect wheelspin.
+			</description>
+		</method>
+		<method name="get_spin_torque" qualifiers="const">
+			<return type="float" />
+			<description>
+				Torque the spin motor applied on the last step, in newton-metres -- the wheel's actual delivered drive or braking force.
+			</description>
+		</method>
+		<method name="get_steering_angle" qualifiers="const">
+			<return type="float" />
+			<description>
+				Current steering angle in radians, which lags [member target_steering_angle] by however much the steering drive can manage.
+			</description>
+		</method>
+		<method name="get_steering_torque" qualifiers="const">
+			<return type="float" />
+			<description>
+				Torque the steering drive applied on the last step, in newton-metres.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="lower_steering_limit" type="float" setter="set_lower_steering_limit" getter="get_lower_steering_limit" default="0.0">
+			Full lock in one direction, in radians.
+		</member>
+		<member name="lower_suspension_limit" type="float" setter="set_lower_suspension_limit" getter="get_lower_suspension_limit" default="0.0">
+			Deepest allowed suspension compression, in metres.
+		</member>
+		<member name="max_spin_torque" type="float" setter="set_max_spin_torque" getter="get_max_spin_torque" default="0.0">
+			Torque budget for the spin motor, in newton-metres: engine power at the wheel, and the brake when [member spin_motor_speed] is 0. At 0 the wheel freewheels.
+		</member>
+		<member name="max_steering_torque" type="float" setter="set_max_steering_torque" getter="get_max_steering_torque" default="0.0">
+			Torque budget for the steering drive, in newton-metres. At 0 the wheel cannot be steered.
+		</member>
+		<member name="spin_motor_enabled" type="bool" setter="set_spin_motor_enabled" getter="get_spin_motor_enabled" default="false">
+			Drives the wheel about its axle -- this is the throttle.
+		</member>
+		<member name="spin_motor_speed" type="float" setter="set_spin_motor_speed" getter="get_spin_motor_speed" default="0.0">
+			Target wheel spin, in radians per second. Sign picks forward or reverse.
+		</member>
+		<member name="steering_damping" type="float" setter="set_steering_damping" getter="get_steering_damping" default="0.7">
+			Damping ratio for the steering spring, non-dimensional.
+		</member>
+		<member name="steering_enabled" type="bool" setter="set_steering_enabled" getter="get_steering_enabled" default="false">
+			Enables the steering drive about the suspension axis.
+		</member>
+		<member name="steering_hertz" type="float" setter="set_steering_hertz" getter="get_steering_hertz" default="1.0">
+			Stiffness with which the wheel is pulled to [member target_steering_angle], in cycles per second. Low values give slow, heavy steering.
+		</member>
+		<member name="steering_limit_enabled" type="bool" setter="set_steering_limit_enabled" getter="get_steering_limit_enabled" default="false">
+			Clamps the steering angle to [member lower_steering_limit] .. [member upper_steering_limit] -- the vehicle's lock.
+		</member>
+		<member name="suspension_damping" type="float" setter="set_suspension_damping" getter="get_suspension_damping" default="0.7">
+			Suspension damping ratio, non-dimensional. 1.0 is critical damping; below that the car bounces.
+		</member>
+		<member name="suspension_enabled" type="bool" setter="set_suspension_enabled" getter="get_suspension_enabled" default="true">
+			Whether the suspension spring is active. With it off the wheel is rigidly mounted.
+		</member>
+		<member name="suspension_hertz" type="float" setter="set_suspension_hertz" getter="get_suspension_hertz" default="1.0">
+			Suspension stiffness in cycles per second. Low is soft and floaty, high is stiff and skittish.
+		</member>
+		<member name="suspension_limit_enabled" type="bool" setter="set_suspension_limit_enabled" getter="get_suspension_limit_enabled" default="false">
+			Clamps suspension travel to [member lower_suspension_limit] .. [member upper_suspension_limit], which stops the wheel sinking into the body on a hard landing.
+		</member>
+		<member name="target_steering_angle" type="float" setter="set_target_steering_angle" getter="get_target_steering_angle" default="0.0">
+			Steering angle the wheel is driven toward, in radians.
+		</member>
+		<member name="upper_steering_limit" type="float" setter="set_upper_steering_limit" getter="get_upper_steering_limit" default="0.0">
+			Full lock in the other direction, in radians.
+		</member>
+		<member name="upper_suspension_limit" type="float" setter="set_upper_suspension_limit" getter="get_upper_suspension_limit" default="0.0">
+			Highest allowed suspension extension, in metres.
+		</member>
+	</members>
+</class>

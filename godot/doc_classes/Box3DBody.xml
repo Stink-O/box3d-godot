@@ -1,0 +1,685 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DBody" inherits="Node3D" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A rigid body simulated by its [Box3DWorld] ancestor.
+	</brief_description>
+	<description>
+		A rigid body simulated by the nearest [Box3DWorld] ancestor. The simulation drives the node's transform for [constant DYNAMIC] bodies, and the node's transform drives the simulation for [constant KINEMATIC] ones.
+		Give it a shape with [member shape_type] and the matching size property, or add [Box3DCollisionShape] children for a compound body (child shapes replace the body's own [member shape_type] entirely). Add a [MeshInstance3D] child for visuals, or turn on [member auto_visual] to have one generated from the collider.
+		Mass is derived from [member density] and the shape volume; a body with no shape has no mass.
+		Only bodies under a [Box3DWorld] are simulated.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="apply_angular_impulse">
+			<return type="void" />
+			<param index="0" name="impulse" type="Vector3" />
+			<description>
+				Applies an instant change of angular momentum, in newton-metre-seconds.
+			</description>
+		</method>
+		<method name="apply_central_force">
+			<return type="void" />
+			<param index="0" name="force" type="Vector3" />
+			<description>
+				Applies a force through the centre of mass, in newtons. A force accumulates over the step, so it must be applied every physics frame to have a sustained effect -- use an impulse for a one-off kick.
+			</description>
+		</method>
+		<method name="apply_central_impulse">
+			<return type="void" />
+			<param index="0" name="impulse" type="Vector3" />
+			<description>
+				Applies an instant change of momentum through the centre of mass, in newton-seconds. One call is one kick.
+			</description>
+		</method>
+		<method name="apply_force_at_point">
+			<return type="void" />
+			<param index="0" name="force" type="Vector3" />
+			<param index="1" name="point" type="Vector3" />
+			<description>
+				Applies [param force] at [param point], which produces torque as well as linear acceleration.
+				[b][param point] is a world-space position[/b], as upstream Box3D takes it -- unlike [RigidBody3D], whose equivalent argument is an offset from the body origin.
+			</description>
+		</method>
+		<method name="apply_impulse_at_point">
+			<return type="void" />
+			<param index="0" name="impulse" type="Vector3" />
+			<param index="1" name="point" type="Vector3" />
+			<description>
+				Applies [param impulse] at the world-space position [param point], spinning the body as well as moving it. Same world-space convention as [method apply_force_at_point].
+			</description>
+		</method>
+		<method name="apply_mass_from_shapes">
+			<return type="void" />
+			<description>
+				Recomputes mass, centre of mass and inertia from the shapes and their densities, discarding any [method set_mass_data] override.
+			</description>
+		</method>
+		<method name="apply_torque">
+			<return type="void" />
+			<param index="0" name="torque" type="Vector3" />
+			<description>
+				Applies a torque about the centre of mass, in newton-metres. Like [method apply_central_force], it must be repeated each frame to sustain.
+			</description>
+		</method>
+		<method name="apply_wind">
+			<return type="void" />
+			<param index="0" name="wind" type="Vector3" />
+			<param index="1" name="drag" type="float" />
+			<param index="2" name="lift" type="float" />
+			<param index="3" name="max_speed" type="float" />
+			<description>
+				Applies projected-area drag and lift against the body's own velocity: [param wind] is the air velocity in metres per second, [param drag] and [param lift] are coefficients, and [param max_speed] caps the relative speed the force is computed from.
+				[b][param max_speed] is a stability requirement, not a nicety[/b] -- upstream suggests 10 m/s or less, because the force grows with the square of the speed. Only sphere, capsule and hull shapes respond.
+			</description>
+		</method>
+		<method name="cast_box" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="from" type="Vector3" />
+			<param index="1" name="to" type="Vector3" />
+			<param index="2" name="size" type="Vector3" />
+			<param index="3" name="body_transform" type="Transform3D" default="Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)" />
+			<param index="4" name="collision_mask" type="int" default="-1" />
+			<param index="5" name="collision_layer" type="int" default="-1" />
+			<description>
+				Sweeps an axis-aligned box of [param size] from [param from] to [param to] against [b]this body alone[/b] and returns the first hit, in the same [Dictionary] form as [method cast_ray].
+				[param size] is the [b]full[/b] size of the box, following Godot convention. The box does not rotate along the sweep.
+				A sweep that starts already overlapping this body reports [code]fraction[/code] 0 rather than sweeping out of the overlap, which is the answer a "can I move there" test wants.
+				[param body_transform] poses the body for the query as in [method cast_ray].
+				[param collision_mask] is which layers the query sees and [param collision_layer] is which layers the query itself is on, the same two-way rule [method Box3DWorld.raycast] follows: a shape of this body answers only when both halves pass. Both default to every layer, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="cast_ray" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="from" type="Vector3" />
+			<param index="1" name="to" type="Vector3" />
+			<param index="2" name="body_transform" type="Transform3D" default="Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)" />
+			<param index="3" name="collision_mask" type="int" default="-1" />
+			<param index="4" name="collision_layer" type="int" default="-1" />
+			<description>
+				Casts a ray from [param from] to [param to] against [b]this body alone[/b], skipping the world's broad phase entirely. Use it when you already know what you want to test -- the thing under the cursor, the platform you are standing on -- instead of filtering a [method Box3DWorld.raycast] result down to one body.
+				The returned [Dictionary] always has [code]hit[/code] (a [bool]); check that, not the dictionary's size. When it is [code]true[/code] it also carries [code]position[/code] and [code]normal[/code] ([Vector3]), [code]fraction[/code] ([float], 0..1 along the ray), [code]shape[/code] (the [Box3DCollisionShape] hit, or [code]null[/code] for the body's own [member shape_type] shape), [code]triangle_index[/code] ([int], -1 where it does not apply), [code]user_material[/code] ([int]) and [code]iterations[/code] ([int], solver diagnostics). There is no [code]collider[/code] key: the collider is this body.
+				[param body_transform] is where to pose the body for the query. Leave it at the identity to use the body's current transform; supply one to ask where a ray would hit if the body were somewhere else, which is how a move is validated before it is made.
+				[param collision_mask] is which layers the query sees and [param collision_layer] is which layers the query itself is on, the same two-way rule [method Box3DWorld.raycast] follows: a shape of this body answers only when both halves pass. Both default to every layer, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="get_aabb" qualifiers="const">
+			<return type="AABB" />
+			<description>
+				World-space axis-aligned box containing every shape on the body. It does not necessarily contain the body origin, and is empty and centred on the origin when the body has no shapes.
+			</description>
+		</method>
+		<method name="get_angular_velocity" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				The body's angular velocity in radians per second.
+			</description>
+		</method>
+		<method name="get_body_name" qualifiers="const">
+			<return type="String" />
+			<description>
+				The debug name set by [method set_body_name].
+			</description>
+		</method>
+		<method name="get_center_of_mass" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				The body's centre of mass in world space. It is derived from the shapes, so a compound body's centre is rarely at its origin.
+			</description>
+		</method>
+		<method name="get_closest_distance" qualifiers="const">
+			<return type="float" />
+			<param index="0" name="target" type="Vector3" />
+			<description>
+				Distance from [param target] to this body's surface, in metres. 0 when the point is inside.
+			</description>
+		</method>
+		<method name="get_closest_point" qualifiers="const">
+			<return type="Vector3" />
+			<param index="0" name="target" type="Vector3" />
+			<description>
+				The point on this body's surface closest to [param target], in world space. Useful for aiming a grab, a weld or a rope at a body rather than at its origin.
+			</description>
+		</method>
+		<method name="get_compound_info" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				What [member baked_compound] actually built, as a [Dictionary]: [code]sphere_count[/code], [code]capsule_count[/code], [code]hull_count[/code] and [code]mesh_count[/code] (the children by kind), [code]shared_hull_count[/code] and [code]shared_mesh_count[/code] (how many of those were deduplicated onto shared geometry), [code]material_count[/code], and [code]byte_count[/code] for the whole baked block.
+				Empty on any body that is not currently a baked compound, which includes one whose [member baked_compound] was refused for being dynamic or a sensor -- so it doubles as the check that baking took.
+				Diagnostics: the dedup counts are the reason to bake in the first place, and a scene of identical crates that reports [code]shared_hull_count[/code] 0 is a scene whose crates are not actually identical (a non-uniformly scaled body is baked through exact per-body hull maths and cannot be shared).
+			</description>
+		</method>
+		<method name="get_contacts" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Every contact this body is currently touching, as an [Array] of [Dictionary]:
+				- [code]collider[/code] ([Box3DBody]) -- the other body.
+				- [code]shape[/code] ([Box3DCollisionShape]) -- this body's shape node, or [code]null[/code] when the contact is on the body's own [member shape_type] shape.
+				- [code]collider_shape[/code] ([Box3DCollisionShape]) -- the other body's shape node, same convention.
+				- [code]normal[/code] ([Vector3]) -- unit normal pointing [b]from this body towards the collider[/b]. It is flipped for you where Box3D's own A/B ordering runs the other way, so it always means the same thing here.
+				- [code]impulse[/code] ([float]) -- total normal impulse over every point of the contact, in newton-seconds. This is the number that says how hard the contact is being pressed.
+				- [code]points[/code] ([Array] of [Dictionary]) -- one entry per manifold point, each with [code]position[/code] ([Vector3], world space), [code]separation[/code] ([float], metres, negative when overlapping), [code]impulse[/code] ([float]) and [code]velocity[/code] ([float], the closing speed along the normal).
+				This is a [b]poll[/b], read fresh from the solver each call, unlike the [signal body_entered] / [signal body_exited] signals which need [member contact_monitor] and only report the edges. Box3D is speculative, so a listed point can be slightly separated and carrying no impulse yet; [code]impulse[/code] is what distinguishes a real press from a point the solver is merely watching.
+			</description>
+		</method>
+		<method name="get_height_field_extent" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				The ground footprint of a [constant HEIGHT_FIELD] collider, in metres: [code]height_field_scale.x * (height_field_size.x - 1)[/code] on X, 0 on Y, and [code]height_field_scale.z * (height_field_size.y - 1)[/code] on Z. It is [code](size - 1)[/code] because [member height_field_size] counts grid [i]lines[/i] and the field spans the cells between them.
+				A height field grows from the body's origin towards [b]+X and +Z[/b] rather than being centred on it, so centre one under a scene by offsetting the body by half of this:
+				[codeblock]
+				body.position -= body.get_height_field_extent() * 0.5
+				[/codeblock]
+				Returns [constant Vector3.ZERO] when [member height_field_size] is too small to build a field. The Y component is always 0: vertical extent depends on the heights, not on the grid.
+			</description>
+		</method>
+		<method name="get_inertia_tensor" qualifiers="const">
+			<return type="Basis" />
+			<description>
+				Rotational inertia about the centre of mass, as a [Basis] whose columns are the tensor's X, Y and Z axes.
+			</description>
+		</method>
+		<method name="get_inverse_inertia_tensor" qualifiers="const">
+			<return type="Basis" />
+			<description>
+				The inverse rotational inertia in world space -- the form the solver uses when turning an impulse into a spin.
+			</description>
+		</method>
+		<method name="get_inverse_mass" qualifiers="const">
+			<return type="float" />
+			<description>
+				1 / mass, which is what the solver actually stores. Static bodies report 0, and so does anything the solver treats as immovable -- a cheaper infinite-mass test than comparing [method get_mass].
+			</description>
+		</method>
+		<method name="get_joint_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many joints are attached to this body.
+			</description>
+		</method>
+		<method name="get_joints" qualifiers="const">
+			<return type="Array" />
+			<description>
+				The [Box3DJoint] nodes attached to this body, as an [Array]. Empty when the body has no joints, and when it has no live body in the solver.
+				Read from Box3D rather than from the scene tree, so it lists the joints that are really constraining this body, whatever their nodes' parentage. [method get_joint_count] is the cheap form when only the number matters.
+			</description>
+		</method>
+		<method name="get_linear_velocity" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				The body's linear velocity in metres per second.
+			</description>
+		</method>
+		<method name="get_local_center_of_mass" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				The body's centre of mass in its own local space.
+			</description>
+		</method>
+		<method name="get_local_point" qualifiers="const">
+			<return type="Vector3" />
+			<param index="0" name="world_point" type="Vector3" />
+			<description>
+				Converts a world-space position into the body's local space. The inverse of [method get_world_point].
+				Use it to record where on a body something happened -- a hit, a grab, a decal -- so the spot travels with the body afterwards. Positions are affected by the body's rotation [b]and[/b] its position; for a direction use [method get_local_vector] instead.
+				Reads the body's simulated transform, which is the one to use while [member sync_node_transform] is off and the node transform is stale. Returns [constant Vector3.ZERO] before the body exists.
+			</description>
+		</method>
+		<method name="get_local_point_velocity" qualifiers="const">
+			<return type="Vector3" />
+			<param index="0" name="local_point" type="Vector3" />
+			<description>
+				Same as [method get_point_velocity] for a point given in the body's local space.
+			</description>
+		</method>
+		<method name="get_local_vector" qualifiers="const">
+			<return type="Vector3" />
+			<param index="0" name="world_vector" type="Vector3" />
+			<description>
+				Rotates a world-space direction into the body's local space. The inverse of [method get_world_vector].
+				A [i]vector[/i] conversion applies the body's rotation only, not its position, which is what you want for velocities, normals, forces and axes. Converting one of those with [method get_local_point] adds the body's position to it and gives nonsense.
+			</description>
+		</method>
+		<method name="get_mass" qualifiers="const">
+			<return type="float" />
+			<description>
+				Mass in kilograms, derived from [member density] and the shape volume. Static bodies report 0.
+			</description>
+		</method>
+		<method name="get_mass_data" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				The current mass properties as a [Dictionary] with [code]mass[/code] ([float]), [code]center[/code] ([Vector3], local space) and [code]inertia[/code] ([Basis]).
+			</description>
+		</method>
+		<method name="get_mesh_material" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="index" type="int" />
+			<description>
+				Reads back surface material [param index] of this body's mesh or height field collider, live from the simulation. See [member surface_materials] for the keys.
+				Returns an empty [Dictionary] when the body has no shape yet or [param index] is out of range -- do not pass an index past [method get_mesh_material_count], which upstream treats as a programming error.
+			</description>
+		</method>
+		<method name="get_mesh_material_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many surface materials this body's mesh or height field collider actually holds, as built. 0 for any other shape type, and 0 before the body has entered the tree.
+				This is the live count, so it is the safe bound for [method get_mesh_material] and [method set_mesh_material] -- [member surface_materials] is what you authored, this is what Box3D kept.
+			</description>
+		</method>
+		<method name="get_overlapping_bodies" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Every [Box3DBody] currently inside this sensor, as an [Array]. Each body appears once. Requires [member is_sensor]; a normal body always returns an empty array.
+				This is the polling counterpart to the [signal area_entered] / [signal area_exited] signals: it answers "who is in here right now" without your having to track the edges yourself. Bodies whose shapes were destroyed since the last step are skipped.
+			</description>
+		</method>
+		<method name="get_point_velocity" qualifiers="const">
+			<return type="Vector3" />
+			<param index="0" name="world_point" type="Vector3" />
+			<description>
+				Velocity of the world-space point [param world_point] as carried by this body -- the body's linear velocity plus the contribution of its spin. Use it to sample the surface speed of a rotating platform.
+			</description>
+		</method>
+		<method name="get_shape_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many shapes the body has -- 1 for a simple body, one per [Box3DCollisionShape] child for a compound.
+			</description>
+		</method>
+		<method name="get_shape_names" qualifiers="const">
+			<return type="PackedStringArray" />
+			<description>
+				The name Box3D holds for each of this body's shapes, in the solver's own order.
+				This is the only way to observe the name of a body's [b]own[/b] [member shape_type] shape, which has no [Box3DCollisionShape] node to ask; it is seeded from the body node's name, so upstream's shape names and its solver logs read the same for a plain body as for a compound.
+			</description>
+		</method>
+		<method name="get_shape_nodes" qualifiers="const">
+			<return type="Array" />
+			<description>
+				The [Box3DCollisionShape] nodes behind this body's shapes, as an [Array].
+				[b]Shorter than [method get_shape_count] whenever a shape has no node[/b], and empty on a plain body: a body's own [member shape_type] shape was authored by the body itself, and a baked compound is a single shape with many authors. Use [method get_shape_names] to see those.
+			</description>
+		</method>
+		<method name="get_touching_bodies" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Every [Box3DBody] this one is currently touching, as an [Array] with no duplicates. The convenience form of [method get_contacts] for when you only need to know [i]who[/i], not where or how hard.
+				Contact, not overlap: for the bodies inside a sensor use [method get_overlapping_bodies].
+			</description>
+		</method>
+		<method name="get_world" qualifiers="const">
+			<return type="Box3DWorld" />
+			<description>
+				The [Box3DWorld] simulating this body, or [code]null[/code] when the body does not exist in one.
+				Confirmed through Box3D rather than by walking up the scene tree, so it answers "which world really has me" for a body reached from a query result or an event payload.
+			</description>
+		</method>
+		<method name="get_world_point" qualifiers="const">
+			<return type="Vector3" />
+			<param index="0" name="local_point" type="Vector3" />
+			<description>
+				Converts a position in the body's local space into world space. The inverse of [method get_local_point].
+				This is the one to feed [method apply_force_at_point] and [method apply_impulse_at_point], which both take world positions: [code]body.apply_impulse_at_point(kick, body.get_world_point(Vector3(0, 1, 0)))[/code] pushes a metre above the body's origin wherever it has rolled to.
+			</description>
+		</method>
+		<method name="get_world_vector" qualifiers="const">
+			<return type="Vector3" />
+			<param index="0" name="local_vector" type="Vector3" />
+			<description>
+				Rotates a direction from the body's local space into world space. The inverse of [method get_local_vector].
+				The usual use is aiming something along a body's own axis regardless of how it has turned -- thrust down its local -Z, a hover ray along its local -Y. Rotation only: it never adds the body's position.
+			</description>
+		</method>
+		<method name="is_awake" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Whether the body is currently simulated. A sleeping body costs nothing until something touches it or [method set_awake] wakes it.
+			</description>
+		</method>
+		<method name="overlaps_box" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="size" type="Vector3" />
+			<param index="2" name="body_transform" type="Transform3D" default="Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)" />
+			<param index="3" name="collision_mask" type="int" default="-1" />
+			<param index="4" name="collision_layer" type="int" default="-1" />
+			<description>
+				Whether any of [b]this body's[/b] shapes overlaps the axis-aligned box of [param size] centred on [param center]. [param size] is the [b]full[/b] size, following Godot convention.
+				Exact, not broad phase: unlike [method Box3DWorld.overlap_aabb] this tests the shapes themselves, so it is the cheap way to ask "is that specific body in this volume" without a world query and without over-reporting.
+				[param body_transform] poses the body for the test as in [method cast_ray] -- leave it at the identity for where the body is now.
+				[param collision_mask] is which layers the query sees and [param collision_layer] is which layers the query itself is on, the same two-way rule [method Box3DWorld.raycast] follows: a shape of this body answers only when both halves pass. Both default to every layer, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="set_angular_velocity">
+			<return type="void" />
+			<param index="0" name="velocity" type="Vector3" />
+			<description>
+				Sets the body's angular velocity directly, in radians per second about each world axis.
+			</description>
+		</method>
+		<method name="set_awake">
+			<return type="void" />
+			<param index="0" name="awake" type="bool" />
+			<description>
+				Wakes or sleeps the body. Setting a velocity or applying an impulse already wakes it; this is for waking a body whose surroundings changed.
+			</description>
+		</method>
+		<method name="set_body_name">
+			<return type="void" />
+			<param index="0" name="name" type="String" />
+			<description>
+				Sets a debug name for the body, which Box3D reports back in its own diagnostics. Purely for identification.
+			</description>
+		</method>
+		<method name="set_linear_velocity">
+			<return type="void" />
+			<param index="0" name="velocity" type="Vector3" />
+			<description>
+				Sets the body's linear velocity directly, in metres per second. This overrides the solver rather than negotiating with it, so prefer impulses for anything that should respect contacts.
+			</description>
+		</method>
+		<method name="set_mass_data">
+			<return type="void" />
+			<param index="0" name="mass" type="float" />
+			<param index="1" name="local_center" type="Vector3" />
+			<param index="2" name="inertia" type="Basis" />
+			<description>
+				Overrides the mass properties that would otherwise be derived from [member density] and the shapes.
+				Box3D drops the override whenever a shape is added or removed or [member body_type] changes, so re-apply it after any of those.
+			</description>
+		</method>
+		<method name="set_mesh_material">
+			<return type="void" />
+			<param index="0" name="index" type="int" />
+			<param index="1" name="material" type="Dictionary" />
+			<description>
+				Replaces surface material [param index] of this body's mesh or height field collider in place, without rebuilding the shape. See [member surface_materials] for the keys; absent keys fall back to Box3D's defaults rather than to the material's current value.
+				Use this to change one material of a terrain at runtime (ice on a patch of ground, mud that thickens); assigning [member surface_materials] rebuilds the whole collider instead. Does nothing when the body has no shape yet or [param index] is past [method get_mesh_material_count].
+			</description>
+		</method>
+		<method name="teleport">
+			<return type="void" />
+			<param index="0" name="transform" type="Transform3D" />
+			<description>
+				Moves the body to [param xform] without sweeping through the space between, and clears the motion that would have been implied. Use this rather than assigning the node transform, which a dynamic body's next sync would overwrite.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="allow_fast_rotation" type="bool" setter="set_allow_fast_rotation" getter="get_allow_fast_rotation" default="false">
+			Lets the body spin fast enough to tunnel rotationally, which Box3D otherwise limits. Useful for wheels and propellers.
+		</member>
+		<member name="angular_damping" type="float" setter="set_angular_damping" getter="get_angular_damping" default="0.05">
+			Angular equivalent of [member linear_damping]. The small default keeps spinning bodies from looking perpetual.
+		</member>
+		<member name="auto_visual" type="bool" setter="set_auto_visual" getter="get_auto_visual" default="false">
+			Generates a [MeshInstance3D] child at runtime whose mesh mirrors the collider, so the shape properties drive both the physics and the visual. Skipped when the body already has a [MeshInstance3D] child. Off by default.
+		</member>
+		<member name="baked_compound" type="bool" setter="set_baked_compound" getter="get_baked_compound" default="false">
+			Assembles the [Box3DCollisionShape] children into [b]one[/b] baked Box3D compound shape instead of one solver shape per child. A baked compound is built once, stores its children contiguously and deduplicates identical hulls and meshes by content, which is what makes large static set dressing cheap; [method get_compound_info] reports what the build produced.
+			[b]Static bodies only, and never a sensor[/b] -- Box3D asserts on both. Either one falls back to the ordinary runtime compound with a warning, so a body that is later made dynamic keeps working.
+			Because the result is a single shape it carries a single filter and a single set of event enables, the body's own. Per-shape overrides on the children ([member Box3DCollisionShape.filter_override], the event modes) cannot survive baking and the build warns once if it finds any. The children also keep no shape id, so their live mutators (the [code]set_sphere[/code] family, the per-shape material setters) do nothing on a baked body -- change the properties and let the body rebuild.
+			Changing this rebuilds the body's shapes. The body itself survives, keeping its velocity, its pose, its name and its joints -- but a body that was resting is [b]woken[/b] (destroying a touching shape wakes both bodies), and the mass is recomputed from the new shapes, which discards any [method set_mass_data] override.
+		</member>
+		<member name="body_type" type="int" setter="set_body_type" getter="get_body_type" default="2">
+			Whether the body is moved by the solver ([constant DYNAMIC]), moved by you ([constant KINEMATIC]), or never moves ([constant STATIC]). Can be changed at runtime.
+		</member>
+		<member name="box_size" type="Vector3" setter="set_box_size" getter="get_box_size" default="Vector3(1, 1, 1)">
+			Full extents of the [constant BOX] collider, in metres (not half-extents).
+		</member>
+		<member name="can_sleep" type="bool" setter="set_can_sleep" getter="get_can_sleep" default="true">
+			Whether this body may go to sleep once it settles. Turning it off keeps the body (and everything it touches) awake and costing time, so reserve it for bodies a script keeps poking.
+		</member>
+		<member name="capsule_height" type="float" setter="set_capsule_height" getter="get_capsule_height" default="2.0">
+			Total height of the [constant CAPSULE], [constant CYLINDER] and [constant CONE] colliders, in metres. For a capsule this includes both end caps, so it can never be less than [code]2 * capsule_radius[/code].
+		</member>
+		<member name="capsule_radius" type="float" setter="set_capsule_radius" getter="get_capsule_radius" default="0.5">
+			Radius of the [constant CAPSULE], [constant CYLINDER] and [constant CONE] colliders, in metres.
+		</member>
+		<member name="collision_group" type="int" setter="set_collision_group" getter="get_collision_group" default="0">
+			Box3D's group index, which overrides the layer and mask bits entirely when it is not 0: two bodies in the same [b]positive[/b] group always collide, and two in the same [b]negative[/b] group never do. The usual use is keeping the parts of one ragdoll or vehicle from colliding with each other without spending a layer on it.
+		</member>
+		<member name="collision_layer" type="int" setter="set_collision_layer" getter="get_collision_layer" default="1">
+			Which layers this body is [b]on[/b] -- what other bodies' masks are tested against.
+		</member>
+		<member name="collision_layer_high" type="int" setter="set_collision_layer_high" getter="get_collision_layer_high" default="0">
+			Collision layers 33 to 64. Box3D's filter is 64 bits wide while Godot's layer inspector is 32, so the upper half lives here. Leave it alone unless you have run out of layers.
+		</member>
+		<member name="collision_mask" type="int" setter="set_collision_mask" getter="get_collision_mask" default="-1">
+			Which layers this body [b]scans[/b]. Two bodies collide when each one's mask includes a layer the other is on.
+		</member>
+		<member name="collision_mask_high" type="int" setter="set_collision_mask_high" getter="get_collision_mask_high" default="-1">
+			The scan half of [member collision_layer_high]: which of layers 33 to 64 this body collides with.
+		</member>
+		<member name="collision_mesh" type="Mesh" setter="set_collision_mesh" getter="get_collision_mesh">
+			Source mesh for the [constant HULL], [constant MESH] and [constant FIT_MESH] colliders. When left empty the first child [MeshInstance3D]'s mesh is used instead.
+			A non-empty [member mesh_vertices] overrides this for [constant MESH].
+		</member>
+		<member name="contact_monitor" type="bool" setter="set_contact_monitor" getter="get_contact_monitor" default="false">
+			Turn on to receive the [signal body_entered] and [signal body_exited] signals. Contact events are not free, so this is off by default.
+		</member>
+		<member name="contact_recycling" type="bool" setter="set_contact_recycling" getter="get_contact_recycling" default="true">
+			Reuses matching contacts between steps while a pair of bodies barely moves, which keeps warm-start impulses intact and settles large stacks faster. Leave it on unless you are debugging contact behaviour.
+		</member>
+		<member name="continuous" type="bool" setter="set_continuous" getter="get_continuous" default="false">
+			Enables continuous collision for this body, so it cannot tunnel through thin geometry at speed. Costs extra per step, so use it on bullets and vehicles rather than on everything. Requires [member Box3DWorld.continuous_collision].
+		</member>
+		<member name="cylinder_sides" type="int" setter="set_cylinder_sides" getter="get_cylinder_sides" default="16">
+			How many sides the [constant CYLINDER] and [constant CONE] colliders are tessellated into. They are built as convex hulls, so this is a real accuracy/cost trade-off, not just a visual one.
+		</member>
+		<member name="debug_visualize" type="bool" setter="set_debug_visualize" getter="get_debug_visualize" default="true">
+			Whether [member Box3DWorld.debug_draw] draws a shell for this body.
+		</member>
+		<member name="density" type="float" setter="set_density" getter="get_density" default="1.0">
+			Mass per unit volume, in kg/m3. Mass and inertia are derived from this and the shape, so scaling a shape changes its mass. Ignored on static bodies.
+		</member>
+		<member name="enabled" type="bool" setter="set_enabled" getter="get_enabled" default="true">
+			When off the body is removed from the simulation entirely: no collisions, no queries, no cost. Its transform is preserved, so re-enabling puts it back where it was.
+		</member>
+		<member name="explosion_scale" type="float" setter="set_explosion_scale" getter="get_explosion_scale" default="1.0">
+			Multiplies the impulse [method Box3DWorld.explode] applies to this body. Non-dimensional; 1 is Box3D's default.
+			Per-body blast sensitivity: raise it for debris that should fly, drop it to 0 for scenery that a nearby explosion must not disturb without having to exclude it by collision mask.
+		</member>
+		<member name="friction" type="float" setter="set_friction" getter="get_friction" default="0.6">
+			Coulomb friction coefficient. 0 is frictionless ice. Two touching shapes mix theirs as [code]sqrt(a * b)[/code].
+		</member>
+		<member name="gravity_scale" type="float" setter="set_gravity_scale" getter="get_gravity_scale" default="1.0">
+			Multiplies the world's gravity for this body only. 0 makes it float, negative makes it fall up.
+		</member>
+		<member name="height_field_clockwise" type="bool" setter="set_height_field_clockwise" getter="get_height_field_clockwise" default="false">
+			Flips the triangle winding of a [constant HEIGHT_FIELD] collider, which flips which side of the terrain is solid. Turn it on if bodies fall through the terrain from above and are stopped from below. [constant HEIGHT_FIELD] only.
+		</member>
+		<member name="height_field_height_range" type="Vector2" setter="set_height_field_height_range" getter="get_height_field_height_range" default="Vector2(0, 0)">
+			The [code](minimum, maximum)[/code] height range a [constant HEIGHT_FIELD] quantizes its heights into, in metres before [member height_field_scale] is applied. When [code]x &gt;= y[/code] (as in the default) the range is derived from the height data instead.
+			[b]Two height fields that must line up seamlessly need the same explicit range[/b], or their quantization steps differ and their shared edge does not meet. Setting it also keeps a field's precision stable while its heights change at runtime. Applies to the explicit-[member height_field_heights] path only; the generated grid and wave fields set their own.
+		</member>
+		<member name="height_field_heights" type="PackedFloat32Array" setter="set_height_field_heights" getter="get_height_field_heights" default="PackedFloat32Array()">
+			The heights of a [constant HEIGHT_FIELD] at every grid point, row-major, in metres before [member height_field_scale] is applied. It must hold exactly [code]height_field_size.x * height_field_size.y[/code] entries; the height at grid point [code](x, z)[/code] is at index [code]z * height_field_size.x + x[/code].
+			Leave it empty to have the field generated instead -- a flat grid, or the wave described by [member height_field_wave].
+		</member>
+		<member name="height_field_holes" type="bool" setter="set_height_field_holes" getter="get_height_field_holes" default="false">
+			Punches holes in a [b]generated[/b] [constant HEIGHT_FIELD] (the flat grid or the [member height_field_wave] one), matching what upstream's own terrain samples do. Bodies fall straight through a hole cell.
+			This has no effect once [member height_field_heights] is set: an explicitly authored field marks its holes per cell through [member height_field_materials] and [constant HEIGHT_FIELD_HOLE].
+		</member>
+		<member name="height_field_materials" type="PackedByteArray" setter="set_height_field_materials" getter="get_height_field_materials" default="PackedByteArray()">
+			One material index per [constant HEIGHT_FIELD] [i]cell[/i], each selecting an entry of [member surface_materials]. It must hold exactly [code](height_field_size.x - 1) * (height_field_size.y - 1)[/code] entries -- cells, not grid points -- or it is ignored with a warning.
+			The value [constant HEIGHT_FIELD_HOLE] is not a material: it marks that cell as a hole, and bodies fall through it. Applies to the explicit-[member height_field_heights] path only.
+		</member>
+		<member name="height_field_scale" type="Vector3" setter="set_height_field_scale" getter="get_height_field_scale" default="Vector3(1, 1, 1)">
+			Metres per grid step on X and Z, and the multiplier applied to every height on Y, for a [constant HEIGHT_FIELD]. [b]Every component must be positive[/b]; a zero or negative one refuses to build the field.
+			This is the [b]only[/b] way to size a height field: [constant HEIGHT_FIELD] is the one shape that ignores the node's [Node3D] scale, because Box3D builds it from its own scale with no transform of its own. [method get_height_field_extent] turns this into the field's total footprint.
+		</member>
+		<member name="height_field_size" type="Vector2i" setter="set_height_field_size" getter="get_height_field_size" default="Vector2i(16, 16)">
+			Grid [b]line[/b] counts of a [constant HEIGHT_FIELD] along X and Z, not cell counts: a [code]Vector2i(16, 16)[/code] field is 15 by 15 cells. Minimum 2 on each axis, below which no field is built.
+			This is what sizes [member height_field_heights] ([code]x * y[/code] entries) and [member height_field_materials] ([code](x - 1) * (y - 1)[/code] entries).
+		</member>
+		<member name="height_field_wave" type="Vector2" setter="set_height_field_wave" getter="get_height_field_wave" default="Vector2(0, 0)">
+			Frequencies of the sine terrain generated when [member height_field_heights] is empty: [code]x[/code] is the frequency along the X axis and [code]y[/code] along the Z axis. [code]Vector2()[/code] (the default) generates a flat grid instead.
+			A quick way to get a rolling test terrain with no data to author. Ignored once [member height_field_heights] is set.
+		</member>
+		<member name="hit_events" type="bool" setter="set_hit_events" getter="get_hit_events" default="true">
+			Whether this body reports fast impacts through [signal Box3DWorld.contact_hit] (and the impact flash in the world's debug draw). On by default.
+			Turning it off is how a body that is constantly slamming into things -- a jackhammer, a conveyor's load -- stops flooding the hit stream, without touching the world's [member Box3DWorld.hit_event_threshold] that every other body shares.
+			Applies live, and a [Box3DCollisionShape] child whose own [member Box3DCollisionShape.hit_events] is not [constant Box3DCollisionShape.EVENT_INHERIT] keeps its own answer.
+		</member>
+		<member name="invoke_contact_creation" type="bool" setter="set_invoke_contact_creation" getter="get_invoke_contact_creation" default="true">
+			Whether this body's shapes scan their surroundings for contacts on the step after they are created. On by default, and the right answer for almost everything.
+			Turning it off is upstream's documented fix for one specific problem: spawning many static shapes into a level that already has many static shapes, where that scan is what makes loading slow. The bodies still collide with anything that later moves into them; they simply do not go looking on creation. [b]Ignored for dynamic and kinematic bodies[/b], which always scan.
+		</member>
+		<member name="is_sensor" type="bool" setter="set_is_sensor" getter="get_is_sensor" default="false">
+			Makes the body a trigger volume: it detects overlaps and reports them through [signal area_entered] and [signal area_exited], but nothing collides with it.
+			Box3D decides whether a shape is a sensor when the shape is created and has no live setter for it, so flipping this at runtime rebuilds the body's shapes. The contacts and warm-start impulses on them are lost and a resting body is woken; the body itself, its velocity, its pose and its joints survive, but its mass is recomputed from the shapes, so re-apply any [method set_mass_data] override afterwards.
+		</member>
+		<member name="linear_damping" type="float" setter="set_linear_damping" getter="get_linear_damping" default="0.0">
+			Velocity is scaled down by this much each second, independent of any contact. Use it for drag, not for stopping bodies -- prefer [member friction] for that.
+		</member>
+		<member name="lock_angular_x" type="bool" setter="set_lock_angular_x" getter="get_lock_angular_x" default="false">
+			Prevents the solver from rotating the body about the world X axis.
+		</member>
+		<member name="lock_angular_y" type="bool" setter="set_lock_angular_y" getter="get_lock_angular_y" default="false">
+			Prevents the solver from rotating the body about the world Y axis.
+		</member>
+		<member name="lock_angular_z" type="bool" setter="set_lock_angular_z" getter="get_lock_angular_z" default="false">
+			Prevents the solver from rotating the body about the world Z axis.
+		</member>
+		<member name="lock_linear_x" type="bool" setter="set_lock_linear_x" getter="get_lock_linear_x" default="false">
+			Prevents the solver from moving the body along the world X axis.
+		</member>
+		<member name="lock_linear_y" type="bool" setter="set_lock_linear_y" getter="get_lock_linear_y" default="false">
+			Prevents the solver from moving the body along the world Y axis.
+		</member>
+		<member name="lock_linear_z" type="bool" setter="set_lock_linear_z" getter="get_lock_linear_z" default="false">
+			Prevents the solver from moving the body along the world Z axis.
+		</member>
+		<member name="mesh_indices" type="PackedInt32Array" setter="set_mesh_indices" getter="get_mesh_indices" default="PackedInt32Array()">
+			Triangle indices into [member mesh_vertices], three per triangle, for a [constant MESH] collider built from raw data.
+			[b]Winding matters and is not the same as Godot's.[/b] These indices go to Box3D exactly as given, in its counter-clockwise convention, so a triangle list lifted straight out of a Godot [Mesh] is inside out and the collider is solid from the wrong side. (The [member collision_mesh] path flips winding for you; this one deliberately does not, so that data authored for Box3D round-trips.)
+		</member>
+		<member name="mesh_materials" type="PackedByteArray" setter="set_mesh_materials" getter="get_mesh_materials" default="PackedByteArray()">
+			One material index per triangle of a [constant MESH] collider, each selecting an entry of [member surface_materials]. Leave it empty for a mesh with a single material.
+			This is how one collider carries ice, mud and gravel at once: give [member surface_materials] the friction and restitution of each, then name one per triangle here.
+		</member>
+		<member name="mesh_median_split" type="bool" setter="set_mesh_median_split" getter="get_mesh_median_split" default="false">
+			Builds a [constant MESH] collider's acceleration tree by median split, which is faster to build and suits grid-like or evenly spread geometry. The default builds a better-quality tree, which queries faster. A build-time versus query-time trade, worth flipping only for large procedurally regenerated meshes.
+		</member>
+		<member name="mesh_vertices" type="PackedVector3Array" setter="set_mesh_vertices" getter="get_mesh_vertices" default="PackedVector3Array()">
+			Vertex positions of a [constant MESH] collider built from raw data instead of a resource, in the body's local space.
+			When this is non-empty it [b]wins[/b] over [member collision_mesh] and over any child [MeshInstance3D]. Pair it with [member mesh_indices]. This is the path for a collider generated at runtime, or for one that must carry per-triangle materials.
+		</member>
+		<member name="mesh_weld_tolerance" type="float" setter="set_mesh_weld_tolerance" getter="get_mesh_weld_tolerance" default="0.001">
+			Distance in metres within which two vertices of a [constant MESH] collider are merged into one at build time. [code]0[/code] disables welding entirely.
+			Welding is what makes a mesh watertight: unmerged duplicate vertices leave cracks along shared edges that fast bodies catch on or slip through. Raise it for coarse or badly exported geometry, and lower it if welding is collapsing detail you need.
+		</member>
+		<member name="restitution" type="float" setter="set_restitution" getter="get_restitution" default="0.0">
+			Bounciness. 0 does not bounce, 1 bounces back at the impact speed. Two touching shapes mix theirs as [code]max(a, b)[/code]. Only impacts above the world's restitution threshold bounce, so slow contacts settle instead of buzzing.
+		</member>
+		<member name="rolling_resistance" type="float" setter="set_rolling_resistance" getter="get_rolling_resistance" default="0.0">
+			Resistance to rolling, which is what stops a ball rolling forever on a flat floor. Only spheres and capsules respond to it.
+		</member>
+		<member name="sensor_events" type="bool" setter="set_sensor_events" getter="get_sensor_events" default="true">
+			Whether this body is visible to other bodies' sensors. On by default.
+			Turn it off and the body passes through every trigger volume unnoticed -- a projectile that should not set off a checkpoint, a debris body that should not count as a player.
+			[b]On a sensor, this switches the sensor off.[/b] A sensor whose own shapes do not have sensor events enabled drops every overlap it has, so [member is_sensor] with this turned off is a dead trigger that reports nothing rather than a trigger that cannot be detected. (Box3D's own header says the flag is ignored for sensors; its sensor code says otherwise, and the code is what runs.)
+			Applies live, and a [Box3DCollisionShape] child whose own [member Box3DCollisionShape.sensor_events] is not [constant Box3DCollisionShape.EVENT_INHERIT] keeps its own answer.
+		</member>
+		<member name="shape_type" type="int" setter="set_shape_type" getter="get_shape_type" default="0">
+			The collider this body uses, and therefore which size property below applies. Ignored entirely when the body has [Box3DCollisionShape] children.
+		</member>
+		<member name="sleep_threshold" type="float" setter="set_sleep_threshold" getter="get_sleep_threshold" default="0.05">
+			Speed below which the body is a candidate for sleeping, in metres per second. Matches Box3D's default of 0.05.
+		</member>
+		<member name="speculative_contact" type="bool" setter="set_speculative_contact" getter="get_speculative_contact" default="true">
+			Whether the solver may create contacts slightly [i]before[/i] shapes actually touch, so a fast approach is caught in the step it happens rather than after it has already overlapped.
+			[b]Leave this on[/b] unless ghost collisions matter to you more than continuous collision under rotation does. Turning it off is the cure for a body that snags on nothing at the seams of a triangle mesh, at the price of a fast-spinning body being able to clip through. It is marked experimental upstream and only affects contacts between hulls and triangles (meshes and height fields); nothing else changes.
+		</member>
+		<member name="sphere_radius" type="float" setter="set_sphere_radius" getter="get_sphere_radius" default="0.5">
+			Radius of the [constant SPHERE] collider, in metres.
+		</member>
+		<member name="surface_materials" type="Array" setter="set_surface_materials" getter="get_surface_materials" default="[]">
+			The material palette a [constant MESH] or [constant HEIGHT_FIELD] collider indexes per triangle or per cell, as an [Array] of [Dictionary]. [member mesh_materials] and [member height_field_materials] pick from it by position. Leave it empty and the whole collider uses the body's own [member friction], [member restitution] and so on.
+			Each [Dictionary] may carry [code]friction[/code] ([float]), [code]restitution[/code] ([float]), [code]rolling_resistance[/code] ([float]), [code]tangent_velocity[/code] ([Vector3], the conveyor-belt drive), [code]user_material_id[/code] ([int], your own tag, reported back by [method Box3DWorld.raycast] and [signal Box3DWorld.contact_hit]) and [code]custom_color[/code] ([int], for debug draw). Any key you omit keeps Box3D's default rather than the body's value, so spell out the ones that matter. Negative friction, restitution and rolling resistance are clamped to 0.
+			Assigning this rebuilds the collider. To change one material on a live body use [method set_mesh_material] instead.
+		</member>
+		<member name="sync_node_transform" type="bool" setter="set_sync_node_transform" getter="get_sync_node_transform" default="true">
+			When off, the solver still simulates the body but the Godot node's transform is left at its spawn pose. This is what [Box3DMultiMeshRenderer] uses: at tens of thousands of bodies, writing every node transform costs more than the physics. Scripts reading such a body's node position see the spawn pose, not the live one.
+		</member>
+		<member name="tangent_velocity" type="Vector3" setter="set_tangent_velocity" getter="get_tangent_velocity" default="Vector3(0, 0, 0)">
+			Drives the contact surface like a conveyor belt, in metres per second, expressed in the shape's local space and projected onto the contact plane. The body itself does not move; whatever rests on it does.
+		</member>
+		<member name="user_material_id" type="int" setter="set_user_material_id" getter="get_user_material_id" default="0">
+			A free 64-bit id tagging the surface of the body's [b]own[/b] shape ([member shape_type]). The solver never reads it, but it rides along on query and hit-event results and it is the key a [Box3DContactRules] table looks its rules up by -- so a plain body needs one as much as a [Box3DCollisionShape] child does.
+			Child shapes carry their own ([member Box3DCollisionShape.user_material_id]); this one covers only the body's own collider. A non-empty [member surface_materials] replaces the base material wholesale and carries its own ids.
+		</member>
+	</members>
+	<signals>
+		<signal name="area_entered">
+			<param index="0" name="visitor" type="Box3DBody" />
+			<description>
+				Emitted when a body enters this sensor. Requires [member is_sensor].
+			</description>
+		</signal>
+		<signal name="area_exited">
+			<param index="0" name="visitor" type="Box3DBody" />
+			<description>
+				Emitted when a body leaves this sensor. Requires [member is_sensor].
+			</description>
+		</signal>
+		<signal name="body_entered">
+			<param index="0" name="body" type="Box3DBody" />
+			<description>
+				Emitted when another [Box3DBody] starts touching this one. Requires [member contact_monitor], which is off by default.
+			</description>
+		</signal>
+		<signal name="body_exited">
+			<param index="0" name="body" type="Box3DBody" />
+			<description>
+				Emitted when another [Box3DBody] stops touching this one. Requires [member contact_monitor].
+			</description>
+		</signal>
+	</signals>
+	<constants>
+		<constant name="STATIC" value="0" enum="BodyType">
+			Never moves and has no mass. The cheapest body type -- use it for level geometry.
+		</constant>
+		<constant name="KINEMATIC" value="1" enum="BodyType">
+			Moved by you, not by the solver: it pushes dynamic bodies aside and is not pushed back. Drive it by animating the node's transform.
+		</constant>
+		<constant name="DYNAMIC" value="2" enum="BodyType">
+			Fully simulated: gravity, contacts and joints all move it.
+		</constant>
+		<constant name="BOX" value="0" enum="ShapeType">
+			A box collider sized by [member box_size].
+		</constant>
+		<constant name="SPHERE" value="1" enum="ShapeType">
+			A sphere collider sized by [member sphere_radius].
+		</constant>
+		<constant name="CAPSULE" value="2" enum="ShapeType">
+			A capsule collider sized by [member capsule_radius] and [member capsule_height].
+		</constant>
+		<constant name="CYLINDER" value="3" enum="ShapeType">
+			A cylinder, built as a convex hull with [member cylinder_sides] sides, sized by [member capsule_radius] and [member capsule_height].
+		</constant>
+		<constant name="CONE" value="4" enum="ShapeType">
+			A cone with its apex up, built as a convex hull with [member cylinder_sides] sides, sized by [member capsule_radius] and [member capsule_height].
+		</constant>
+		<constant name="HULL" value="5" enum="ShapeType">
+			The convex hull of [member collision_mesh] (or of the first child [MeshInstance3D]'s mesh). Convex, so it can be dynamic.
+		</constant>
+		<constant name="MESH" value="6" enum="ShapeType">
+			The triangles of [member collision_mesh] used directly. Concave and therefore static-only in practice -- the classic use is level geometry.
+			It can also be built from raw data instead of a resource: set [member mesh_vertices] and [member mesh_indices], which override [member collision_mesh], and which are what per-triangle [member surface_materials] need.
+		</constant>
+		<constant name="FIT_MESH" value="7" enum="ShapeType">
+			A box collider auto-sized to the bounds of the child [MeshInstance3D]. The fastest way to give an imported prop a sensible collider.
+		</constant>
+		<constant name="HEIGHT_FIELD" value="8" enum="ShapeType">
+			A terrain grid in the XZ plane, built from the [code]height_field_*[/code] properties. Far cheaper than a triangle mesh of the same ground, and the right shape for any large heightmap terrain.
+			[b]Static bodies only[/b] -- Box3D refuses it on a dynamic or kinematic body. It is also the one shape type that ignores the node's [Node3D] scale: size it with [member height_field_scale]. It grows from the body's origin towards +X and +Z, so see [method get_height_field_extent] for centring it.
+		</constant>
+		<constant name="HEIGHT_FIELD_HOLE" value="255">
+			The [member height_field_materials] entry that marks a cell as a hole rather than selecting a material: nothing collides with that cell and bodies fall straight through it. Use it to cut a cave mouth or a pit into a [constant HEIGHT_FIELD].
+		</constant>
+	</constants>
+</class>

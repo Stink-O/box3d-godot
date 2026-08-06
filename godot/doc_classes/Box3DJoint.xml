@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DJoint" inherits="Node3D" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Base class for Box3D joints. Connects two [Box3DBody] nodes, or one body to the world.
+	</brief_description>
+	<description>
+		Base class for the Box3D joints. A joint constrains [member body_a] to [member body_b]; leaving [member body_b] empty anchors the joint to the world at this node's position.
+		[b]The node's own transform is the joint frame.[/b] Its origin is the anchor point and its basis gives the axes the concrete joint type uses (each subclass documents which axis it drives), so you position and rotate the joint node itself rather than filling in offset properties. The frames are captured in each body's local space when the joint is created.
+		The joint must be a descendant of the same [Box3DWorld] as the bodies it connects.
+		[b]Which way is positive.[/b] Box3D measures a joint's translation and angle as body B relative to body A, and this node hands [member body_a] to Box3D as body A. When [member body_b] is empty the world anchor becomes body B, so the body you are driving is the one Box3D calls A, and a [i]positive[/i] target moves it the [i]other[/i] way along the axis: a slider with [code]target_translation = 1[/code] and no [member body_b] puts the body at x = -1. Flip the sign, or rotate the joint node by 180 degrees about another axis, if that reads backwards in your scene.
+		If a joint silently does nothing, check the scene dock: unresolvable body paths, a body jointed to itself, inverted limits and motors with a zero force or torque budget all report a configuration warning there.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_angular_separation" qualifiers="const">
+			<return type="float" />
+			<description>
+				Angular drift between the two joint frames, in radians.
+			</description>
+		</method>
+		<method name="get_constraint_force" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				The force the joint is applying to hold itself together this step, in newtons, in world space. Compare its length against a breaking strength to build a breakable joint.
+			</description>
+		</method>
+		<method name="get_constraint_torque" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				The torque the joint is applying this step, in newton-metres, in world space.
+			</description>
+		</method>
+		<method name="get_joint_type" qualifiers="const">
+			<return type="int" enum="Box3DJoint.JointType" />
+			<description>
+				Which [enum JointType] this joint is. Answered by Box3D itself once the joint exists in the solver, and by the node's own class before that.
+			</description>
+		</method>
+		<method name="get_linear_separation" qualifiers="const">
+			<return type="float" />
+			<description>
+				How far the two joint frames have drifted apart, in metres. A healthy joint stays near 0; a large value means the solver is losing the constraint.
+			</description>
+		</method>
+		<method name="get_local_frame_a" qualifiers="const">
+			<return type="Transform3D" />
+			<description>
+				The joint frame in [member body_a]'s local space.
+			</description>
+		</method>
+		<method name="get_local_frame_b" qualifiers="const">
+			<return type="Transform3D" />
+			<description>
+				The joint frame in [member body_b]'s local space.
+			</description>
+		</method>
+		<method name="is_joint_valid" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Whether the joint currently exists in the solver. It is created when the node enters the tree with both bodies resolvable.
+			</description>
+		</method>
+		<method name="set_local_frame_a">
+			<return type="void" />
+			<param index="0" name="frame" type="Transform3D" />
+			<description>
+				Overrides the joint frame in [member body_a]'s local space. Frames are authored from this node's transform when the joint is created; this is for runtime adjustment.
+			</description>
+		</method>
+		<method name="set_local_frame_b">
+			<return type="void" />
+			<param index="0" name="frame" type="Transform3D" />
+			<description>
+				Overrides the joint frame in [member body_b]'s local space.
+			</description>
+		</method>
+		<method name="wake_bodies">
+			<return type="void" />
+			<description>
+				Wakes both connected bodies. Motor and target setters only store their value, so a sleeping body would ignore a new drive command until something woke it -- the setters call this for you, and scripts driving a joint by other means may need it.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="body_a" type="NodePath" setter="set_body_a" getter="get_body_a" default="NodePath(&quot;&quot;)">
+			Path to the first [Box3DBody]. Required.
+		</member>
+		<member name="body_b" type="NodePath" setter="set_body_b" getter="get_body_b" default="NodePath(&quot;&quot;)">
+			Path to the second [Box3DBody]. Leave it empty to anchor [member body_a] to the world at this node's position -- that is how you make a pendulum pivot or a fixed hinge. Note that the anchor then takes the place of body B, which flips the sign of the joint's targets and readouts; see the class description. ([Box3DFilterJoint] is the exception: it needs a real second body.)
+		</member>
+		<member name="collide_connected" type="bool" setter="set_collide_connected" getter="get_collide_connected" default="false">
+			Whether the two connected bodies still collide with each other. Off by default, because jointed parts usually overlap by design.
+		</member>
+		<member name="constraint_damping" type="float" setter="set_constraint_damping" getter="get_constraint_damping" default="2.0">
+			Damping ratio for [member constraint_hertz], non-dimensional. Matches Box3D's joint default of 2.
+		</member>
+		<member name="constraint_hertz" type="float" setter="set_constraint_hertz" getter="get_constraint_hertz" default="60.0">
+			Stiffness with which the solver holds the joint together, in cycles per second. This is the joint's own rigidity, separate from any spring a subclass adds. Matches Box3D's joint default of 60.
+		</member>
+		<member name="draw_scale" type="float" setter="set_draw_scale" getter="get_draw_scale" default="1.0">
+			This joint's own size in the [member Box3DWorld.debug_draw_joints] overlay, multiplied by the world's [member Box3DWorld.debug_joint_scale]. It is what lets a car's wheel joints and a ragdoll's shoulder draw at usable sizes under one world setting.
+			[b]Read at creation time only.[/b] Box3D copies it into the joint when the joint is made and offers no setter, so assign it [b]before[/b] the node enters the tree; assigning it later stores the value for the next time the joint is created or rebuilt and leaves the live joint drawing at its old size. Resizing a debug gizmo is not worth dropping a loaded constraint's warm-start impulse, which is what rebuilding to apply it would cost.
+			Purely visual: nothing in the simulation reads it.
+		</member>
+		<member name="force_threshold" type="float" setter="set_force_threshold" getter="get_force_threshold" default="0.0">
+			Constraint force above which Box3D reports a joint event, in newtons -- the hook for breakable joints. [code]0[/code] means never report, which is Box3D's default.
+		</member>
+		<member name="torque_threshold" type="float" setter="set_torque_threshold" getter="get_torque_threshold" default="0.0">
+			Constraint torque above which Box3D reports a joint event, in newton-metres. [code]0[/code] means never report.
+		</member>
+	</members>
+	<constants>
+		<constant name="JOINT_PARALLEL" value="0" enum="JointType">
+			See [Box3DParallelJoint].
+		</constant>
+		<constant name="JOINT_DISTANCE" value="1" enum="JointType">
+			See [Box3DDistanceJoint].
+		</constant>
+		<constant name="JOINT_FILTER" value="2" enum="JointType">
+			See [Box3DFilterJoint]: it connects nothing mechanically and only suppresses collision between two bodies.
+		</constant>
+		<constant name="JOINT_MOTOR" value="3" enum="JointType">
+			See [Box3DMotorJoint].
+		</constant>
+		<constant name="JOINT_PRISMATIC" value="4" enum="JointType">
+			See [Box3DSliderJoint].
+		</constant>
+		<constant name="JOINT_REVOLUTE" value="5" enum="JointType">
+			See [Box3DHingeJoint].
+		</constant>
+		<constant name="JOINT_SPHERICAL" value="6" enum="JointType">
+			See [Box3DBallJoint].
+		</constant>
+		<constant name="JOINT_WELD" value="7" enum="JointType">
+			See [Box3DFixedJoint].
+		</constant>
+		<constant name="JOINT_WHEEL" value="8" enum="JointType">
+			See [Box3DWheelJoint].
+		</constant>
+	</constants>
+</class>

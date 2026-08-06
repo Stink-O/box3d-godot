@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DHingeJoint" inherits="Box3DJoint" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A revolute joint: the bodies rotate about this node's local Z axis.
+	</brief_description>
+	<description>
+		A hinge. [member body_b] rotates relative to [member body_a] about [b]this node's local Z axis[/b] (the blue arrow of the move gizmo), around this node's origin -- so aim the joint by rotating the joint node.
+		Doors, levers, wheels on a fixed axle, and ragdoll elbows and knees once [member limit_enabled] is on.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_angle" qualifiers="const">
+			<return type="float" />
+			<description>
+				The hinge's current angle in radians, body B relative to body A.
+			</description>
+		</method>
+		<method name="get_motor_torque" qualifiers="const">
+			<return type="float" />
+			<description>
+				Torque the motor applied on the last step, in newton-metres. Compare it against [member max_motor_torque] to tell a motor that is working from one that is saturated.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="limit_enabled" type="bool" setter="set_limit_enabled" getter="get_limit_enabled" default="false">
+			Restricts the hinge angle to [member lower_limit] .. [member upper_limit].
+		</member>
+		<member name="lower_limit" type="float" setter="set_lower_limit" getter="get_lower_limit" default="0.0">
+			Lowest allowed hinge angle, in radians, relative to the frame the joint was created in.
+		</member>
+		<member name="max_motor_torque" type="float" setter="set_max_motor_torque" getter="get_max_motor_torque" default="0.0">
+			Torque budget the motor may spend to reach [member motor_speed], in newton-metres. At 0 the motor is on but powerless -- this is the usual reason a motor 'does nothing'.
+		</member>
+		<member name="motor_enabled" type="bool" setter="set_motor_enabled" getter="get_motor_enabled" default="false">
+			Drives the hinge toward [member motor_speed], within [member max_motor_torque].
+		</member>
+		<member name="motor_speed" type="float" setter="set_motor_speed" getter="get_motor_speed" default="0.0">
+			Target angular speed of the motor, in radians per second. Sign picks the direction, reversed when [member body_b] is empty in the same way as [member target_angle].
+		</member>
+		<member name="spring_damping" type="float" setter="set_spring_damping" getter="get_spring_damping" default="0.7">
+			Damping ratio of the spring, non-dimensional. 1.0 is critical damping (no overshoot); below 1 the joint oscillates. Only used while [member spring_enabled] is on.
+		</member>
+		<member name="spring_enabled" type="bool" setter="set_spring_enabled" getter="get_spring_enabled" default="false">
+			Adds a spring pulling the hinge back toward its rest angle.
+		</member>
+		<member name="spring_hertz" type="float" setter="set_spring_hertz" getter="get_spring_hertz" default="1.0">
+			Stiffness of the spring, in cycles per second. Higher is stiffer. Only used while [member spring_enabled] is on.
+		</member>
+		<member name="target_angle" type="float" setter="set_target_angle" getter="get_target_angle" default="0.0">
+			Angle the spring drives toward, in radians, measured as body B relative to body A about the hinge axis -- the same convention as [method get_angle]. Only used while [member spring_enabled] is on.
+			[b]With [member body_b] empty the sign is reversed[/b]: the world anchor takes the place of body B, so a positive target turns the body the other way. See [Box3DJoint]'s description.
+		</member>
+		<member name="upper_limit" type="float" setter="set_upper_limit" getter="get_upper_limit" default="0.0">
+			Highest allowed hinge angle, in radians.
+		</member>
+	</members>
+</class>

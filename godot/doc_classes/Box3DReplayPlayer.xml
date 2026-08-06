@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DReplayPlayer" inherits="RefCounted" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		The read side: replays a [Box3DRecording]'s bytes in a private world and reports whether the simulation reproduced.
+	</brief_description>
+	<description>
+		Open recorded bytes, step through them, and ask [method has_diverged] whether every embedded state hash reproduced. That is the determinism check: open the same recording at a [i]different[/i] worker count than it was made at and a clean replay proves the solver is bit-identical across thread counts.
+		[codeblock]
+		var player := Box3DReplayPlayer.new()
+		player.open(rec.get_data(), 8)   # recorded at 1 worker, replayed at 8
+		var ok := player.replay_all()
+		print(ok, " ", player.get_diverge_frame())
+		[/codeblock]
+		[b]The player never touches your world.[/b] It stands up a world of its own and retargets every recorded id onto it, so replaying cannot mutate a [Box3DWorld], a [Box3DBody] or a [Box3DJoint] that a scene owns, however many joint writes the stream contains. Box3D's raw replay world id is deliberately not exposed, because handing script that id would be the one way to break the guarantee.
+		[b]One process-wide side effect, so budget for it.[/b] A recording carries the length scale it was made at, and opening one installs that scale globally, restoring the previous value when the player is closed. While a player is open, every other Box3D world in the process runs under the recording's scale. Keep players short-lived, and do not open one from a scene that has authored a non-default [code]physics/box3d/length_units_per_meter[/code] unless the recording was made at the same scale.
+		[b]Threading.[/b] Nothing in Box3D's player is documented thread-safe and every call mutates replay state, so drive a player from the main thread only. It is unrelated to [member Box3DWorld.async_step]: the replay world is a different world and is never stepped by the binding's step thread.
+		The debug-viewer surface (Box3D's replay draw callbacks and recorded-query inspection) is not bound; [method get_body_count] and [method get_body_transform] are, which is enough to draw a replay from script with no extra plumbing.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="close">
+			<return type="void" />
+			<description>
+				Closes the open recording and restores the process-wide length scale that [method open] installed. Called for you when the player is freed.
+			</description>
+		</method>
+		<method name="get_body_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Bodies in creation order, [b]including holes[/b] where a recorded body was destroyed. This is not the live body count, and an index can legitimately resolve to nothing -- [method is_body_valid] is how you tell.
+			</description>
+		</method>
+		<method name="get_body_transform" qualifiers="const">
+			<return type="Transform3D" />
+			<param index="0" name="index" type="int" />
+			<description>
+				The replayed body's transform at the current frame. Enough to render a replay from script. Returns an identity transform for an index that is out of range or no longer valid ([method is_body_valid]).
+			</description>
+		</method>
+		<method name="get_diverge_frame" qualifiers="const">
+			<return type="int" />
+			<description>
+				The first frame at which an embedded state hash failed to reproduce, or [code]-1[/code] if none has. Divergence is not fatal -- the player keeps going, which is what makes the frame number useful.
+			</description>
+		</method>
+		<method name="get_frame" qualifiers="const">
+			<return type="int" />
+			<description>
+				The frame the player is currently at.
+			</description>
+		</method>
+		<method name="get_frame_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many steps the recording holds.
+			</description>
+		</method>
+		<method name="get_info" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				The recording's header, keys spelled as Box3D's own fields: [code]frameCount[/code], [code]workerCount[/code], [code]timeStep[/code], [code]subStepCount[/code], [code]lengthScale[/code] and [code]bounds[/code].
+				Note that [code]workerCount[/code] is the count [i]requested for the replay[/i], not one read from the file: the header has no worker-count field, so a recording does not remember how many workers made it.
+			</description>
+		</method>
+		<method name="get_keyframe_budget" qualifiers="const">
+			<return type="int" />
+			<description>
+				The keyframe ring's byte budget. See [method set_keyframe_policy].
+			</description>
+		</method>
+		<method name="get_keyframe_bytes" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many bytes the keyframe ring is currently holding.
+			</description>
+		</method>
+		<method name="get_keyframe_interval" qualifiers="const">
+			<return type="int" />
+			<description>
+				The keyframe spacing in force now. It starts at the minimum interval and doubles as the ring evicts to stay under budget, so a long recording ends up with sparser keyframes and slower backward seeks.
+			</description>
+		</method>
+		<method name="get_keyframe_min_interval" qualifiers="const">
+			<return type="int" />
+			<description>
+				The floor on keyframe spacing. See [method set_keyframe_policy].
+			</description>
+		</method>
+		<method name="get_worker_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				The worker count the replay world is running at. Read [method open] before assuming this is the number of threads actually executing.
+			</description>
+		</method>
+		<method name="has_diverged" qualifiers="const">
+			<return type="bool" />
+			<description>
+				[code]true[/code] once any embedded state hash failed to reproduce. This is the determinism verdict; [method get_diverge_frame] says where it first went wrong.
+				Remember what the hash covers: body transforms and velocities only. See [Box3DRecording].
+			</description>
+		</method>
+		<method name="is_at_end" qualifiers="const">
+			<return type="bool" />
+			<description>
+				[code]true[/code] once the last recorded frame has been replayed. [method step_frame] keeps returning [code]false[/code] from then on until a [method restart] or a [method seek_frame].
+			</description>
+		</method>
+		<method name="is_at_pre_step" qualifiers="const">
+			<return type="bool" />
+			<description>
+				[code]true[/code] when the player is parked between a frame's body creation and its step, which is where [method sub_step_frame] stops.
+			</description>
+		</method>
+		<method name="is_body_valid" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="index" type="int" />
+			<description>
+				Whether the body at this index exists at the current frame. Indices below [method get_body_count] can be holes left by destroyed bodies.
+			</description>
+		</method>
+		<method name="is_open" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Whether a recording is currently open.
+			</description>
+		</method>
+		<method name="open">
+			<return type="bool" />
+			<param index="0" name="data" type="PackedByteArray" />
+			<param index="1" name="worker_count" type="int" default="1" />
+			<description>
+				Opens a recording from bytes, closing any previously open one first. Returns [code]false[/code] on a bad header, a version or pointer-width mismatch, or a corrupt stream; Box3D prints the reason.
+				[b]The worker count is chosen here and essentially only here[/b], and this is the whole determinism handle. The replay world is created with [param worker_count], and Box3D only builds the internal scheduler -- the thing that actually spawns threads -- when the world is created asking for more than one worker. Raising the count afterwards with [method set_worker_count] rebuilds the worker contexts but never creates a scheduler, and the player never rebuilds its world on a [method restart] or a seek. So a player opened at 1 and raised to 8 re-partitions the constraint graph but [b]still executes serially[/b]: a weaker test than it looks. Open at the count you want to test.
+				Opening installs the recording's length scale process-wide until [method close]; see the class description.
+			</description>
+		</method>
+		<method name="open_file">
+			<return type="bool" />
+			<param index="0" name="path" type="String" />
+			<param index="1" name="worker_count" type="int" default="1" />
+			<description>
+				Reads the file through Godot's [FileAccess] and then [method open]s it, so [code]res://[/code] and [code]user://[/code] work in an exported game -- which Box3D's own loader cannot do, since it is plain [code]fopen[/code] on an OS path.
+				[param worker_count] carries the same warning as [method open].
+			</description>
+		</method>
+		<method name="replay_all">
+			<return type="bool" />
+			<description>
+				Steps to the end of the recording and returns whether every embedded hash matched -- the whole determinism check in one call.
+				Bound as a method rather than left to a GDScript loop because the loop would be per-frame and a heavy recording is thousands of frames.
+			</description>
+		</method>
+		<method name="restart">
+			<return type="void" />
+			<description>
+				Back to frame 0, in place. Clears the divergence flag, so a restart is a fresh verdict.
+				This does [b]not[/b] rebuild the replay world, which is why it cannot change how many threads the replay actually uses. See [method open].
+			</description>
+		</method>
+		<method name="seek_frame">
+			<return type="void" />
+			<param index="0" name="frame" type="int" />
+			<description>
+				Jumps to a frame. Backward seeks restore the nearest keyframe and re-step the gap, so their cost follows [method get_keyframe_interval].
+				Out of range is safe in both directions: negatives clamp to 0 and a target past the end stops at the end.
+			</description>
+		</method>
+		<method name="set_keyframe_policy">
+			<return type="void" />
+			<param index="0" name="budget_bytes" type="int" />
+			<param index="1" name="min_interval_frames" type="int" />
+			<description>
+				Sizes the keyframe ring that makes backward seeking cheap: [param budget_bytes] is how much memory the ring may hold, [param min_interval_frames] the closest two keyframes may be. A zero budget or a non-positive interval keeps the current value for that half.
+				Setting a policy clears the ring, which restarts the player.
+			</description>
+		</method>
+		<method name="set_worker_count">
+			<return type="void" />
+			<param index="0" name="count" type="int" />
+			<description>
+				Re-partitions the live replay world at once, clamped to Box3D's worker maximum.
+				[b]This cannot add threads to a player that was opened serially[/b] -- read [method open] first. Lowering the count, or re-partitioning a player opened at more than one worker, does work.
+			</description>
+		</method>
+		<method name="step_frame">
+			<return type="bool" />
+			<description>
+				Dispatches recorded operations until the next step completes. Returns [code]false[/code] at the end of the recording, and keeps returning [code]false[/code].
+			</description>
+		</method>
+		<method name="sub_step_frame">
+			<return type="void" />
+			<description>
+				Stops between a frame's body creation and its step, so a viewer can draw the creation pose ([method is_at_pre_step]). The next call runs the step.
+			</description>
+		</method>
+	</methods>
+</class>

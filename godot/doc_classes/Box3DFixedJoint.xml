@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DFixedJoint" inherits="Box3DJoint" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A weld joint: locks two bodies rigidly together, optionally with give.
+	</brief_description>
+	<description>
+		Welds the two bodies so they move as one. With both hertz values at 0 the weld is perfectly rigid; raising them turns it into a stiff spring, which is how you build something that flexes or that a breaking test can measure ([method Box3DJoint.get_constraint_force]).
+	</description>
+	<tutorials>
+	</tutorials>
+	<members>
+		<member name="angular_damping" type="float" setter="set_angular_damping" getter="get_angular_damping" default="0.0">
+			Damping ratio for [member angular_hertz], non-dimensional. Only meaningful when that is above 0: at 0 hertz the weld is rigid and Box3D never reads this.
+		</member>
+		<member name="angular_hertz" type="float" setter="set_angular_hertz" getter="get_angular_hertz" default="0.0">
+			Stiffness of the rotational weld, in cycles per second. 0 is perfectly rigid.
+		</member>
+		<member name="linear_damping" type="float" setter="set_linear_damping" getter="get_linear_damping" default="0.0">
+			Damping ratio for [member linear_hertz], non-dimensional. Only meaningful when that is above 0: at 0 hertz the weld is rigid and Box3D never reads this.
+		</member>
+		<member name="linear_hertz" type="float" setter="set_linear_hertz" getter="get_linear_hertz" default="0.0">
+			Stiffness of the positional weld, in cycles per second. 0 is perfectly rigid.
+		</member>
+	</members>
+</class>

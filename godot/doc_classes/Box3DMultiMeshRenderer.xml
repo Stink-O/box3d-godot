@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DMultiMeshRenderer" inherits="Node3D" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Draws every [Box3DBody] child as one [MultiMesh] -- one draw call for any number of bodies.
+	</brief_description>
+	<description>
+		Add [Box3DBody] children under this node and they are all drawn as instances of a single mesh, in one draw call, with their transforms taken straight from the solver's tick snapshots (interpolated to render time) and uploaded as one bulk buffer. Nothing per-body runs in script, which is what makes scenes of tens of thousands of bodies practical.
+		[b]All the bodies must share one shape and size[/b], because a [MultiMesh] draws one mesh: the mesh is built from the first child's [member Box3DBody.box_size]. Instances are tinted across a pastel hue range.
+		Bodies drawn this way have their [member Box3DBody.sync_node_transform] turned off, so their node transforms stay at the spawn pose -- read positions from the physics, not from the node.
+	</description>
+	<tutorials>
+	</tutorials>
+</class>

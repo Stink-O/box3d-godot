@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DCollisionShape" inherits="Node3D" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		One shape of a compound [Box3DBody]. Add as a child of the body.
+	</brief_description>
+	<description>
+		One shape of a compound [Box3DBody]. Add these as children of a body to give it several shapes at different local transforms -- a table top plus four legs, a barrel plus its lid.
+		As soon as a body has at least one Box3DCollisionShape child, the body's own [member Box3DBody.shape_type] is ignored and only the children are used. Each child carries its own [member density], [member friction] and [member restitution], so a compound can mix materials.
+		Most properties here apply to the live shape: the sizes resize it in place, and the surface material, filter and event properties are pushed straight to the solver. Only a [member shape_type] change, or a property changed before the body exists, rebuilds the parent body's shapes -- which matters because a rebuild drops the contacts and the warm-start impulses that were holding a stack together.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="are_contact_events_enabled" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Whether the solver is currently reporting contact events for this shape: [member contact_events] resolved against the parent body, after Box3D's own rules. [code]false[/code] when there is no live shape.
+				Read this rather than [member contact_events] when the question is "will I get an event", since [constant EVENT_INHERIT] does not say on its own.
+			</description>
+		</method>
+		<method name="are_hit_events_enabled" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Whether the solver is currently reporting hit events for this shape: [member hit_events] resolved against the parent body. [code]false[/code] when there is no live shape.
+			</description>
+		</method>
+		<method name="are_sensor_events_enabled" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Whether the solver is currently reporting sensor overlap events for this shape: [member sensor_events] resolved against the parent body, after Box3D's own rules (it ignores sensor events on shapes that are not sensors). [code]false[/code] when there is no live shape.
+			</description>
+		</method>
+		<method name="compute_mass_data" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				The mass this shape contributes, as a [Dictionary] with [code]mass[/code] ([float]), [code]center[/code] ([Vector3]) and [code]inertia[/code] ([Basis]) -- the per-shape breakdown behind a compound body's total.
+			</description>
+		</method>
+		<method name="get_aabb" qualifiers="const">
+			<return type="AABB" />
+			<description>
+				This shape's world-space bounding box, as the broad phase holds it.
+			</description>
+		</method>
+		<method name="get_body" qualifiers="const">
+			<return type="Box3DBody" />
+			<description>
+				The [Box3DBody] the solver holds this shape against, or [code]null[/code] when there is no live shape.
+				This is what Box3D knows, not this node's parent: it is the answer for a shape that arrived in a query result or a contact event, where the node's own parentage is not the question being asked.
+			</description>
+		</method>
+		<method name="get_capsule" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				The live capsule geometry as a [Dictionary] with [code]center1[/code] and [code]center2[/code] ([Vector3], the two end-cap centres in the parent body's local space) and [code]radius[/code] ([float], metres).
+				A capsule is defined by its two centres, not by a height and an axis, so its total length is [code]center1.distance_to(center2) + 2 * radius[/code]. Empty unless [method get_geometry_type] is [constant GEOMETRY_CAPSULE].
+			</description>
+		</method>
+		<method name="get_closest_point" qualifiers="const">
+			<return type="Vector3" />
+			<param index="0" name="target" type="Vector3" />
+			<description>
+				The point on this shape's surface closest to [param target], in world space.
+			</description>
+		</method>
+		<method name="get_filter" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				The filter the [b]solver[/b] holds for this shape, as a [Dictionary] with [code]layer[/code], [code]mask[/code], [code]layer_high[/code], [code]mask_high[/code] and [code]group[/code].
+				That is this node's own filter while [member filter_override] is on, and the parent body's filter otherwise -- which makes it the way to confirm that an override took. Empty when there is no live shape.
+			</description>
+		</method>
+		<method name="get_geometry_type" qualifiers="const">
+			<return type="int" />
+			<description>
+				What the solver actually holds for this shape, as a [enum GeometryType] value. This is [b]not[/b] [member shape_type]: [member shape_type] is what you authored, and Box3D has no box, cylinder or cone primitive, so all three come back as [constant GEOMETRY_HULL].
+				Check this before calling [method get_sphere], [method get_capsule], [method get_hull] or [method get_mesh], each of which returns an empty [Dictionary] for the wrong geometry. Returns [constant GEOMETRY_NONE] until the parent body has built its shapes in a running [Box3DWorld].
+			</description>
+		</method>
+		<method name="get_hull" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				The live convex hull as a [Dictionary]: [code]points[/code] ([PackedVector3Array], the hull vertices in the parent body's local space), [code]center[/code] ([Vector3]), [code]aabb[/code] ([AABB]), [code]volume[/code] ([float]), [code]surface_area[/code] ([float]), [code]inner_radius[/code] ([float], the largest sphere that fits inside), [code]vertex_count[/code] and [code]face_count[/code] ([int]).
+				This is the geometry Box3D actually built, [b]after[/b] hulling: the points are the hull's own vertices, not the ones handed in, and there are fewer of them than you supplied whenever some fell inside. Empty unless [method get_geometry_type] is [constant GEOMETRY_HULL], which covers box, cylinder and cone shapes as well as hulls.
+			</description>
+		</method>
+		<method name="get_mesh" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				The live triangle mesh as a [Dictionary] with [code]scale[/code] ([Vector3]), [code]vertex_count[/code], [code]triangle_count[/code] and [code]material_count[/code] ([int]).
+				Counts and scale only -- the geometry itself stays in Box3D. Empty unless [method get_geometry_type] is [constant GEOMETRY_MESH], which this node gets from [method set_mesh], or from a query or event payload naming a body's own mesh collider. The [member shape_type] property cannot author one.
+			</description>
+		</method>
+		<method name="get_shape_name" qualifiers="const">
+			<return type="String" />
+			<description>
+				The debug name set by [method set_shape_name].
+			</description>
+		</method>
+		<method name="get_sphere" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				The live sphere geometry as a [Dictionary] with [code]center[/code] ([Vector3], in the parent body's local space) and [code]radius[/code] ([float], metres).
+				Empty unless [method get_geometry_type] is [constant GEOMETRY_SPHERE]. This reads what the solver holds, which is what [method set_sphere] may have changed since the node's own properties were authored.
+			</description>
+		</method>
+		<method name="get_world" qualifiers="const">
+			<return type="Box3DWorld" />
+			<description>
+				The [Box3DWorld] simulating this shape, or [code]null[/code] when there is no live shape. Read from the solver, like [method get_body], rather than by walking up the scene tree.
+			</description>
+		</method>
+		<method name="is_sensor" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Whether this shape is a trigger volume rather than a solid one. Inherited from the parent body's [member Box3DBody.is_sensor].
+			</description>
+		</method>
+		<method name="is_shape_valid" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Whether the shape exists in the solver yet. It is created with the parent body, so this is [code]false[/code] until the body is in a running [Box3DWorld].
+			</description>
+		</method>
+		<method name="raycast" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="origin" type="Vector3" />
+			<param index="1" name="translation" type="Vector3" />
+			<description>
+				Casts a ray against [b]this shape alone[/b], ignoring the rest of the world, and returns the result as a [Dictionary].
+				[param origin] is a world-space position and [param translation] is the full ray vector from it (its length is the ray's length), not a target point -- unlike [method Box3DWorld.raycast], which takes a from and a to.
+				The result carries [code]hit[/code] ([bool]), [code]point[/code] ([Vector3]), [code]normal[/code] ([Vector3]), [code]fraction[/code] ([float], 0..1 along [param translation]), [code]triangle_index[/code], [code]child_index[/code], [code]material_index[/code] and [code]iterations[/code] ([int], how much work the solver did, a diagnostic). The geometry fields are only meaningful when [code]hit[/code] is [code]true[/code].
+				Use it when you already know which shape you care about -- verifying an aim point, re-testing a hit reported by an event -- since it skips the broad phase entirely.
+			</description>
+		</method>
+		<method name="set_capsule">
+			<return type="void" />
+			<param index="0" name="center1" type="Vector3" />
+			<param index="1" name="center2" type="Vector3" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="update_mass" type="bool" default="true" />
+			<description>
+				Replaces this shape's capsule geometry in the solver, without rebuilding the body. [param center1] and [param center2] are the end-cap centres in the parent body's local space, [param radius] is in metres; the capsule's axis is whatever line those two centres describe.
+				Same live-edit semantics as [method set_sphere]: the node's [member capsule_radius] and [member capsule_height] are untouched, and a body rebuild reverts to them. See [method set_sphere] for [param update_mass]. Does nothing unless [method get_geometry_type] is [constant GEOMETRY_CAPSULE].
+			</description>
+		</method>
+		<method name="set_hull">
+			<return type="void" />
+			<param index="0" name="points" type="PackedVector3Array" />
+			<param index="1" name="update_mass" type="bool" default="true" />
+			<description>
+				Rebuilds this shape's convex hull from [param points], given in the parent body's local space, without rebuilding the body.
+				[b]The points are hulled, not used verbatim[/b]: any that fall inside the hull are dropped, so [method get_hull] afterwards reports fewer vertices than you passed. At least 4 points are required (fewer enclose no volume) and at most 255 are kept. A degenerate set -- all collinear, all coplanar -- builds no hull and leaves the shape as it was, with a warning.
+				Same live-edit semantics as [method set_sphere]: node properties are untouched and a body rebuild reverts. See [method set_sphere] for [param update_mass]. Does nothing unless [method get_geometry_type] is [constant GEOMETRY_HULL].
+			</description>
+		</method>
+		<method name="set_mesh">
+			<return type="bool" />
+			<param index="0" name="vertices" type="PackedVector3Array" />
+			<param index="1" name="indices" type="PackedInt32Array" />
+			<param index="2" name="scale" type="Vector3" default="Vector3(1, 1, 1)" />
+			<param index="3" name="update_mass" type="bool" default="false" />
+			<description>
+				Retypes this shape into a triangle mesh built from [param vertices] and [param indices], at [param scale]. Returns [code]false[/code], having changed nothing, when the data does not describe a mesh: an index count that is not a multiple of three, an index outside [param vertices], or a scale that is zero or not finite.
+				[b]Winding is Box3D's, not Godot's[/b] (counter-clockwise by the right-hand rule) and passes through untouched, exactly as [member Box3DBody.mesh_indices] does. Mesh collision is one-sided, so indices lifted straight from a Godot [Mesh] give a collider that is not solid from the side you expect.
+				A triangle mesh only generates contacts on a static body or a sensor, so this warns on anything else. [param update_mass] defaults to [code]false[/code] here, unlike [method set_sphere] and its two siblings: a mesh has no volume, so recomputing the body's mass from a lone mesh shape would leave it with none. Pass [code]true[/code] only when the body has other shapes to weigh.
+				Same live-edit semantics as [method set_sphere] -- the node's authored properties are untouched and a rebuild of the body's shapes reverts to them. This node holds the mesh data for as long as the shape does, and frees it when the shape goes or another [method set_mesh] replaces it.
+			</description>
+		</method>
+		<method name="set_mesh_scale">
+			<return type="bool" />
+			<param index="0" name="scale" type="Vector3" />
+			<description>
+				Rescales the mesh this shape already holds, keeping its triangles. Returns [code]false[/code] when the shape is not a mesh, or when [param scale] is zero or not finite.
+				This is the only way to change a mesh collider's scale after it exists: node scale is baked into the geometry when the shape is built, and this scale is the one place Box3D lets it move afterwards.
+			</description>
+		</method>
+		<method name="set_shape_name">
+			<return type="void" />
+			<param index="0" name="name" type="String" />
+			<description>
+				Sets a debug name for this shape, reported back by Box3D's own diagnostics.
+			</description>
+		</method>
+		<method name="set_sphere">
+			<return type="void" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="update_mass" type="bool" default="true" />
+			<description>
+				Replaces this shape's sphere geometry in the solver, without rebuilding the body. [param center] is in the parent body's local space and [param radius] is in metres.
+				Live geometry editing, for a shape that grows, shrinks or shifts during play. It does [b]not[/b] write back to [member sphere_radius]: the node's properties still describe what was authored, and a body rebuild (a [member shape_type] change, a new child shape) discards this and returns to them.
+				[param update_mass] recomputes the parent body's mass, centre of mass and inertia from all its shapes afterwards. Leave it on unless you are changing several shapes at once, in which case pass [code]false[/code] for all but the last. Does nothing unless [method get_geometry_type] is [constant GEOMETRY_SPHERE].
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="box_size" type="Vector3" setter="set_box_size" getter="get_box_size" default="Vector3(1, 1, 1)">
+			Full extents of the [constant BOX] shape, in metres (not half-extents).
+		</member>
+		<member name="capsule_height" type="float" setter="set_capsule_height" getter="get_capsule_height" default="2.0">
+			Total height of the [constant CAPSULE], [constant CYLINDER] and [constant CONE] shapes, in metres, end caps included.
+		</member>
+		<member name="capsule_radius" type="float" setter="set_capsule_radius" getter="get_capsule_radius" default="0.5">
+			Radius of the [constant CAPSULE], [constant CYLINDER] and [constant CONE] shapes, in metres.
+		</member>
+		<member name="collision_group" type="int" setter="set_collision_group" getter="get_collision_group" default="0">
+			Box3D's group index for this shape, honoured only while [member filter_override] is on. When it is not 0 it overrides the layer and mask bits entirely: two shapes in the same [b]positive[/b] group always collide, two in the same [b]negative[/b] group never do.
+		</member>
+		<member name="collision_layer" type="int" setter="set_collision_layer" getter="get_collision_layer" default="1">
+			Which layers this shape is [b]on[/b], honoured only while [member filter_override] is on. Layers 1 to 32; see [member collision_layer_high] for the rest.
+		</member>
+		<member name="collision_layer_high" type="int" setter="set_collision_layer_high" getter="get_collision_layer_high" default="0">
+			Collision layers 33 to 64 for this shape, honoured only while [member filter_override] is on. Box3D's filter is 64 bits wide while Godot's layer inspector is 32, so the upper half lives here.
+		</member>
+		<member name="collision_mask" type="int" setter="set_collision_mask" getter="get_collision_mask" default="-1">
+			Which layers this shape [b]scans[/b], honoured only while [member filter_override] is on. Two shapes collide when each one's mask includes a layer the other is on.
+		</member>
+		<member name="collision_mask_high" type="int" setter="set_collision_mask_high" getter="get_collision_mask_high" default="-1">
+			The scan half of [member collision_layer_high]: which of layers 33 to 64 this shape collides with. Honoured only while [member filter_override] is on.
+		</member>
+		<member name="contact_events" type="int" setter="set_contact_events" getter="get_contact_events" default="0">
+			Whether this shape reports contact events, as an [enum EventMode] tri-state. [constant EVENT_INHERIT] (the default) follows the parent body's [member Box3DBody.contact_monitor]; [constant EVENT_ENABLED] and [constant EVENT_DISABLED] decide it for this shape alone.
+			That is how one child of a compound reports [signal Box3DBody.body_entered] without paying for events on the rest of it -- a trigger plate on a machine, say. [method are_contact_events_enabled] reads back what the solver actually holds.
+		</member>
+		<member name="custom_filtering" type="bool" setter="set_custom_filtering" getter="get_custom_filtering" default="false">
+			Lets a [Box3DContactRules] never-collide rule see this shape's pairs. Only [b]one[/b] shape of a pair has to turn it on, so tagging the handful of shapes a rule applies to is enough.
+			Off by default and [b]creation time[/b]: Box3D has no live setter for it, so changing it rebuilds the shape.
+			Note that this gates [b]sensor overlaps[/b] too -- Box3D consults the same filter callback there, so a never-collide rule also hides the pair from sensors.
+		</member>
+		<member name="density" type="float" setter="set_density" getter="get_density" default="1.0">
+			Mass per unit volume for this shape alone, in kg/m3. The parent body's mass is the sum over its shapes, so a compound can be deliberately bottom-heavy.
+		</member>
+		<member name="filter_invoke_contacts" type="bool" setter="set_filter_invoke_contacts" getter="get_filter_invoke_contacts" default="true">
+			Whether changing this shape's filter also recomputes contacts that already exist, rather than only affecting pairs that move afterwards. On by default, because a widened mask that does nothing until something moves is a bug that is very hard to see.
+			Upstream calls this almost as expensive as recreating the shape, so turn it off when a filter is changed every frame and a frame of latency is acceptable.
+		</member>
+		<member name="filter_override" type="bool" setter="set_filter_override" getter="get_filter_override" default="false">
+			Turn on to give this shape its own collision filter instead of inheriting the parent [Box3DBody]'s. Off by default: a child shape's default layer and mask would otherwise silently override the body's in every existing compound scene.
+			With it on, the six filter properties below describe this shape alone -- which is how one limb of a ragdoll or one panel of a vehicle can differ from the rest. [method get_filter] reports what the solver holds either way.
+		</member>
+		<member name="friction" type="float" setter="set_friction" getter="get_friction" default="0.6">
+			Coulomb friction coefficient for this shape alone.
+		</member>
+		<member name="hit_events" type="int" setter="set_hit_events" getter="get_hit_events" default="0">
+			Whether this shape reports hit events (the fast-impact reports behind [signal Box3DWorld.contact_hit]), as an [enum EventMode] tri-state. [constant EVENT_INHERIT] is the default and matches what the body gives its shapes, which is enabled. [method are_hit_events_enabled] reads back what the solver actually holds.
+		</member>
+		<member name="pre_solve_events" type="bool" setter="set_pre_solve_events" getter="get_pre_solve_events" default="false">
+			Lets a [Box3DContactRules] one-way rule see this shape's contacts. Only one shape of a pair has to turn it on. Live -- changing it does not rebuild the shape.
+			[b]Only turn this on for a world that has a [member Box3DWorld.contact_rules] table installed.[/b] Box3D's continuous-collision path calls the world's pre-solve callback without a null check, so the flag on a world with no callback registered is a crash during fast motion. Installing a rule table always registers the callback, rules or no rules, which is what makes the flag safe there.
+		</member>
+		<member name="restitution" type="float" setter="set_restitution" getter="get_restitution" default="0.0">
+			Bounciness of this shape alone. 0 does not bounce.
+		</member>
+		<member name="rolling_resistance" type="float" setter="set_rolling_resistance" getter="get_rolling_resistance" default="0.0">
+			Resistance to rolling for this shape alone. Only spheres and capsules respond to it.
+		</member>
+		<member name="sensor_events" type="int" setter="set_sensor_events" getter="get_sensor_events" default="0">
+			Whether this shape reports sensor overlap events, as an [enum EventMode] tri-state. [constant EVENT_INHERIT] is the default and matches what the body gives its shapes, which is enabled. [method are_sensor_events_enabled] reads back what the solver actually holds.
+			On a shape of a [b]sensor[/b] body this is what keeps the sensor working at all: Box3D drops every overlap of a sensor whose own shape has sensor events disabled, so [constant EVENT_DISABLED] there is a dead trigger, not a quiet one. On an ordinary body it governs being [i]detected[/i] by other sensors.
+		</member>
+		<member name="shape_type" type="int" setter="set_shape_type" getter="get_shape_type" default="0">
+			Which collider this child contributes, and therefore which size property below applies.
+		</member>
+		<member name="sides" type="int" setter="set_sides" getter="get_sides" default="16">
+			Tessellation of the [constant CYLINDER] and [constant CONE] shapes, which are built as convex hulls.
+		</member>
+		<member name="sphere_radius" type="float" setter="set_sphere_radius" getter="get_sphere_radius" default="0.5">
+			Radius of the [constant SPHERE] shape, in metres.
+		</member>
+		<member name="tangent_velocity" type="Vector3" setter="set_tangent_velocity" getter="get_tangent_velocity" default="Vector3(0, 0, 0)">
+			Conveyor-belt drive for this shape's surface, in metres per second, in the shape's local space.
+		</member>
+		<member name="user_material_id" type="int" setter="set_user_material_id" getter="get_user_material_id" default="0">
+			Your own tag on this shape's surface material. The solver never reads it, but it rides along on query and hit results -- [method Box3DWorld.raycast]'s [code]user_material[/code] key, [method raycast], [signal Box3DWorld.contact_hit] -- and it reaches the friction and restitution mixing callbacks, which get no other context. 0 unless you author one.
+			This is the per-shape equivalent of the [code]user_material_id[/code] entries in [member Box3DBody.surface_materials], which tag a mesh or height field per triangle instead. [Box3DBody] has no such property of its own: to tag a plain body's collider, give it a [Box3DCollisionShape] child.
+		</member>
+	</members>
+	<constants>
+		<constant name="BOX" value="0" enum="ShapeType">
+			A box shape sized by [member box_size].
+		</constant>
+		<constant name="SPHERE" value="1" enum="ShapeType">
+			A sphere shape sized by [member sphere_radius].
+		</constant>
+		<constant name="CAPSULE" value="2" enum="ShapeType">
+			A capsule shape sized by [member capsule_radius] and [member capsule_height].
+		</constant>
+		<constant name="CYLINDER" value="3" enum="ShapeType">
+			A cylinder, built as a convex hull with [member sides] sides.
+		</constant>
+		<constant name="CONE" value="4" enum="ShapeType">
+			A cone with its apex up, built as a convex hull with [member sides] sides.
+		</constant>
+		<constant name="GEOMETRY_NONE" value="-1" enum="GeometryType">
+			No live shape: the parent body has not built its shapes yet, or has destroyed them. Returned by [method get_geometry_type] outside a running [Box3DWorld].
+		</constant>
+		<constant name="GEOMETRY_CAPSULE" value="0" enum="GeometryType">
+			A capsule, from [constant CAPSULE]. Read it with [method get_capsule].
+		</constant>
+		<constant name="GEOMETRY_COMPOUND" value="1" enum="GeometryType">
+			A baked compound shape. This node never authors one; it only appears for a shape reached through a query or event payload.
+		</constant>
+		<constant name="GEOMETRY_HEIGHT_FIELD" value="2" enum="GeometryType">
+			A height field, as authored by [Box3DBody]'s own [constant Box3DBody.HEIGHT_FIELD] shape type. This node never authors one.
+		</constant>
+		<constant name="GEOMETRY_HULL" value="3" enum="GeometryType">
+			A convex hull. [constant BOX], [constant CYLINDER] and [constant CONE] all come back as this too, because Box3D has no separate box, cylinder or cone primitive. Read it with [method get_hull].
+		</constant>
+		<constant name="GEOMETRY_MESH" value="4" enum="GeometryType">
+			A triangle mesh, from [method set_mesh] or from [constant Box3DBody.MESH] on the parent body. No [member shape_type] value produces one. Read it with [method get_mesh].
+		</constant>
+		<constant name="GEOMETRY_SPHERE" value="5" enum="GeometryType">
+			A sphere, from [constant SPHERE]. Read it with [method get_sphere].
+		</constant>
+		<constant name="EVENT_INHERIT" value="0" enum="EventMode">
+			Take whatever the parent [Box3DBody] gives its shapes: contact events follow [member Box3DBody.contact_monitor], sensor and hit events are on. The default, so that adding this property changed no existing scene.
+		</constant>
+		<constant name="EVENT_ENABLED" value="1" enum="EventMode">
+			Report this kind of event for this shape whatever the body does. Box3D still ignores the setting where it cannot apply -- sensor events on a shape that is not on a sensor, for instance -- so read the result back with the matching [code]are_*_events_enabled[/code] method.
+		</constant>
+		<constant name="EVENT_DISABLED" value="2" enum="EventMode">
+			Do not report this kind of event for this shape, even when the body has it on. The way to keep the decorative shapes of a compound out of a contact-heavy body's event stream.
+		</constant>
+	</constants>
+</class>

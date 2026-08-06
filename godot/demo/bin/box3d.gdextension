@@ -48,3 +48,37 @@ web.release.wasm32 = "res://bin/libbox3d_godot.web.template_release.wasm32.nothr
 ; (Cube Pile: 1.24 ms/step at one worker vs 0.39 at four) and always loads.
 web.debug.threads.wasm32 = "res://bin/libbox3d_godot.web.template_debug.wasm32.wasm"
 web.release.threads.wasm32 = "res://bin/libbox3d_godot.web.template_release.wasm32.wasm"
+
+; Scene-dock / create-dialog icons for the extension's node types, one 16x16
+; SVG per class. Godot resolves these against res://, so they live inside the
+; project rather than beside the sources -- copying bin/ into another project
+; therefore brings the icons along with the libraries.
+;
+; A class with no entry here inherits its parent's icon, which is why the eight
+; joint types each get one rather than falling back to Box3DJoint.
+[icons]
+
+Box3DWorld = "res://bin/icons/Box3DWorld.svg"
+Box3DBody = "res://bin/icons/Box3DBody.svg"
+Box3DCollisionShape = "res://bin/icons/Box3DCollisionShape.svg"
+Box3DCharacterBody = "res://bin/icons/Box3DCharacterBody.svg"
+Box3DMultiMeshRenderer = "res://bin/icons/Box3DMultiMeshRenderer.svg"
+Box3DJoint = "res://bin/icons/Box3DJoint.svg"
+Box3DHingeJoint = "res://bin/icons/Box3DHingeJoint.svg"
+Box3DSliderJoint = "res://bin/icons/Box3DSliderJoint.svg"
+Box3DDistanceJoint = "res://bin/icons/Box3DDistanceJoint.svg"
+Box3DBallJoint = "res://bin/icons/Box3DBallJoint.svg"
+Box3DFixedJoint = "res://bin/icons/Box3DFixedJoint.svg"
+Box3DMotorJoint = "res://bin/icons/Box3DMotorJoint.svg"
+Box3DWheelJoint = "res://bin/icons/Box3DWheelJoint.svg"
+Box3DParallelJoint = "res://bin/icons/Box3DParallelJoint.svg"
+Box3DFilterJoint = "res://bin/icons/Box3DFilterJoint.svg"
+; The two static utility classes. They are never placed in a scene, so these
+; only ever show in the class reference and in script autocompletion.
+Box3DGeometry = "res://bin/icons/Box3DGeometry.svg"
+Box3DCollision = "res://bin/icons/Box3DCollision.svg"
+; The wave-2 RefCounted/Resource classes. Like the two above they are never
+; placed in a scene, so these show in the class reference and in autocompletion.
+Box3DRecording = "res://bin/icons/Box3DRecording.svg"
+Box3DReplayPlayer = "res://bin/icons/Box3DReplayPlayer.svg"
+Box3DContactRules = "res://bin/icons/Box3DContactRules.svg"

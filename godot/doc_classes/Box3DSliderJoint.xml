@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DSliderJoint" inherits="Box3DJoint" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A prismatic joint: the bodies slide along this node's local X axis.
+	</brief_description>
+	<description>
+		A slider. [member body_b] translates relative to [member body_a] along [b]this node's local X axis[/b] (the red arrow of the move gizmo) and cannot rotate -- so aim the travel direction by rotating the joint node.
+		Pistons, lifts, drawers and sliding doors.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_motor_force" qualifiers="const">
+			<return type="float" />
+			<description>
+				Force the motor applied on the last step, in newtons.
+			</description>
+		</method>
+		<method name="get_speed" qualifiers="const">
+			<return type="float" />
+			<description>
+				Current speed along the joint axis, in metres per second.
+			</description>
+		</method>
+		<method name="get_translation" qualifiers="const">
+			<return type="float" />
+			<description>
+				Current travel along the joint axis, in metres.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="limit_enabled" type="bool" setter="set_limit_enabled" getter="get_limit_enabled" default="false">
+			Restricts travel to [member lower_limit] .. [member upper_limit].
+		</member>
+		<member name="lower_limit" type="float" setter="set_lower_limit" getter="get_lower_limit" default="0.0">
+			Lowest allowed translation along the axis, in metres.
+		</member>
+		<member name="max_motor_force" type="float" setter="set_max_motor_force" getter="get_max_motor_force" default="0.0">
+			Force budget the motor may spend to reach [member motor_speed], in newtons. Box3D clamps the motor's impulse to this times the step, so at 0 the motor runs and moves nothing at all -- the usual reason a motor "does not work". The scene dock warns when [member motor_enabled] is on and this is 0.
+		</member>
+		<member name="motor_enabled" type="bool" setter="set_motor_enabled" getter="get_motor_enabled" default="false">
+			Drives the slider toward [member motor_speed], within [member max_motor_force].
+		</member>
+		<member name="motor_speed" type="float" setter="set_motor_speed" getter="get_motor_speed" default="0.0">
+			Target speed along the axis, in metres per second. Sign picks the direction, in the same reversed sense as [member target_translation] when [member body_b] is empty.
+		</member>
+		<member name="spring_damping" type="float" setter="set_spring_damping" getter="get_spring_damping" default="0.7">
+			Damping ratio of the spring, non-dimensional. 1.0 is critical damping. Only used while [member spring_enabled] is on.
+		</member>
+		<member name="spring_enabled" type="bool" setter="set_spring_enabled" getter="get_spring_enabled" default="false">
+			Adds a spring pulling the slider toward [member target_translation] instead of holding it rigidly.
+		</member>
+		<member name="spring_hertz" type="float" setter="set_spring_hertz" getter="get_spring_hertz" default="1.0">
+			Stiffness of the spring, in cycles per second. Only used while [member spring_enabled] is on.
+		</member>
+		<member name="target_translation" type="float" setter="set_target_translation" getter="get_target_translation" default="0.0">
+			Position along the joint axis the spring drives toward, in metres, measured as body B relative to body A.
+			[b]With [member body_b] empty the sign is reversed[/b]: the world anchor becomes body B, so [code]target_translation = 1[/code] settles the body at x = -1 along the axis. Verified on a slider; see [Box3DJoint]'s description for why.
+		</member>
+		<member name="upper_limit" type="float" setter="set_upper_limit" getter="get_upper_limit" default="0.0">
+			Highest allowed translation along the axis, in metres.
+		</member>
+	</members>
+</class>

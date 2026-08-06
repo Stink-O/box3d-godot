@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DMotorJoint" inherits="Box3DJoint" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Drives the relative velocity of two bodies, and optionally springs their frames together.
+	</brief_description>
+	<description>
+		Two mechanisms in one joint. The velocity half drives the relative linear and angular velocity toward a target within a force and torque budget, like a servo. The spring half (the [code]hertz[/code] properties) pulls the joint frames together instead.
+		The spring half makes an excellent compliant grab handle: Box3D's own samples hold a body at the mouse with [member linear_hertz] around 7.5, [member linear_damping] 1, a force cap, and [member max_torque] as angular friction.
+	</description>
+	<tutorials>
+	</tutorials>
+	<members>
+		<member name="angular_damping" type="float" setter="set_angular_damping" getter="get_angular_damping" default="1.0">
+			Damping ratio for [member angular_hertz], non-dimensional.
+		</member>
+		<member name="angular_hertz" type="float" setter="set_angular_hertz" getter="get_angular_hertz" default="0.0">
+			Stiffness of the rotational spring aligning the joint frames, in cycles per second. 0 disables it.
+		</member>
+		<member name="angular_velocity" type="Vector3" setter="set_angular_velocity" getter="get_angular_velocity" default="Vector3(0, 0, 0)">
+			Target relative angular velocity, in radians per second.
+		</member>
+		<member name="linear_damping" type="float" setter="set_linear_damping" getter="get_linear_damping" default="1.0">
+			Damping ratio for [member linear_hertz], non-dimensional.
+		</member>
+		<member name="linear_hertz" type="float" setter="set_linear_hertz" getter="get_linear_hertz" default="0.0">
+			Stiffness of the positional spring pulling the joint frames together, in cycles per second. 0 disables it and leaves only the velocity drive.
+		</member>
+		<member name="linear_velocity" type="Vector3" setter="set_linear_velocity" getter="get_linear_velocity" default="Vector3(0, 0, 0)">
+			Target relative linear velocity, in metres per second.
+		</member>
+		<member name="max_force" type="float" setter="set_max_force" getter="get_max_force" default="1000.0">
+			Force budget for reaching [member linear_velocity], in newtons. Box3D skips the linear velocity drive entirely while this is 0. Defaults to 1000 here rather than Box3D's 0, so the drive works out of the box.
+		</member>
+		<member name="max_spring_force" type="float" setter="set_max_spring_force" getter="get_max_spring_force" default="0.0">
+			Force budget for the positional spring, in newtons. [b]Box3D runs that spring only while both this and [member linear_hertz] are above 0[/b], and this defaults to 0, so setting the hertz alone does nothing. The scene dock warns about either half being missing.
+		</member>
+		<member name="max_spring_torque" type="float" setter="set_max_spring_torque" getter="get_max_spring_torque" default="0.0">
+			Torque budget for the rotational spring, in newton-metres. Like [member max_spring_force], the spring runs only while both this and [member angular_hertz] are above 0.
+		</member>
+		<member name="max_torque" type="float" setter="set_max_torque" getter="get_max_torque" default="1000.0">
+			Torque budget for reaching [member angular_velocity], in newton-metres. Doubles as angular friction when [member angular_velocity] is zero. Box3D skips the angular drive entirely while this is 0. Defaults to 1000 here rather than Box3D's 0.
+		</member>
+	</members>
+</class>

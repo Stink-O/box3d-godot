@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DContactRules" inherits="Resource" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A data-driven table that overrides Box3D's four solver callbacks -- never-collide pairs, one-way platforms, friction and restitution -- without a script callback.
+	</brief_description>
+	<description>
+		Box3D lets an application override four decisions the solver makes about a contact pair: whether the pair collides at all, whether a contact survives pre-solve, and how the two surfaces' friction and restitution mix. [b]All four run on solver worker threads[/b], where a GDScript [Callable] is unsafe in every configuration. So script does not get a callback: script authors [i]data[/i] here, and C++ evaluates that data inside the callbacks. The hot path allocates nothing, takes no lock and touches no Godot object.
+		[codeblock]
+		var rules := Box3DContactRules.new()
+		rules.set_collision_rule(MAT_GHOST, MAT_WALL, false)
+		rules.set_friction_rule(MAT_ICE, MAT_CRATE, 0.0)
+		rules.set_one_way_rule(MAT_PLATFORM, MAT_PLAYER, Vector3.UP, 90.0)
+		world.contact_rules = rules
+		[/codeblock]
+		[b]One key space for all four rule kinds: the user material id[/b] ([member Box3DBody.user_material_id], [member Box3DCollisionShape.user_material_id]). It is the only thing the friction and restitution callbacks receive -- they get no shape and no context at all -- and the filter and pre-solve callbacks can read it back off a shape, so one id space serves everything. Rules are keyed on an [b]unordered pair[/b] of ids, so a pair has exactly one entry however it was authored; only the one-way rule remembers which side was named first.
+		[b]An empty table cannot move the simulation by one bit.[/b] Where no rule applies, the callbacks reproduce Box3D's own answers verbatim -- [code]sqrt(frictionA * frictionB)[/code] and [code]max(restitutionA, restitutionB)[/code], and "collide" for every pair. Installing a table is safe on a scene that has no rules yet.
+		[b]Two of the four kinds need a per-shape opt-in[/b], because Box3D only consults the world callback when at least one shape of the pair has asked for it. Collision rules need [member Box3DCollisionShape.custom_filtering]; one-way rules need [member Box3DCollisionShape.pre_solve_events]. Friction and restitution rules need no flag at all -- the mixing pair runs for every contact.
+		[b]Threading.[/b] Authoring republishes an immutable snapshot that the workers read through one atomic pointer. Every republish first joins any in-flight [member Box3DWorld.async_step], and steps are only ever launched from the main thread, so no callback can be reading the retired table -- rules can be edited between steps with no synchronisation of your own. Rules are immutable for the duration of a step, which is what keeps the simulation deterministic.
+		[member rules] is a serialisable array, so a table round trips through a [code].tres[/code].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="clear_friction_rule">
+			<return type="void" />
+			<param index="0" name="material_a" type="int" />
+			<param index="1" name="material_b" type="int" />
+			<description>
+				Drops this pair's friction override, restoring Box3D's [code]sqrt(frictionA * frictionB)[/code]. Other rule kinds on the pair are kept.
+			</description>
+		</method>
+		<method name="clear_one_way_rule">
+			<return type="void" />
+			<param index="0" name="material_a" type="int" />
+			<param index="1" name="material_b" type="int" />
+			<description>
+				Drops this pair's one-way rule; its contacts survive pre-solve again. Other rule kinds on the pair are kept.
+			</description>
+		</method>
+		<method name="clear_restitution_rule">
+			<return type="void" />
+			<param index="0" name="material_a" type="int" />
+			<param index="1" name="material_b" type="int" />
+			<description>
+				Drops this pair's restitution override, restoring Box3D's [code]max(restitutionA, restitutionB)[/code]. Other rule kinds on the pair are kept.
+			</description>
+		</method>
+		<method name="clear_rule">
+			<return type="void" />
+			<param index="0" name="material_a" type="int" />
+			<param index="1" name="material_b" type="int" />
+			<description>
+				Drops every rule kind for one pair at once.
+			</description>
+		</method>
+		<method name="clear_rules">
+			<return type="void" />
+			<description>
+				Empties the table. The installed callbacks stay installed and answer exactly as Box3D would.
+			</description>
+		</method>
+		<method name="get_collision_rule" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="material_a" type="int" />
+			<param index="1" name="material_b" type="int" />
+			<description>
+				Whether this pair is allowed to collide. [code]true[/code] for any pair with no collision rule, since absence of a rule means Box3D's default.
+			</description>
+		</method>
+		<method name="get_mixing_slot" qualifiers="const">
+			<return type="int" />
+			<description>
+				Which mixing-bank slot this table holds, or [code]-1[/code] when it holds none. Diagnostic only -- nothing needs it to use the feature.
+				Box3D's friction and restitution callbacks take no context object at all, so the only way to tell one table from another inside them is to hand each table its own function. A table with no friction and no restitution rules never claims a slot; see [constant MAX_MIXING_TABLES] for what happens when they run out.
+			</description>
+		</method>
+		<method name="get_rule" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="material_a" type="int" />
+			<param index="1" name="material_b" type="int" />
+			<description>
+				Every rule authored for one pair, or an empty [Dictionary] when the pair has none. Keys: [code]material_a[/code], [code]material_b[/code], [code]collide[/code], [code]friction[/code], [code]restitution[/code], [code]one_way_axis[/code], [code]one_way_max_angle[/code] and [code]one_way_from[/code].
+				The mixing keys are absent unless authored, so [code]has("friction")[/code] is how you tell "friction 0" from "no friction rule".
+			</description>
+		</method>
+		<method name="get_rule_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many material pairs carry at least one rule. A pair with three kinds on it counts once.
+			</description>
+		</method>
+		<method name="install">
+			<return type="void" />
+			<param index="0" name="world" type="Box3DWorld" />
+			<description>
+				Registers this table's four callbacks on [param world]. Idempotent, and it creates the world if it does not exist yet, exactly as any other world API call does.
+				A world that is destroyed and recreated -- by leaving and re-entering the tree -- loses its callbacks, so re-install after that, or use [member Box3DWorld.contact_rules], which does it for you and is the reason that property exists.
+			</description>
+		</method>
+		<method name="is_installed" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="world" type="Box3DWorld" />
+			<description>
+				Whether this table is currently installed on [param world].
+			</description>
+		</method>
+		<method name="set_collision_rule">
+			<return type="void" />
+			<param index="0" name="material_a" type="int" />
+			<param index="1" name="material_b" type="int" />
+			<param index="2" name="collide" type="bool" />
+			<description>
+				[param collide] [code]false[/code] makes the pair never collide; [code]true[/code] drops the rule.
+				Needs [member Box3DCollisionShape.custom_filtering] on at least one shape of the pair, and note that it also [b]hides the pair from sensor overlaps[/b] -- Box3D consults the same filter callback there.
+			</description>
+		</method>
+		<method name="set_friction_rule">
+			<return type="void" />
+			<param index="0" name="material_a" type="int" />
+			<param index="1" name="material_b" type="int" />
+			<param index="2" name="friction" type="float" />
+			<description>
+				Replaces Box3D's [code]sqrt(frictionA * frictionB)[/code] for this pair. Clamped at 0; a mesh contact asserts the mixed value is finite and non-negative.
+				Needs no per-shape flag: the mixing callbacks run for every contact. This is the rule kind that works the moment the table is installed.
+			</description>
+		</method>
+		<method name="set_one_way_rule">
+			<return type="void" />
+			<param index="0" name="material_a" type="int" />
+			<param index="1" name="material_b" type="int" />
+			<param index="2" name="axis" type="Vector3" />
+			<param index="3" name="max_angle_degrees" type="float" default="90.0" />
+			<description>
+				A one-way platform, with no script in the loop. A contact between the two materials survives only while the contact normal pointing [b]from[/b] [param material_a] [b]towards[/b] [param material_b] lies within [param max_angle_degrees] of [param axis]; otherwise it is dropped for that step.
+				For a platform you can jump up through and then land on, make the platform [param material_a], the passenger [param material_b], [param axis] [constant Vector3.UP] and the angle 90: a passenger resting on top produces a normal pointing up out of the platform (kept), one rising from below produces a normal pointing down (dropped).
+				[param axis] is [b]world space[/b] and is not re-based on either body's transform -- reading a body pose from a worker thread is exactly what this design exists to avoid, so rotating one-way platforms are out of scope. [param max_angle_degrees] is clamped to [code][0, 180][/code]; 180 makes the rule a no-op. [param material_a] equal to [param material_b] is refused, because with one material on both sides there is no way to tell which way round the normal was authored.
+				Needs [member Box3DCollisionShape.pre_solve_events] on at least one shape of the pair.
+			</description>
+		</method>
+		<method name="set_restitution_rule">
+			<return type="void" />
+			<param index="0" name="material_a" type="int" />
+			<param index="1" name="material_b" type="int" />
+			<param index="2" name="restitution" type="float" />
+			<description>
+				Replaces Box3D's [code]max(restitutionA, restitutionB)[/code] for this pair. Clamped at 0, same assert as [method set_friction_rule], and likewise needs no per-shape flag.
+			</description>
+		</method>
+		<method name="uninstall">
+			<return type="void" />
+			<param index="0" name="world" type="Box3DWorld" />
+			<description>
+				Restores Box3D's defaults on [param world]: no filter, no pre-solve and the stock mixing functions.
+				[b]Do not leave a shape's [member Box3DCollisionShape.pre_solve_events] on after uninstalling[/b] -- Box3D's continuous-collision path calls the pre-solve callback without a null check, so that flag is only safe on a world that has a rule table installed.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="rules" type="Array" setter="set_rules" getter="get_rules" default="[]">
+			The whole table as one [Array] of [Dictionary], in canonical pair order and in the shape [method get_rule] returns. This is the serialised form, so a table round trips through a [code].tres[/code]; assigning it replaces every rule at once.
+		</member>
+	</members>
+	<constants>
+		<constant name="KIND_NO_COLLIDE" value="1" enum="Kind">
+			The pair never collides ([method set_collision_rule]).
+		</constant>
+		<constant name="KIND_FRICTION" value="2" enum="Kind">
+			The pair has a friction override ([method set_friction_rule]).
+		</constant>
+		<constant name="KIND_RESTITUTION" value="4" enum="Kind">
+			The pair has a restitution override ([method set_restitution_rule]).
+		</constant>
+		<constant name="KIND_ONE_WAY" value="8" enum="Kind">
+			The pair has a one-way rule ([method set_one_way_rule]).
+		</constant>
+		<constant name="MAX_MIXING_TABLES" value="8">
+			How many distinct rule resources can carry friction or restitution rules at the same time, across the whole process.
+			Box3D's mixing callbacks take no context object, so each table needs its own function from a fixed bank. Eight is far past any real scene; a ninth table logs an error and keeps Box3D's default mixing rather than silently answering with another table's rules. Tables with only collision or one-way rules never claim a slot ([method get_mixing_slot]).
+		</constant>
+	</constants>
+</class>

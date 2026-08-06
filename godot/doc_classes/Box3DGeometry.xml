@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DGeometry" inherits="Object" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Upstream's geometry factories: convex hulls and procedural meshes, built without a world.
+	</brief_description>
+	<description>
+		Static builders for the geometry Box3D's own samples are made of -- rocks, cylinders, cones, hulls of a point cloud, grids, waves, toruses, boxes, rooms and platforms.
+		Every call is [b]static and needs no world[/b]. Nothing here touches a running simulation, so these are safe to call while a world is stepping, at load time, or from a tool script.
+		They all return a [Dictionary] in the same shape, which is what makes them interchangeable:
+		- [code]vertices[/code] ([PackedVector3Array]) -- the points.
+		- [code]indices[/code] ([PackedInt32Array]) -- three per triangle, in [b]Box3D's[/b] counter-clockwise winding, not Godot's.
+		- [code]materials[/code] ([PackedByteArray]) -- one entry per triangle, from the mesh factories only.
+		- [code]bvh_height[/code] ([int]) -- the generated mesh's tree height, from the mesh factories only.
+		That is exactly what [member Box3DBody.mesh_vertices], [member Box3DBody.mesh_indices] and [member Box3DBody.mesh_materials] take for a [constant Box3DBody.MESH] collider. For a hull collider or a visual, pass the [Dictionary] through [method make_array_mesh].
+		[b]Nothing you have to free.[/b] Box3D's own factories hand back heap geometry with its own destroy calls; each method here copies the result into Godot arrays and frees the Box3D copy before returning, so a script can never leak or double-free one.
+		[b]Half extents, not sizes.[/b] The [code]make_*_box_hull[/code] family takes half extents, as upstream does, while [member Box3DBody.box_size] is a full size -- halve it when crossing between the two.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="create_box_mesh" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="extent" type="Vector3" />
+			<param index="2" name="identify_edges" type="bool" default="true" />
+			<description>
+				A closed box centred on [param center], as triangles. [param extent] is [b]half[/b] extents. [param identify_edges] computes edge adjacency, as in [method create_grid_mesh].
+				A mesh collider is single-sided, and this one faces outward: it is a solid box to anything outside it. For a room, use [method create_hollow_box_mesh].
+			</description>
+		</method>
+		<method name="create_cone" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="height" type="float" />
+			<param index="1" name="radius1" type="float" />
+			<param index="2" name="radius2" type="float" />
+			<param index="3" name="slices" type="int" default="16" />
+			<description>
+				A truncated cone: [param radius1] at the base, [param radius2] at the top ([code]0[/code] for a true point), [param height] tall, tessellated into [param slices] faces. The same hull [constant Box3DBody.CONE] is built from.
+			</description>
+		</method>
+		<method name="create_cylinder" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="height" type="float" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="y_offset" type="float" default="0.0" />
+			<param index="3" name="sides" type="int" default="16" />
+			<description>
+				A cylinder of [param height] and [param radius], tessellated into [param sides] faces, offset along its own Y axis by [param y_offset].
+				This is the same hull [constant Box3DBody.CYLINDER] is built from, so a visual made from it matches the collider exactly rather than approximately.
+			</description>
+		</method>
+		<method name="create_grid_mesh" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="x_count" type="int" />
+			<param index="1" name="z_count" type="int" />
+			<param index="2" name="cell_width" type="float" />
+			<param index="3" name="material_count" type="int" default="1" />
+			<param index="4" name="identify_edges" type="bool" default="true" />
+			<description>
+				A flat triangle grid in the XZ plane, [param x_count] by [param z_count] cells of [param cell_width].
+				[b]Cells, not grid lines[/b] -- the opposite of [member Box3DBody.height_field_size], which counts lines. A 3 by 3 grid is nine cells, sixteen vertices and eighteen triangles, and spans [code]3 * cell_width[/code] on each axis, centred on the origin.
+				[param material_count] above 1 stripes the triangles across that many material slots, which [member Box3DBody.surface_materials] then indexes -- ice on one patch, mud on another. [param identify_edges] computes edge adjacency, which is what stops a sliding box catching on the internal edges between triangles; leave it on unless the mesh is enormous and build time matters.
+			</description>
+		</method>
+		<method name="create_hollow_box_mesh" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="extent" type="Vector3" />
+			<description>
+				The same box as [method create_box_mesh], wound [b]inward[/b] -- a room rather than a block. Winding is the whole difference, because mesh collision is single-sided: this one is solid to anything inside it and invisible from outside.
+			</description>
+		</method>
+		<method name="create_hull" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="points" type="PackedVector3Array" />
+			<param index="1" name="max_vertex_count" type="int" default="0" />
+			<description>
+				The convex hull of [param points]. [param max_vertex_count] caps the result; [code]0[/code] means as many as Box3D allows, which is 128.
+				The returned [code]vertices[/code] are the hull's own points, which is what a hull collider is built from -- feed them to [member Box3DBody.collision_mesh] through [method make_array_mesh], or to [method Box3DCollisionShape.set_hull].
+			</description>
+		</method>
+		<method name="create_platform_mesh" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="height" type="float" />
+			<param index="2" name="top_width" type="float" />
+			<param index="3" name="bottom_width" type="float" />
+			<description>
+				A truncated pyramid centred on [param center]: [param bottom_width] at the base, [param top_width] at the top, [param height] tall. Upstream's own platform geometry.
+			</description>
+		</method>
+		<method name="create_rock" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="radius" type="float" />
+			<description>
+				The ten-point hull upstream's debris is made of: a Fibonacci lattice on a sphere of [param radius], hulled. Irregular enough to tumble unpredictably, cheap enough to spawn in quantity.
+			</description>
+		</method>
+		<method name="create_torus_mesh" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="radial_resolution" type="int" />
+			<param index="1" name="tubular_resolution" type="int" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="thickness" type="float" />
+			<description>
+				A torus of [param radius] and tube [param thickness], tessellated [param radial_resolution] around the ring by [param tubular_resolution] around the tube.
+			</description>
+		</method>
+		<method name="create_wave_mesh" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="x_count" type="int" />
+			<param index="1" name="z_count" type="int" />
+			<param index="2" name="cell_width" type="float" />
+			<param index="3" name="amplitude" type="float" />
+			<param index="4" name="row_frequency" type="float" />
+			<param index="5" name="column_frequency" type="float" />
+			<description>
+				[method create_grid_mesh], displaced by the product of two sine waves of [param amplitude].
+				[b]The frequencies are cycles per cell, not per metre[/b]: both are multiplied by [param cell_width] before the sine, so [param row_frequency] 1 with [param cell_width] 1 samples the sine only at its zeros and produces a perfectly flat mesh. Quarter values give the rolling terrain upstream's own wave sample has. [param row_frequency] runs along Z, [param column_frequency] along X.
+			</description>
+		</method>
+		<method name="make_array_mesh" qualifiers="static">
+			<return type="ArrayMesh" />
+			<param index="0" name="geometry" type="Dictionary" />
+			<description>
+				Turns any [Dictionary] from this class into a drawable [ArrayMesh] -- assign it to a [MeshInstance3D], or to [member Box3DBody.collision_mesh] for a hull collider.
+				[b]The winding is flipped on the way through[/b], because Box3D's front face is the opposite order to Godot's; this is the same flip [Box3DBody] applies on its own Godot-mesh path. Normals are per face and vertices are expanded rather than shared, so a hull and a box both come out flat-shaded, which is what a collider visualization wants.
+			</description>
+		</method>
+		<method name="make_box_hull" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="half_extents" type="Vector3" />
+			<description>
+				A box of [param half_extents], as hull points and triangles. Half extents, so this is [member Box3DBody.box_size] halved.
+			</description>
+		</method>
+		<method name="make_cube_hull" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="half_width" type="float" />
+			<description>
+				A cube of half width [param half_width], as hull points and triangles. [b]Half[/b] width: a [param half_width] of 0.5 is a 1 m cube.
+			</description>
+		</method>
+		<method name="make_offset_box_hull" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="half_extents" type="Vector3" />
+			<param index="1" name="offset" type="Vector3" />
+			<description>
+				[method make_box_hull], with the box centred on [param offset] instead of on the origin -- one child of a compound, positioned before it is built.
+			</description>
+		</method>
+		<method name="make_scaled_box_hull" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="half_extents" type="Vector3" />
+			<param index="1" name="transform" type="Transform3D" />
+			<param index="2" name="post_scale" type="Vector3" />
+			<description>
+				[method make_transformed_box_hull] with a further [param post_scale] applied, which may be non-uniform or negative.
+				Exact for a scale along the box's own axes; [b]approximate under shear[/b], where the scaled box is fitted rather than reproduced.
+			</description>
+		</method>
+		<method name="make_transformed_box_hull" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="half_extents" type="Vector3" />
+			<param index="1" name="transform" type="Transform3D" />
+			<description>
+				[method make_box_hull], posed by [param transform]. Rotation is included, so this is the way to bake a tilted box into hull points.
+			</description>
+		</method>
+		<method name="scale_box" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="half_extents" type="Vector3" />
+			<param index="1" name="transform" type="Transform3D" />
+			<param index="2" name="post_scale" type="Vector3" />
+			<param index="3" name="min_half_width" type="float" default="0.005" />
+			<description>
+				Resolves a scaled box back into a plain one: given [param half_extents], a [param transform] and a [param post_scale], returns [code]half_extents[/code] ([Vector3]) and [code]transform[/code] ([Transform3D]) describing the same volume with the scale folded in.
+				[param min_half_width] is the floor each half extent is clamped to, so a scale of 0 on one axis yields a very thin box rather than a degenerate one. This is what a level editor needs to turn a scaled instance back into authored geometry.
+			</description>
+		</method>
+		<method name="transform_hull" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="points" type="PackedVector3Array" />
+			<param index="1" name="transform" type="Transform3D" />
+			<param index="2" name="scale" type="Vector3" default="Vector3(1, 1, 1)" />
+			<description>
+				The convex hull of [param points], moved by [param transform] and scaled by [param scale]. The scale may be non-uniform, and a negative component mirrors -- which a plain [Transform3D] on a hull cannot express.
+			</description>
+		</method>
+	</methods>
+</class>

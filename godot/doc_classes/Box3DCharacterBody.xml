@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DCharacterBody" inherits="Node3D" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A kinematic capsule character controller driven by [Box3DWorld] mover queries.
+	</brief_description>
+	<description>
+		A kinematic capsule character controller. Unlike [Box3DBody] it is not a simulated body: it asks the nearest [Box3DWorld] ancestor's mover queries where a capsule can go, then moves the node there. Nothing pushes it, and it does not fall on its own -- drive it from a script by calling [method move_and_slide] every physics frame with your own velocity, including gravity.
+		It must be a descendant of a [Box3DWorld]. Without one, [method move_and_slide] moves the node in a straight line through everything.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="clip_velocity" qualifiers="const">
+			<return type="Vector3" />
+			<param index="0" name="velocity" type="Vector3" />
+			<description>
+				Removes from [param velocity] every component that pushes into a surface the last [method move_and_slide] touched, and returns what is left.
+				This is how a velocity is carried across frames without accumulating speed. A character walking into a wall keeps having its full forward velocity fed back in otherwise, and the push-out that stops it from sinking in reads as free speed the next frame. The usual shape is:
+				[codeblock]
+				velocity.y -= gravity * delta
+				character.move_and_slide(velocity, delta)
+				velocity = character.clip_velocity(velocity)
+				[/codeblock]
+				Planes that the solve resolved with no push, and planes marked as non-clipping, are skipped. With nothing touched, [param velocity] comes back unchanged.
+			</description>
+		</method>
+		<method name="collide_with_body" qualifiers="const">
+			<return type="Array" />
+			<param index="0" name="body" type="Box3DBody" />
+			<description>
+				Collides this character's capsule, at its current position, against [param body] alone and returns the collision planes it finds, without moving anything.
+				Each entry is a [Dictionary] with [code]normal[/code] ([Vector3]), [code]distance[/code] ([float], the plane offset), [code]position[/code] ([Vector3], the closest point in world space), [code]collider[/code] ([param body] itself) and [code]shape[/code] (the [Box3DCollisionShape] that produced the plane, or [code]null[/code] for the body's own [member Box3DBody.shape_type] shape). The [Array] is empty when nothing touches, when [param body] is [code]null[/code], or when the character has no [Box3DWorld] ancestor.
+				This is the single-body form of what [method move_and_slide] does against the whole world, so it answers "am I against [i]that[/i] thing" without a world query and without the character's [member collision_mask] having to exclude everything else. [member collision_mask] and [member collision_layer] still filter which of the body's shapes answer.
+				Use [method collide_with_body_at] to ask the same question with the body posed somewhere it is not.
+			</description>
+		</method>
+		<method name="collide_with_body_at" qualifiers="const">
+			<return type="Array" />
+			<param index="0" name="body" type="Box3DBody" />
+			<param index="1" name="body_transform" type="Transform3D" />
+			<description>
+				[method collide_with_body] with [param body] posed at [param body_transform] instead of where it currently is. Returns the same [Array] of plane dictionaries.
+				This is what a moving platform needs: pose the platform where it is [i]about[/i] to be and the character can be pushed or blocked before the platform arrives, rather than a frame after it has already overlapped. Only the rotation and origin of [param body_transform] are used; scale is ignored.
+			</description>
+		</method>
+		<method name="get_floor_normal" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				The unit normal of the most upright floor plane the last [method move_and_slide] touched, or [constant Vector3.ZERO] when it touched no floor.
+				"Floor" means a plane whose normal is within [member floor_max_angle] of [member up_direction]. When several qualify, the one closest to [member up_direction] wins, so a character straddling a slope and flat ground reports the flat ground.
+			</description>
+		</method>
+		<method name="get_last_collisions" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Everything the last [method move_and_slide] touched, as an [Array] of [Dictionary] with:
+				- [code]normal[/code] ([Vector3]) -- unit plane normal, pointing out of the surface and towards the character.
+				- [code]position[/code] ([Vector3]) -- contact point in world space.
+				- [code]collider[/code] ([Box3DBody]) -- the body that owns the surface, or [code]null[/code] if it could not be resolved.
+				This is the raw list the [method is_on_floor] family classifies; read it when you need the surface itself (its material, its velocity, which body to damage) rather than just a yes or no. It describes the character's [b]final[/b] pass only, and is empty until [method move_and_slide] has run at least once.
+			</description>
+		</method>
+		<method name="get_last_solver_iterations" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many iterations Box3D's plane solver used on the last [method move_and_slide] pass. Diagnostics only -- nothing in the move depends on it.
+				A count that climbs towards the solver's ceiling means the capsule is wedged between planes that disagree, which is the signature of a corner it cannot resolve or of overlapping colliders. 0 until [method move_and_slide] has run, and 0 again after a call that found no world.
+			</description>
+		</method>
+		<method name="is_on_ceiling" qualifiers="const">
+			<return type="bool" />
+			<description>
+				[code]true[/code] when the last [method move_and_slide] touched a surface facing away from [member up_direction] by more than [member floor_max_angle], i.e. something the character hit its head on.
+				Like the rest of this family it reports the previous move, so it is only meaningful after [method move_and_slide] has been called this frame.
+			</description>
+		</method>
+		<method name="is_on_floor" qualifiers="const">
+			<return type="bool" />
+			<description>
+				[code]true[/code] when the last [method move_and_slide] touched a surface the character can stand on, i.e. one whose normal is within [member floor_max_angle] of [member up_direction].
+				Grounded state is a property of the move that just happened, not a persistent one: call [method move_and_slide] every physics frame (a downward gravity component is enough) and read this afterwards, or the answer goes stale.
+			</description>
+		</method>
+		<method name="is_on_wall" qualifiers="const">
+			<return type="bool" />
+			<description>
+				[code]true[/code] when the last [method move_and_slide] touched a surface too steep to be a floor and not steep enough to be a ceiling -- everything between [member floor_max_angle] and its mirror on the other side.
+				A single move can report a floor and a wall at once; these three are not mutually exclusive.
+			</description>
+		</method>
+		<method name="move_and_slide">
+			<return type="Vector3" />
+			<param index="0" name="velocity" type="Vector3" />
+			<param index="1" name="delta" type="float" />
+			<description>
+				Moves the character by [param velocity] * [param delta], sliding along whatever it touches and pushing out of anything it already overlaps, then returns the velocity actually achieved -- which differs from [param velocity] wherever it slid or stopped.
+				Call this once per physics frame. It applies no gravity of its own: add gravity to [param velocity] yourself, and read the returned velocity back to detect landings and wall hits.
+				The move is [b]swept[/b], not solved in place: each of up to five passes collides the capsule at its current pose, slides the remaining delta along the planes it found, then casts the capsule along that slide and advances only as far as the cast allows. A character moving many metres in one tick therefore cannot pass through thin geometry, and the passes are what let it turn a corner in a single call. It stops early once a pass buys less than a centimetre.
+				After it returns, [method is_on_floor], [method is_on_ceiling], [method is_on_wall], [method get_floor_normal], [method get_last_collisions] and [method clip_velocity] all describe this move.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="clip_plane_velocity" type="bool" setter="set_clip_plane_velocity" getter="get_clip_plane_velocity" default="true">
+			Whether the planes the character touches clip a velocity passed to [method clip_velocity]. On by default, which is ordinary hard collision: the component of the velocity heading into a wall is removed, so a character walking into it stops rather than accumulating speed it cannot use.
+			Turn it off for soft collision, together with a finite [member push_limit]: the character keeps its speed through the give instead of losing it into a plane that is deliberately yielding. With this off, [method clip_velocity] returns the velocity unchanged.
+		</member>
+		<member name="collision_layer" type="int" setter="set_collision_layer" getter="get_collision_layer" default="-1">
+			Which layers the character itself is [b]on[/b]. Query filtering is two-way, so this is the half that shapes test their own [member Box3DBody.collision_mask] against: a shape whose mask excludes this layer ignores the character, while the character's [member collision_mask] decides which shapes it collides with. Both tests must pass.
+			Defaults to every layer so that a character which declares nothing cannot silently fall through geometry that narrows its mask. This is the low 32 layers only, matching [member collision_mask] and the inspector widget; a shape whose only category is in [member Box3DBody.collision_layer_high] cannot be addressed from here.
+		</member>
+		<member name="collision_mask" type="int" setter="set_collision_mask" getter="get_collision_mask" default="-1">
+			Which collision layers the character collides with. 0 collides with nothing and the character passes through the world.
+		</member>
+		<member name="floor_max_angle" type="float" setter="set_floor_max_angle" getter="get_floor_max_angle" default="0.7853982">
+			How far a surface may tilt away from [member up_direction] and still count as a floor, in radians (the inspector shows degrees). The default is 45 degrees.
+			This only classifies what the last move touched, for [method is_on_floor] and friends. It does [b]not[/b] change how the character moves: Box3D has no up axis and the sweep does not consult it, so raising this does not let the character climb a steeper slope, it only changes what the slope is called.
+		</member>
+		<member name="height" type="float" setter="set_height" getter="get_height" default="1.8">
+			Total height of the character capsule, in metres, end caps included. Values below [code]2 * radius[/code] cannot be represented and collapse the capsule to a sphere.
+		</member>
+		<member name="push_limit" type="float" setter="set_push_limit" getter="get_push_limit" default="0.0">
+			How far a collision plane may push the capsule out of an overlap in one solve, in metres.
+			[code]0[/code] means [b]no limit[/b] -- the maximally rigid plane Box3D uses by default, and the behaviour every character had before this existed. The same "0 is unlimited" convention as [member Box3DJoint.force_threshold]; no inspector spinbox can express the infinity it stands for.
+			Any positive value makes the collision [b]soft[/b]: the capsule is only eased out of an overlap, so it sinks into what it hits and recovers over several frames, which is how a pushable crate or a springy ceiling behaves. Upstream pairs a soft limit with [member clip_plane_velocity] off so the mover keeps its speed through the give.
+			[b]Softness is per character, not per obstacle.[/b] Upstream reads this from each shape's own user data; this binding reads it from the character, so one value applies to everything a given character touches.
+		</member>
+		<member name="radius" type="float" setter="set_radius" getter="get_radius" default="0.4">
+			Radius of the character capsule, in metres.
+		</member>
+		<member name="up_direction" type="Vector3" setter="set_up_direction" getter="get_up_direction" default="Vector3(0, 1, 0)">
+			Which way is up for [method is_on_floor], [method is_on_ceiling], [method is_on_wall] and [method get_floor_normal]. Normalized on assignment; assigning a zero vector resets it to [code]Vector3(0, 1, 0)[/code].
+			This is a Godot-side idea layered on top of Box3D, which has no up axis at all. Nothing in the sweep or the solve reads it, so setting it does not tilt the character's gravity or its movement -- feed the direction you want to fall in to [method move_and_slide] yourself.
+		</member>
+	</members>
+</class>

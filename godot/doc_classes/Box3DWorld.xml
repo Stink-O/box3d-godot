@@ -1,0 +1,543 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DWorld" inherits="Node3D" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A Box3D physics simulation. Every other Box3D node must be a descendant of one.
+	</brief_description>
+	<description>
+		A Box3DWorld owns one Box3D simulation. It is the root of every Box3D scene: [Box3DBody], [Box3DJoint] and [Box3DCharacterBody] nodes find their world by walking [b]up[/b] the tree, so they must be descendants of a Box3DWorld to take part. A body placed beside the world instead of under it is never simulated and reports no error.
+		Two Box3DWorld nodes are two separate simulations and never collide with each other.
+		The world drives the simulation once per physics frame while [member auto_step] is on: it pushes kinematic body transforms in, steps Box3D, then reads the simulated transforms back out to the nodes.
+		[b]Units.[/b] This binding is fixed at one Box3D length unit per metre, so every distance is metres, every speed metres per second, and every angle radians.
+		[b]Defaults.[/b] Where a default differs from upstream Box3D it is noted on the property. [member gravity] follows Godot's -9.8 rather than Box3D's -10.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="explode">
+			<return type="void" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="impulse_per_area" type="float" />
+			<param index="3" name="falloff" type="float" default="0.0" />
+			<param index="4" name="collision_mask" type="int" default="-1" />
+			<description>
+				Applies an explosion impulse to every dynamic body within [param radius] of [param center].
+				[param impulse_per_area] is scaled by the shape area facing the blast, so big bodies take a bigger push; a negative value implodes. [param falloff] is an extra distance beyond [param radius] over which the impulse fades to zero.
+				Only sphere, capsule and hull shapes respond -- boxes and meshes are unaffected, which is upstream Box3D behaviour.
+				[param collision_mask] selects which layers the blast reaches. It has no layer half, unlike the queries: Box3D's explosion definition carries a mask and no category of its own.
+			</description>
+		</method>
+		<method name="get_awake_body_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many bodies the solver is still simulating. Sleeping and static bodies are not counted, so in a settled scene this falls to 0 however many bodies exist.
+				This is the number to watch when tuning [member enable_sleep] or hunting a body that refuses to settle: total body count says nothing about cost, this does. Returns 0 while the world does not exist.
+			</description>
+		</method>
+		<method name="get_bounds" qualifiers="const">
+			<return type="AABB" />
+			<description>
+				The bounding box of everything in the world, as an [AABB] in world space.
+				This is the broad-phase tree's bounds, so it is [b]conservative[/b]: the proxies it measures are fattened beyond the actual shapes, and the answer is a little larger than the geometry. Good for framing a camera or sizing a debug grid, not for exact measurement.
+			</description>
+		</method>
+		<method name="get_contact_data" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="contact_id" type="Vector3i" />
+			<description>
+				Everything Box3D knows about the contact named by [param contact_id]. Returns an [b]empty[/b] [Dictionary] when the handle is stale, so a caller does not have to pre-check with [method is_contact_valid] -- but must check the result.
+				The [Dictionary] carries [code]contact_id[/code] (the handle back), [code]body_a[/code] and [code]body_b[/code] ([Box3DBody]), [code]shape_a[/code] and [code]shape_b[/code] ([Box3DCollisionShape], [code]null[/code] for a body's own [member Box3DBody.shape_type] shape), [code]touching[/code] ([bool]), [code]normal[/code] ([Vector3], the first manifold's unit normal, pointing from A towards B), [code]impulse[/code] ([float], summed over every point), [code]manifold_count[/code] ([int]) and [code]points[/code] (an [Array]).
+				[code]touching[/code] is [code]false[/code] for a contact that exists but holds no points this step: Box3D registers a pair as soon as their bounding boxes overlap, well before the shapes meet.
+				Each entry of [code]points[/code] has [code]position[/code] and [code]position_b[/code] ([Vector3], the two witness points, which coincide on a touching point and separate on a speculative one), [code]separation[/code] ([float], negative when overlapping), [code]impulse[/code] ([float]), [code]velocity[/code] ([float], closing speed along the normal), [code]normal[/code] ([Vector3]), [code]manifold[/code] ([int], which manifold it came from -- mesh and height field contacts report several), [code]triangle_index[/code] ([int]) and [code]persisted[/code] ([bool], whether the point survived from the previous step, which is what warm starting depends on).
+				Box3D is speculative, so a listed point can be separated and idle: [code]impulse[/code] is what says it actually interacted.
+			</description>
+		</method>
+		<method name="get_counters" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Simulation size counters for the most recent step as a [Dictionary] -- [code]bodyCount[/code], [code]shapeCount[/code], [code]contactCount[/code], [code]jointCount[/code], [code]islandCount[/code], tree heights, arena use, plus the [code]colorCounts[/code] and [code]manifoldCounts[/code] histograms. Keys are Box3D's own [code]b3Counters[/code] field names. Empty while the world does not exist.
+			</description>
+		</method>
+		<method name="get_graph_color" qualifiers="static">
+			<return type="Color" />
+			<param index="0" name="index" type="int" />
+			<description>
+				Box3D's own colour for constraint-graph slot [param index], as an opaque [Color].
+				This is the palette the [member debug_draw_graph_colors] overlay paints with, so a legend or a script-side visualization built on it matches the overlay instead of guessing. The last slot, [method get_graph_color_count] minus 1, is the overflow colour, which is a real answer rather than an error: it is what Box3D paints constraints that did not fit the graph. An [param index] outside the range is clamped at both ends.
+			</description>
+		</method>
+		<method name="get_graph_color_count" qualifiers="static">
+			<return type="int" />
+			<description>
+				How many colours the constraint-graph palette has, i.e. the valid range for [method get_graph_color]. A Box3D build constant, so it is the same for every world and can be read before one exists.
+			</description>
+		</method>
+		<method name="get_last_query_stats" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				How much of the broad-phase tree the most recent query walked, as a [Dictionary] with [code]node_visits[/code] and [code]leaf_visits[/code] ([int]). Every query on this class reports it, the rays included.
+				A cost readout, not scene state: it is how you tell a query that found one body after visiting a handful of nodes from one that walked the whole tree to find the same body. Reads [code]0[/code] and [code]0[/code] before the first query, and a query against a world that does not exist leaves the previous reading in place rather than clearing it.
+			</description>
+		</method>
+		<method name="get_length_units_per_meter" qualifiers="static">
+			<return type="float" />
+			<description>
+				How many Box3D length units make one metre, process-wide. [code]1[/code] unless the project setting below changed it, and every unit suffix in this binding's inspector is written for [code]1[/code].
+				The scale is what Box3D's own tolerances are expressed in -- the linear slop, the AABB margins, the default sleep threshold and contact speed all move with it -- which is why it exists at all: a game whose "metre" is really a kilometre or a centimetre would otherwise fight tolerances sized for something else.
+			</description>
+		</method>
+		<method name="get_live_settings" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				What the solver is actually running with, read back from Box3D rather than from this node's properties, as a [Dictionary]: [code]gravity[/code], [code]restitutionThreshold[/code], [code]hitEventThreshold[/code], [code]contactRecycleDistance[/code], [code]maximumLinearSpeed[/code], [code]workerCount[/code], [code]sleepingEnabled[/code], [code]continuousEnabled[/code] and [code]warmStartingEnabled[/code]. Keys are Box3D's own field names.
+				Worth reading when a property does not seem to have taken effect. Several are applied only when the world is created ([member worker_count] most notably), and [member max_linear_speed] shows here as the real cap rather than as the [code]0[/code] that means "leave Box3D's default alone". Empty while the world does not exist.
+			</description>
+		</method>
+		<method name="get_max_capacity" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				The high-water mark the world has actually reached, as a [Dictionary] with [code]staticShapeCount[/code], [code]dynamicShapeCount[/code], [code]staticBodyCount[/code], [code]dynamicBodyCount[/code] and [code]contactCount[/code].
+				This is the measurement the [code]capacity_*[/code] properties want: run the heaviest moment of your scene, read this once, then author those numbers so the shipped build never reallocates mid-step. Empty while the world does not exist.
+			</description>
+		</method>
+		<method name="get_max_world_count" qualifiers="static">
+			<return type="int" />
+			<description>
+				How many Box3D worlds can exist at once, a fixed limit compiled into Box3D. Every [Box3DWorld] node holds one while it is inside the tree, so this is the ceiling on simultaneous simulations across the whole game, not per scene.
+			</description>
+		</method>
+		<method name="get_profile" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Per-phase solver timings for the most recent step, in milliseconds, as a [Dictionary]. Keys are Box3D's own [code]b3Profile[/code] field names verbatim ([code]step[/code], [code]collide[/code], [code]solve[/code], [code]constraints[/code], ...). Empty while the world does not exist.
+			</description>
+		</method>
+		<method name="get_recording" qualifiers="const">
+			<return type="Box3DRecording" />
+			<description>
+				The buffer this world is recording into, or [code]null[/code] when no session is running.
+			</description>
+		</method>
+		<method name="get_step_time_ms" qualifiers="const">
+			<return type="float" />
+			<description>
+				Wall-clock milliseconds the last solver step took, measured around the call itself. Prefer this to Godot's physics-time monitor, which reads roughly twice as high under vsync pacing.
+			</description>
+		</method>
+		<method name="get_world_count" qualifiers="static">
+			<return type="int" />
+			<description>
+				How many Box3D worlds exist right now, across every [Box3DWorld] in the game. Compare with [method get_max_world_count].
+				Useful for catching a leak: a world is released when its node leaves the tree, so a count that climbs as scenes come and go means something is keeping a scene alive.
+			</description>
+		</method>
+		<method name="is_contact_valid" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="contact_id" type="Vector3i" />
+			<description>
+				Whether [param contact_id] still names a live contact. Ask this before doing anything with a handle you have kept.
+				A contact handle is Box3D's identifier for the contact [b]itself[/b], not for either shape, and it is the only way to follow one contact across steps: the shape ids identify the pair, and a pair can lose and remake its contact between steps without either shape changing.
+				The handle arrives as a [Vector3i] on [signal contact_began], [signal contact_ended] and [signal contact_hit], and it is [b]opaque[/b] -- the components are not coordinates and nothing should read them. It is a [Vector3i] because the handle does not fit an [int], and because a value type can key a [Dictionary], which is what tracking contacts over time needs.
+				Handles are transient: Box3D may destroy a contact whenever the world is stepped or modified, and every handle on a [signal contact_ended] payload is already stale by definition. Call this on the same world that emitted the handle.
+			</description>
+		</method>
+		<method name="is_recording" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Whether a recording session is running on this world, i.e. between [method start_recording] and [method stop_recording].
+			</description>
+		</method>
+		<method name="make_debug_color" qualifiers="static">
+			<return type="int" />
+			<param index="0" name="color" type="Color" />
+			<param index="1" name="material" type="int" enum="Box3DWorld.DebugMaterial" default="0" />
+			<description>
+				Packs [param color] and a [enum DebugMaterial] preset into the single [int] that [member Box3DBody.surface_materials]' [code]custom_color[/code] entries take.
+				The preset rides in the high byte where the colour converters ignore it, so the low 24 bits stay plain [code]0xRRGGBB[/code] and a colour packed with [constant DEBUG_MATERIAL_DEFAULT] is byte-identical to the raw RGB. [param color]'s alpha is dropped.
+				The preset only means something to a renderer that honours it -- this world's overlay draws unshaded lines and masks it off -- but it travels with the material, so a scene can author it for a renderer of its own.
+			</description>
+		</method>
+		<method name="overlap_aabb">
+			<return type="Array" />
+			<param index="0" name="aabb" type="AABB" />
+			<param index="1" name="collision_mask" type="int" default="-1" />
+			<param index="2" name="collision_layer" type="int" default="-1" />
+			<description>
+				Returns an [Array] of every [Box3DBody] that [i]potentially[/i] overlaps [param aabb], in world space. Each body appears once.
+				[b]This is a broad-phase query and it over-reports.[/b] It tests the fattened bounding boxes the collision tree keeps, not the shapes themselves, so it returns bodies that are merely near the box as well as bodies genuinely inside it. That makes it the cheapest way to narrow a large world down to a candidate set -- for an exact answer, follow it with [method overlap_box] or your own test. [method overlap_box] and [method overlap_sphere] are exact by comparison.
+				[param collision_mask] is which layers the query [b]sees[/b] and [param collision_layer] is which layers the query itself is [b]on[/b]. Filtering is two-way, so a shape is returned only when the query's mask includes one of the shape's layers [b]and[/b] the shape's mask includes one of the query's layers: give the query a narrow layer and a shape whose mask excludes it can ignore this kind of query while still colliding normally. Both default to every layer, all 64 of them, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="overlap_box">
+			<return type="Array" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="size" type="Vector3" />
+			<param index="2" name="collision_mask" type="int" default="-1" />
+			<param index="3" name="collision_layer" type="int" default="-1" />
+			<description>
+				Returns an [Array] of every [Box3DBody] whose shapes overlap the box of [param size] centred on [param center]. Each body appears once, however many of its shapes overlap.
+				[param size] is the [b]full[/b] size of the box, following Godot convention, not the half extents Box3D uses internally. The box is axis-aligned in world space and cannot be rotated.
+				[param collision_mask] is which layers the query [b]sees[/b] and [param collision_layer] is which layers the query itself is [b]on[/b]. Filtering is two-way, so a shape is returned only when the query's mask includes one of the shape's layers [b]and[/b] the shape's mask includes one of the query's layers: give the query a narrow layer and a shape whose mask excludes it can ignore this kind of query while still colliding normally. Both default to every layer, all 64 of them, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="overlap_capsule">
+			<return type="Array" />
+			<param index="0" name="point_a" type="Vector3" />
+			<param index="1" name="point_b" type="Vector3" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="collision_mask" type="int" default="-1" />
+			<param index="4" name="collision_layer" type="int" default="-1" />
+			<description>
+				Returns an [Array] of every [Box3DBody] whose shapes overlap the capsule whose end-cap centres are [param point_a] and [param point_b], with [param radius]. Each body appears once, however many of its shapes overlap.
+				The capsule is given as its two end centres, in world space, rather than as a centre and a height -- which is what makes it the only overlap here that can be [b]tilted[/b]. [method overlap_sphere] and [method overlap_box] take a centre because a sphere and an axis-aligned box have nothing else to say.
+				[param collision_mask] is which layers the query [b]sees[/b] and [param collision_layer] is which layers the query itself is [b]on[/b]. Filtering is two-way, so a shape is returned only when the query's mask includes one of the shape's layers [b]and[/b] the shape's mask includes one of the query's layers: give the query a narrow layer and a shape whose mask excludes it can ignore this kind of query while still colliding normally. Both default to every layer, all 64 of them, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="overlap_convex">
+			<return type="Array" />
+			<param index="0" name="points" type="PackedVector3Array" />
+			<param index="1" name="collision_mask" type="int" default="-1" />
+			<param index="2" name="collision_layer" type="int" default="-1" />
+			<description>
+				Returns an [Array] of every [Box3DBody] whose shapes overlap the convex hull of [param points], in world space. Each body appears once.
+				The query is the [b]convex hull[/b] of what you pass: concave input is tested as its hull, and no hull has to be built beforehand -- the point cloud is the query. This is the general case behind the sphere, box and capsule overlaps, for a view frustum, a swung blade or any volume the fixed shapes cannot express.
+				At most 128 points are used ([code]B3_MAX_SHAPE_CAST_POINTS[/code]); a longer array is truncated with a warning. An empty array returns an empty result.
+				[param collision_mask] is which layers the query [b]sees[/b] and [param collision_layer] is which layers the query itself is [b]on[/b]. Filtering is two-way, so a shape is returned only when the query's mask includes one of the shape's layers [b]and[/b] the shape's mask includes one of the query's layers: give the query a narrow layer and a shape whose mask excludes it can ignore this kind of query while still colliding normally. Both default to every layer, all 64 of them, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="overlap_sphere">
+			<return type="Array" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="collision_mask" type="int" default="-1" />
+			<param index="3" name="collision_layer" type="int" default="-1" />
+			<description>
+				Returns an [Array] of every [Box3DBody] whose shapes overlap the sphere at [param center] with [param radius]. Each body appears once, however many of its shapes overlap.
+				[param collision_mask] is which layers the query [b]sees[/b] and [param collision_layer] is which layers the query itself is [b]on[/b]. Filtering is two-way, so a shape is returned only when the query's mask includes one of the shape's layers [b]and[/b] the shape's mask includes one of the query's layers: give the query a narrow layer and a shape whose mask excludes it can ignore this kind of query while still colliding normally. Both default to every layer, all 64 of them, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="raycast">
+			<return type="Dictionary" />
+			<param index="0" name="from" type="Vector3" />
+			<param index="1" name="to" type="Vector3" />
+			<param index="2" name="collision_mask" type="int" default="-1" />
+			<param index="3" name="collision_layer" type="int" default="-1" />
+			<description>
+				Casts a ray from [param from] to [param to] and returns the closest hit.
+				The returned [Dictionary] [b]always[/b] has [code]hit[/code] (a [bool]), including when the ray found nothing -- so test [code]result["hit"][/code], never whether the dictionary is empty. When it is [code]true[/code] the dictionary also has:
+				- [code]position[/code] ([Vector3]) and [code]normal[/code] ([Vector3]) at the impact.
+				- [code]fraction[/code] ([float], 0..1 along the ray).
+				- [code]collider[/code] (the [Box3DBody] that was hit).
+				- [code]shape[/code] (the [Box3DCollisionShape] that was hit, or [code]null[/code] when the hit was on the body's own [member Box3DBody.shape_type] shape rather than on a child shape node).
+				- [code]user_material[/code] ([int]) -- the [code]user_material_id[/code] of the surface material at the hit, per triangle on a mesh or height field and per child on a compound. 0 unless you authored one.
+				- [code]triangle_index[/code] and [code]child_index[/code] ([int]) -- which triangle of a mesh or height field, and which child of a compound, was hit. Both are -1 where they do not apply.
+				A ray that starts inside a shape does [b]not[/b] report it: this is a closest-hit query and initial overlap is skipped. [method raycast_all] does report it.
+				[param collision_mask] is which layers the query [b]sees[/b] and [param collision_layer] is which layers the query itself is [b]on[/b]. Filtering is two-way, so a shape is returned only when the query's mask includes one of the shape's layers [b]and[/b] the shape's mask includes one of the query's layers: give the query a narrow layer and a shape whose mask excludes it can ignore this kind of query while still colliding normally. Both default to every layer, all 64 of them, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="raycast_all">
+			<return type="Array" />
+			<param index="0" name="from" type="Vector3" />
+			<param index="1" name="to" type="Vector3" />
+			<param index="2" name="collision_mask" type="int" default="-1" />
+			<param index="3" name="collision_layer" type="int" default="-1" />
+			<description>
+				Casts a ray from [param from] to [param to] and returns [b]every[/b] shape along it, as an [Array] of [Dictionary] sorted [b]nearest first[/b].
+				Each entry carries [code]collider[/code], [code]shape[/code], [code]position[/code], [code]normal[/code], [code]fraction[/code], [code]user_material[/code], [code]triangle_index[/code] and [code]child_index[/code] -- the same fields a successful [method raycast] returns, minus [code]hit[/code] (an entry only exists because it hit). A body with several shapes on the ray produces one entry per shape.
+				Unlike [method raycast] this reports shapes the ray starts inside. Use it for a shot that passes through several targets, or to find what is between two points; use [method raycast] when you only want the first thing in the way, which is cheaper because it clips the ray as it goes.
+				[param collision_mask] is which layers the query [b]sees[/b] and [param collision_layer] is which layers the query itself is [b]on[/b]. Filtering is two-way, so a shape is returned only when the query's mask includes one of the shape's layers [b]and[/b] the shape's mask includes one of the query's layers: give the query a narrow layer and a shape whose mask excludes it can ignore this kind of query while still colliding normally. Both default to every layer, all 64 of them, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="set_length_units_per_meter" qualifiers="static">
+			<return type="bool" />
+			<param index="0" name="units" type="float" />
+			<description>
+				Sets the process-wide length scale, returning whether it took. Fails, changing nothing, on a value that is not positive and finite, and [b]refuses once any [Box3DWorld] exists[/b] -- a live world has already baked the old scale into its slop, its margins and every shape in it.
+				Prefer the [code]physics/box3d/length_units_per_meter[/code] project setting, which is applied before any scene loads and is the only way to have it in place for a world created by a scene. This method is for tools and tests that must do it in code, before the first world.
+			</description>
+		</method>
+		<method name="shape_cast_box">
+			<return type="Dictionary" />
+			<param index="0" name="from" type="Vector3" />
+			<param index="1" name="to" type="Vector3" />
+			<param index="2" name="size" type="Vector3" />
+			<param index="3" name="collision_mask" type="int" default="-1" />
+			<param index="4" name="collision_layer" type="int" default="-1" />
+			<description>
+				Sweeps an axis-aligned box of [param size] from [param from] to [param to] and returns the first thing it hits. Returns the same [Dictionary] shape as [method raycast]: [code]hit[/code], plus [code]position[/code], [code]normal[/code], [code]fraction[/code] and [code]collider[/code] when it is [code]true[/code].
+				[param size] is the [b]full[/b] size of the box, following Godot convention, not the half extents Box3D uses internally. The box does not rotate along the sweep and cannot be given an orientation; for a rounded probe use [method shape_cast_sphere].
+				[param collision_mask] is which layers the query [b]sees[/b] and [param collision_layer] is which layers the query itself is [b]on[/b]. Filtering is two-way, so a shape is returned only when the query's mask includes one of the shape's layers [b]and[/b] the shape's mask includes one of the query's layers: give the query a narrow layer and a shape whose mask excludes it can ignore this kind of query while still colliding normally. Both default to every layer, all 64 of them, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="shape_cast_capsule">
+			<return type="Dictionary" />
+			<param index="0" name="point_a" type="Vector3" />
+			<param index="1" name="point_b" type="Vector3" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="motion" type="Vector3" />
+			<param index="4" name="collision_mask" type="int" default="-1" />
+			<param index="5" name="collision_layer" type="int" default="-1" />
+			<description>
+				Sweeps the capsule described by [param point_a], [param point_b] and [param radius] along [param motion] and returns the first thing it hits, in the same [Dictionary] form as [method raycast].
+				The capsule is where the sweep [b]starts[/b] and [param motion] is how far it travels, rather than the from/to pair [method shape_cast_sphere] and [method shape_cast_box] take: a capsule carries its own pose, so there is no single centre to move from one place to another. This is the sweep a tilted character probe or a swung limb wants.
+				[param collision_mask] is which layers the query [b]sees[/b] and [param collision_layer] is which layers the query itself is [b]on[/b]. Filtering is two-way, so a shape is returned only when the query's mask includes one of the shape's layers [b]and[/b] the shape's mask includes one of the query's layers: give the query a narrow layer and a shape whose mask excludes it can ignore this kind of query while still colliding normally. Both default to every layer, all 64 of them, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="shape_cast_convex">
+			<return type="Dictionary" />
+			<param index="0" name="points" type="PackedVector3Array" />
+			<param index="1" name="motion" type="Vector3" />
+			<param index="2" name="collision_mask" type="int" default="-1" />
+			<param index="3" name="collision_layer" type="int" default="-1" />
+			<description>
+				Sweeps the convex hull of [param points] along [param motion] and returns the first thing it hits, in the same [Dictionary] form as [method raycast].
+				As with [method overlap_convex], the query is the hull of the cloud, at most 128 points are used, and [param points] describe where the sweep starts while [param motion] is how far it travels.
+				[param collision_mask] is which layers the query [b]sees[/b] and [param collision_layer] is which layers the query itself is [b]on[/b]. Filtering is two-way, so a shape is returned only when the query's mask includes one of the shape's layers [b]and[/b] the shape's mask includes one of the query's layers: give the query a narrow layer and a shape whose mask excludes it can ignore this kind of query while still colliding normally. Both default to every layer, all 64 of them, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="shape_cast_sphere">
+			<return type="Dictionary" />
+			<param index="0" name="from" type="Vector3" />
+			<param index="1" name="to" type="Vector3" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="collision_mask" type="int" default="-1" />
+			<param index="4" name="collision_layer" type="int" default="-1" />
+			<description>
+				Sweeps a sphere of [param radius] from [param from] to [param to] -- a thick raycast, useful for character probes and camera collision. Returns the same [Dictionary] shape as [method raycast].
+				[param collision_mask] is which layers the query [b]sees[/b] and [param collision_layer] is which layers the query itself is [b]on[/b]. Filtering is two-way, so a shape is returned only when the query's mask includes one of the shape's layers [b]and[/b] the shape's mask includes one of the query's layers: give the query a narrow layer and a shape whose mask excludes it can ignore this kind of query while still colliding normally. Both default to every layer, all 64 of them, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="start_recording">
+			<return type="bool" />
+			<param index="0" name="recording" type="Box3DRecording" />
+			<description>
+				Records every mutation of this world, and every step, into [param recording] until [method stop_recording]. The world holds a reference to the buffer for the whole session, so it cannot be freed underneath a recording world.
+				Safe while [member async_step] is on, and it neither refuses nor disables it: Box3D only writes to the buffer from the thread that called the step, and this call joins the async step first so it lands on a step boundary.
+				Returns [code]false[/code] if this world is already recording, or if [param recording] already holds a session -- starting a second session on a used buffer is refused here rather than silently discarding the first.
+				See [Box3DRecording] for what a recording is for and what its embedded state hashes do and do not cover.
+			</description>
+		</method>
+		<method name="step">
+			<return type="void" />
+			<param index="0" name="delta" type="float" />
+			<description>
+				Advances the simulation by [param delta] seconds. Called automatically each physics frame while [member auto_step] is on; call it yourself only if you turned that off.
+				With [member async_step] on this launches the step in the background and returns immediately, and is a no-op if the previous step is still running.
+			</description>
+		</method>
+		<method name="stop_recording">
+			<return type="bool" />
+			<description>
+				Ends the session, which is what makes the buffer loadable: stopping appends the geometry registry and backpatches the header, and until it has, [method Box3DRecording.get_data] refuses. Returns [code]false[/code] if nothing was recording.
+				Called for you when the world leaves the tree or is deleted, so a scene that quits mid-recording still leaves a complete buffer.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="async_step" type="bool" setter="set_async_step" getter="get_async_step" default="false">
+			Runs the solver on a background thread while the engine renders, applying the results at the start of the next physics frame. If a step overruns a whole physics frame that tick is skipped, so the simulation lags real time instead of stalling the frame rate. Every scripting call that touches the world waits for the step in flight first, so scripts never see torn state.
+			Always [code]false[/code] on Web builds, where the browser's thread pool would deadlock the tab.
+		</member>
+		<member name="auto_step" type="bool" setter="set_auto_step" getter="get_auto_step" default="true">
+			When on, the world advances itself once per physics frame. Turn it off only if a script calls [method step] instead -- with [code]auto_step[/code] off and nobody calling [method step], the simulation never moves.
+		</member>
+		<member name="capacity_contacts" type="int" setter="set_capacity_contacts" getter="get_capacity_contacts" default="0">
+			Expected peak number of contacts, for pre-sizing. See [member capacity_dynamic_bodies].
+		</member>
+		<member name="capacity_dynamic_bodies" type="int" setter="set_capacity_dynamic_bodies" getter="get_capacity_dynamic_bodies" default="0">
+			Expected peak number of dynamic bodies, used to pre-size the world's internal arrays so a scene growing into that size never reallocates mid-step.
+			[code]0[/code] (the default on all five [code]capacity_*[/code] properties) means "let Box3D grow on demand", which is the right answer until a reallocation shows up as a frame-time spike. To author real numbers: run the heaviest moment of the scene, read [method get_max_capacity] once, and put those figures here.
+			[b]Read only when the world is created[/b], so set them before the world enters the tree; changing them later does nothing until the world is rebuilt. Guessing high costs memory and nothing else; guessing low simply reallocates as it would have anyway.
+		</member>
+		<member name="capacity_dynamic_shapes" type="int" setter="set_capacity_dynamic_shapes" getter="get_capacity_dynamic_shapes" default="0">
+			Expected peak number of shapes on dynamic bodies, for pre-sizing. See [member capacity_dynamic_bodies].
+		</member>
+		<member name="capacity_static_bodies" type="int" setter="set_capacity_static_bodies" getter="get_capacity_static_bodies" default="0">
+			Expected peak number of static bodies, for pre-sizing. See [member capacity_dynamic_bodies].
+		</member>
+		<member name="capacity_static_shapes" type="int" setter="set_capacity_static_shapes" getter="get_capacity_static_shapes" default="0">
+			Expected peak number of shapes on static bodies, for pre-sizing. See [member capacity_dynamic_bodies].
+		</member>
+		<member name="contact_damping" type="float" setter="set_contact_damping" getter="get_contact_damping" default="10.0">
+			Contact damping ratio, non-dimensional. Lowering it resolves overlap faster, at the cost of a more energetic (bouncier-looking) recovery. Matches Box3D's default of 10.
+		</member>
+		<member name="contact_hertz" type="float" setter="set_contact_hertz" getter="get_contact_hertz" default="60.0">
+			Contact stiffness in cycles per second. Raising it recovers overlap faster but can introduce jitter.
+			[b]The solver clamps the effective value to [code]0.125 * substep_count * physics FPS[/code][/b] -- 30 Hz at the default 4 substeps and 60 physics ticks, so values above that do nothing until [member substep_count] goes up. Box3D's own default is 30; this binding follows the upstream sample app's 60.
+		</member>
+		<member name="contact_recycle_distance" type="float" setter="set_contact_recycle_distance" getter="get_contact_recycle_distance" default="0.05">
+			How far two shapes may drift apart before the solver throws away the contact points it is keeping between them, in metres. [code]0[/code] disables recycling: every step starts contacts from scratch, which costs warm starting and makes stacks softer.
+			The default of 0.05 m is Box3D's own, derived from its linear slop. Raising it keeps stale contact points alive longer, which can help fast-moving stacks hold together and can also keep a contact that should have ended.
+		</member>
+		<member name="contact_rules" type="Box3DContactRules" setter="set_contact_rules" getter="get_contact_rules">
+			The rule table driving this world's custom filter, pre-solve, friction and restitution callbacks, or [code]null[/code] for Box3D's defaults.
+			Assigning installs the table; clearing it, or replacing it with another, uninstalls the old one first. Prefer this over [method Box3DContactRules.install] because a world that is destroyed and recreated -- by leaving and re-entering the tree -- loses its callbacks, and this property reinstalls them, which is the whole reason it exists.
+			An empty table changes nothing: where no rule applies the callbacks reproduce Box3D's own answers exactly. See [Box3DContactRules].
+		</member>
+		<member name="contact_speed" type="float" setter="set_contact_speed" getter="get_contact_speed" default="3.0">
+			Maximum speed at which the solver pushes overlapping shapes apart, in metres per second. Matches Box3D's default of 3.
+			This is the knob for deep overlap: bodies spawned inside each other, or squeezed together by heavy geometry, separate at no more than this rate rather than exploding out. It is a [b]cap[/b], not a target -- how fast recovery actually goes is set by [member contact_hertz] and [member contact_damping], and this only stops it running away. Note that [code]0[/code] is a real value here, not "unlimited".
+		</member>
+		<member name="continuous_collision" type="bool" setter="set_continuous_collision" getter="get_continuous_collision" default="true">
+			Enables continuous collision detection for the world, which stops fast bodies tunnelling through thin geometry. Individual bodies opt in with [member Box3DBody.continuous].
+		</member>
+		<member name="debug_draw" type="bool" setter="set_debug_draw" getter="get_debug_draw" default="false">
+			Draws a solid state-coloured shell over every collider in the world (awake, asleep, static, sensor), in the style of the upstream Box3D samples. Runtime only -- the editor viewport shows nothing.
+			Shells are batched into one [MultiMesh] per primitive, so even tens of thousands of bodies cost a handful of draw calls. Individual bodies can opt out with [member Box3DBody.debug_visualize].
+			This draws [b]shapes only[/b]. The [code]debug_draw_*[/code] flags below are a separate overlay, drawn by Box3D itself, covering everything the shells cannot show: joints, contacts, islands, mass, sleep state, names and bounds. They are [b]independent of this property[/b] -- any one of them turned on produces the overlay whether or not the shells are drawn.
+		</member>
+		<member name="debug_draw_anchor_a" type="bool" setter="set_debug_draw_anchor_a" getter="get_debug_draw_anchor_a" default="false">
+			Draws contact anchors on side A of each pair instead of side B, when [member debug_draw_contacts] is on. A solver-debugging switch: the two anchors of a contact drift apart as the constraint is violated, so seeing both sides tells you which body is being pushed out of place.
+		</member>
+		<member name="debug_draw_body_names" type="bool" setter="set_debug_draw_body_names" getter="get_debug_draw_body_names" default="false">
+			Draws each body's name in the world at its position. Names come from the node name, or from [method Box3DBody.set_body_name].
+			Labels are 3D text nodes and cost far more than lines, so the overlay draws at most 512 of them per frame and silently stops. Use it on a scene you are inspecting, not on a full one.
+		</member>
+		<member name="debug_draw_contact_features" type="bool" setter="set_debug_draw_contact_features" getter="get_debug_draw_contact_features" default="false">
+			Draws the feature identifiers of each contact point, which say which vertex, edge or face pair generated it. When [member debug_draw_contacts] shows a point flickering or jumping between frames, this shows whether the solver is switching features underneath it -- the usual cause of a stack that will not settle.
+		</member>
+		<member name="debug_draw_contact_forces" type="bool" setter="set_debug_draw_contact_forces" getter="get_debug_draw_contact_forces" default="false">
+			Draws each contact's normal force as an arrow, scaled by [member debug_force_scale]. This is how you see where the load in a stack actually goes and which contact is carrying it. Forces vary over orders of magnitude between scenes, so expect to tune the scale before the arrows are legible.
+		</member>
+		<member name="debug_draw_contact_normals" type="bool" setter="set_debug_draw_contact_normals" getter="get_debug_draw_contact_normals" default="false">
+			Draws the normal direction at each contact point. Worth turning on when a body is being pushed somewhere unexpected: the normal is the direction the push happens along, and a wrong-looking one usually means a wrong-wound mesh (see [member Box3DBody.mesh_indices]) or a shape overlapping something you did not intend.
+		</member>
+		<member name="debug_draw_contacts" type="bool" setter="set_debug_draw_contacts" getter="get_debug_draw_contacts" default="false">
+			Draws every contact point the solver is currently tracking. Because Box3D is speculative, points appear slightly before shapes touch and a drawn point does not by itself mean a body is being pushed -- pair it with [member debug_draw_contact_forces] to see which points are actually loaded.
+		</member>
+		<member name="debug_draw_graph_colors" type="bool" setter="set_debug_draw_graph_colors" getter="get_debug_draw_graph_colors" default="false">
+			Colours contacts and joints by their constraint-graph colour, which is how the solver partitions work that can run in parallel. Few colours over many contacts means the solver cannot spread the work, and raising [member worker_count] will not help that scene. A profiling aid rather than a gameplay one.
+		</member>
+		<member name="debug_draw_islands" type="bool" setter="set_debug_draw_islands" getter="get_debug_draw_islands" default="false">
+			Draws a bounding box around each simulation island -- a set of bodies connected by contacts or joints, which sleep and wake as a unit.
+			This is the overlay that explains sleep: a body that will not settle keeps its whole island awake, and this shows you which bodies it has dragged in with it. See also [method get_awake_body_count].
+		</member>
+		<member name="debug_draw_joint_extras" type="bool" setter="set_debug_draw_joint_extras" getter="get_debug_draw_joint_extras" default="false">
+			Adds each joint's extra detail to [member debug_draw_joints]: limits, motor targets and the frames the constraint is measured in. This is where a joint whose motor pulls the wrong way gives itself away, since the drawn frames show which body is A and which is B (Box3D measures the joint from B relative to A).
+			Has no effect while [member debug_draw_joints] is off.
+		</member>
+		<member name="debug_draw_joints" type="bool" setter="set_debug_draw_joints" getter="get_debug_draw_joints" default="false">
+			Draws every joint in the world: its anchors and the connection between the bodies it holds. The fastest way to see that a joint is anchored where you meant it to be. Turn on [member debug_draw_joint_extras] for its limits and frames as well, and scale the whole drawing with [member debug_joint_scale].
+		</member>
+		<member name="debug_draw_mass" type="bool" setter="set_debug_draw_mass" getter="get_debug_draw_mass" default="false">
+			Draws each dynamic body's centre of mass and its mass axes. A compound body's centre is rarely at its node origin, and a body that topples or spins strangely is usually a body whose centre of mass is not where its author assumed. See also [method Box3DBody.get_center_of_mass].
+		</member>
+		<member name="debug_draw_shape_bounds" type="bool" setter="set_debug_draw_shape_bounds" getter="get_debug_draw_shape_bounds" default="false">
+			Draws the broad-phase bounding box of every shape. These are the fattened proxies the collision tree keeps, so they are deliberately larger than the shapes and they are what [method overlap_aabb] and [method get_bounds] report against.
+		</member>
+		<member name="debug_draw_sleep" type="bool" setter="set_debug_draw_sleep" getter="get_debug_draw_sleep" default="false">
+			Draws the sleep state of dynamic and kinematic bodies, so you can see at a glance what the solver has retired. The counterpart to [signal body_fell_asleep] for when you want the whole picture rather than an event, and the quickest check that [member enable_sleep] is doing its job.
+		</member>
+		<member name="debug_drawing_bounds" type="AABB" setter="set_debug_drawing_bounds" getter="get_debug_drawing_bounds" default="AABB(-100, -100, -100, 200, 200, 200)">
+			The region of the world the overlay draws at all. Everything outside is culled before any of it is generated, so this is the knob that keeps the overlay affordable in a large level: point it at the area you are inspecting.
+			Defaults to Box3D's own +/-100 m box, [b]not[/b] to the whole world -- an overlay that appears to stop at an invisible wall has simply reached this bound.
+		</member>
+		<member name="debug_force_scale" type="float" setter="set_debug_force_scale" getter="get_debug_force_scale" default="1.0">
+			Multiplies the length of the arrows [member debug_draw_contact_forces] draws. Purely visual: it changes nothing in the simulation. Contact forces range over orders of magnitude between a light prop and a heavy stack, so this almost always needs tuning before the arrows read.
+		</member>
+		<member name="debug_joint_scale" type="float" setter="set_debug_joint_scale" getter="get_debug_joint_scale" default="1.0">
+			Multiplies the size of everything [member debug_draw_joints] and [member debug_draw_joint_extras] draw. Purely visual. Raise it when joint markers vanish inside the bodies they connect, lower it when a dense mechanism becomes a thicket.
+		</member>
+		<member name="enable_sleep" type="bool" setter="set_enable_sleep" getter="get_enable_sleep" default="true">
+			Lets settled islands of bodies stop being simulated until something disturbs them. This is the single biggest saving in a scene with a lot of resting geometry. Individual bodies can opt out with [member Box3DBody.can_sleep].
+		</member>
+		<member name="enable_warm_starting" type="bool" setter="set_enable_warm_starting" getter="get_enable_warm_starting" default="true">
+			Reuses the previous step's contact impulses as the starting guess for this one. On by default and worth leaving on: without it stacks sink and jitter. Turning it off is a debugging tool, not a tuning knob.
+		</member>
+		<member name="gravity" type="Vector3" setter="set_gravity" getter="get_gravity" default="Vector3(0, -9.8, 0)">
+			Gravity applied to every dynamic body, in metres per second squared. Defaults to Godot's -9.8 on Y; Box3D's own default is -10.
+		</member>
+		<member name="hit_event_threshold" type="float" setter="set_hit_event_threshold" getter="get_hit_event_threshold" default="1.0">
+			How fast two shapes must close on each other before the world emits [signal contact_hit], in metres per second. Matches Box3D's default of 1.
+			This is the gate on the whole signal: raise it and only hard impacts report, which is what you want for impact sounds and damage; lower it towards 0 and every brushing contact fires, including the ones a resting stack makes as it settles.
+		</member>
+		<member name="max_linear_speed" type="float" setter="set_max_linear_speed" getter="get_max_linear_speed" default="0.0">
+			Speed cap for dynamic bodies, in metres per second. [code]0[/code] does not mean "no limit": it means "leave Box3D's own default alone", which is 400 m/s (faster than sound).
+		</member>
+		<member name="restitution_threshold" type="float" setter="set_restitution_threshold" getter="get_restitution_threshold" default="1.0">
+			The impact speed below which [member Box3DBody.restitution] is ignored, in metres per second. Matches Box3D's default of 1.
+			Bouncy bodies would otherwise never settle: each tiny contact returns a tiny bounce and the body buzzes on the floor forever. This is what lets a ball with [code]restitution = 0.9[/code] come to rest. [b]Do not set it very small[/b] -- upstream warns that it then keeps bodies from ever sleeping. Raise it instead if a bouncy body still jitters at rest.
+		</member>
+		<member name="substep_count" type="int" setter="set_substep_count" getter="get_substep_count" default="4">
+			Solver substeps per step. More substeps make stacks, joints and fast contacts stiffer and more accurate at close to linear cost. It is also the cheapest fix for a wobbly stack.
+			The effective [member contact_hertz] is capped at [code]0.125 * substep_count * physics FPS[/code], so raising this raises that ceiling too.
+		</member>
+		<member name="worker_count" type="int" setter="set_worker_count" getter="get_worker_count" default="1">
+			Number of worker threads Box3D's internal solver uses. 1 keeps the solver single-threaded. Clamped by Box3D to [code][1, 32][/code].
+			[b]Applied when the world is created[/b], so set it before the world enters the tree; changing it later has no effect until the world is rebuilt. Always 1 on single-threaded Web builds.
+			Box3D performs best on performance cores sharing one L2 cache; efficiency cores and hyper-threading add little.
+		</member>
+	</members>
+	<signals>
+		<signal name="body_fell_asleep">
+			<param index="0" name="body" type="Box3DBody" />
+			<description>
+				Emitted the step [param body] stops being simulated, after its island has been at rest below [member Box3DBody.sleep_threshold] long enough for the solver to retire it. Never emitted while [member enable_sleep] is off, or for a body with [member Box3DBody.can_sleep] off.
+				[b]There is no matching "woke up" signal[/b], because Box3D does not report one: falling asleep is the only sleep transition it publishes. Poll [method Box3DBody.is_awake] if you need the other edge.
+				Connecting to this makes the world walk its moved-body list every step, which at tens of thousands of bodies is not free. Nothing connected costs nothing.
+			</description>
+		</signal>
+		<signal name="contact_began">
+			<param index="0" name="contact" type="Dictionary" />
+			<description>
+				Emitted once for each pair of shapes that starts touching, whichever bodies they belong to. [param contact] carries [code]body_a[/code] and [code]body_b[/code] ([Box3DBody]), [code]shape_a[/code] and [code]shape_b[/code] ([Box3DCollisionShape], [code]null[/code] for a body's own [member Box3DBody.shape_type] shape) and [code]contact_id[/code] ([Vector3i], the handle for [method get_contact_data]).
+				[signal Box3DBody.body_entered] reports the same touches from one body's point of view. This one exists because the contact handle belongs to the [b]pair[/b], and upstream reports the event once per pair rather than once per body.
+				Requires the touching bodies to have [member Box3DBody.contact_monitor] on, as the body signals do. Nothing connected costs nothing: the world only walks its begin-touch events when this signal has a listener.
+			</description>
+		</signal>
+		<signal name="contact_ended">
+			<param index="0" name="contact" type="Dictionary" />
+			<description>
+				Emitted once for each pair of shapes that stops touching. Same payload as [signal contact_began].
+				[b]Everything in the payload may already be gone.[/b] A contact commonly ends because a shape or a body was destroyed, so the shape entries are [code]null[/code] where that side no longer exists, and [method is_contact_valid] answers [code]false[/code] for the handle -- which is the point of the handle rather than a defect in it. Do not call [method get_contact_data] on an end event and expect data.
+				Requires [member Box3DBody.contact_monitor] on the bodies involved, and costs nothing while nothing is connected.
+			</description>
+		</signal>
+		<signal name="contact_hit">
+			<param index="0" name="hit" type="Dictionary" />
+			<description>
+				Emitted once for each impact fast enough to pass [member hit_event_threshold]. This is the only place Box3D hands out contact geometry without a manifold query, and it is what impact sounds, sparks and damage should listen to.
+				[param hit] carries:
+				- [code]body_a[/code] and [code]body_b[/code] ([Box3DBody]) -- the two bodies that met.
+				- [code]shape_a[/code] and [code]shape_b[/code] ([Box3DCollisionShape]) -- the shape nodes involved, each [code]null[/code] when that side's shape came from the body's own [member Box3DBody.shape_type] rather than from a child shape node.
+				- [code]point[/code] ([Vector3]) -- where they met, in world space.
+				- [code]normal[/code] ([Vector3]) -- unit normal pointing [b]from A towards B[/b]. The A/B ordering is Box3D's, not yours; do not assume either side is "the one you care about".
+				- [code]approach_speed[/code] ([float]) -- how fast they closed, in metres per second. Always positive; scale your sound or damage by it.
+				- [code]user_material_a[/code] and [code]user_material_b[/code] ([int]) -- the [code]user_material_id[/code] of each side's surface material, for picking a material-specific response. 0 unless you authored one.
+				- [code]contact_id[/code] ([Vector3i]) -- the opaque handle to the contact itself, for [method get_contact_data]. See [method is_contact_valid] for what it is and how long it lives.
+				The event is reported [b]once per pair[/b], not once per body, which is why it lives on the world rather than on [Box3DBody]. Both bodies get the same [param hit] with the same A/B ordering.
+				Every field is copied out of the solver before the signal fires, so a handler may keep the [Dictionary] past the step.
+			</description>
+		</signal>
+		<signal name="joint_threshold_exceeded">
+			<param index="0" name="joint" type="Box3DJoint" />
+			<param index="1" name="force" type="Vector3" />
+			<param index="2" name="torque" type="Vector3" />
+			<description>
+				Emitted for an awake [param joint] whose constraint load reached its [member Box3DJoint.force_threshold] or [member Box3DJoint.torque_threshold] during the step. This is how a joint breaks: connect, and free or disable the joint when it fires.
+				[param force] is the constraint force in newtons and [param torque] the constraint torque in newton-metres, both read back at event time (Box3D leaves them out of the event itself). Both are [constant Vector3.ZERO] if the joint was destroyed by an earlier handler in the same step.
+				[b]A threshold of 0 means the signal never fires for that joint[/b], not "fires always": these nodes treat 0 as "no limit" and pass Box3D its infinity. Author a real threshold on any joint you want events from. Since joints ship with no threshold, this signal is silent until you set one.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+		<constant name="DEBUG_MATERIAL_DEFAULT" value="0" enum="DebugMaterial">
+			No preset: the renderer keeps its own per-body-type look. A plain [code]0xRRGGBB[/code] colour already reads as this, so packing with it changes nothing.
+		</constant>
+		<constant name="DEBUG_MATERIAL_MATTE" value="1" enum="DebugMaterial">
+			Rough and non-reflective. What Box3D's own overlay colours static bodies and sleeping kinematic bodies with.
+		</constant>
+		<constant name="DEBUG_MATERIAL_SOFT" value="2" enum="DebugMaterial">
+			Slightly rough. What Box3D's own overlay colours awake dynamic bodies with.
+		</constant>
+		<constant name="DEBUG_MATERIAL_DEAD" value="3" enum="DebugMaterial">
+			The roughest of the presets, so it reads as inert. What Box3D's own overlay colours sleeping dynamic bodies with.
+		</constant>
+		<constant name="DEBUG_MATERIAL_GLOSSY" value="4" enum="DebugMaterial">
+			Smooth and reflective. What Box3D's own overlay colours fast-moving bodies with.
+		</constant>
+		<constant name="DEBUG_MATERIAL_METALLIC" value="5" enum="DebugMaterial">
+			The only metallic preset. What Box3D's own overlay colours awake kinematic bodies with.
+		</constant>
+	</constants>
+</class>

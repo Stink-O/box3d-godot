@@ -49,6 +49,17 @@ if env["platform"] == "web":
 # C++ wrapper + Box3D core C sources.
 sources = Glob("src/*.cpp") + Glob("../src/*.c")
 
+# In-editor class reference. Godot reads the docs for extension classes out of
+# the extension binary itself, so doc_classes/*.xml is compiled in -- for editor
+# and debug targets only, since a release template has no help browser.
+#
+# The XML is generated from the registered classes and then filled in by hand;
+# after adding or renaming a binding, regenerate (the tool MERGES, so existing
+# prose survives):
+#   cd demo && godot --headless --doctool ../ --gdextension-docs
+if env["target"] in ["editor", "template_debug"]:
+    sources.append(env.GodotCPPDocData("src/gen/doc_data.gen.cpp", source=Glob("doc_classes/*.xml")))
+
 libname = "libbox3d_godot"
 bindir = "demo/bin"
 

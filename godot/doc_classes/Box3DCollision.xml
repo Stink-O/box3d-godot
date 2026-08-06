@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DCollision" inherits="Object" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Upstream's standalone collision queries: rays, sweeps, overlaps, distance, time of impact and manifolds, on geometry that is in no world.
+	</brief_description>
+	<description>
+		Static collision maths on raw geometry. Every call is [b]static and needs no world[/b]: nothing here reads or locks a simulation, so it is safe while a world is stepping.
+		That is also what it is for -- predicting a collision that has not happened, or asking about geometry that was never added to a scene: a spawn check, a level tool, an AI probing a plan. For "what is in the scene right now", use [Box3DWorld]'s queries instead.
+		Two conventions run through the whole class.
+		[b]A primitive is spelled out in arguments[/b], as Box3D spells it: a sphere is a centre and a radius, a capsule is its two end-cap centres and a radius, a hull is a point cloud that gets hulled for you.
+		[b]A proxy is the generic query shape[/b]: a point cloud plus a radius. One point with a radius is a sphere, two are a capsule, eight with radius 0 are a box, and any cloud is its own convex hull. At most 128 points.
+		[b]Everything is in one frame: shape A's.[/b] Upstream runs the pair queries in A's frame and returns their points and normals there, so [code]transform_b[/code] is always B's pose [i]relative to A[/i], and a result has to be moved into world space by the caller.
+		The warm-start caches upstream exposes are not bound: they only pay off across repeated calls with nearby poses, and a wrong one is a wrong answer, so each call here starts clean.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="collide_capsule_and_sphere" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center_a1" type="Vector3" />
+			<param index="1" name="center_a2" type="Vector3" />
+			<param index="2" name="radius_a" type="float" />
+			<param index="3" name="center_b" type="Vector3" />
+			<param index="4" name="radius_b" type="float" />
+			<param index="5" name="transform_b" type="Transform3D" />
+			<description>
+				The manifold between a capsule (A) and a sphere (B). Same result as [method collide_spheres].
+			</description>
+		</method>
+		<method name="collide_capsules" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center_a1" type="Vector3" />
+			<param index="1" name="center_a2" type="Vector3" />
+			<param index="2" name="radius_a" type="float" />
+			<param index="3" name="center_b1" type="Vector3" />
+			<param index="4" name="center_b2" type="Vector3" />
+			<param index="5" name="radius_b" type="float" />
+			<param index="6" name="transform_b" type="Transform3D" />
+			<description>
+				The manifold between two capsules. Same result as [method collide_spheres].
+			</description>
+		</method>
+		<method name="collide_hull_and_capsule" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="points_a" type="PackedVector3Array" />
+			<param index="1" name="center_b1" type="Vector3" />
+			<param index="2" name="center_b2" type="Vector3" />
+			<param index="3" name="radius_b" type="float" />
+			<param index="4" name="transform_b" type="Transform3D" />
+			<description>
+				The manifold between a hull and a capsule. Same result as [method collide_spheres].
+			</description>
+		</method>
+		<method name="collide_hull_and_sphere" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="points_a" type="PackedVector3Array" />
+			<param index="1" name="center_b" type="Vector3" />
+			<param index="2" name="radius_b" type="float" />
+			<param index="3" name="transform_b" type="Transform3D" />
+			<description>
+				The manifold between the convex hull of [param points_a] and a sphere. Same result as [method collide_spheres].
+			</description>
+		</method>
+		<method name="collide_hulls" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="points_a" type="PackedVector3Array" />
+			<param index="1" name="points_b" type="PackedVector3Array" />
+			<param index="2" name="transform_b" type="Transform3D" />
+			<description>
+				The manifold between two convex hulls. Same result as [method collide_spheres]. Both hulls are built for the call and freed before it returns.
+			</description>
+		</method>
+		<method name="collide_spheres" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center_a" type="Vector3" />
+			<param index="1" name="radius_a" type="float" />
+			<param index="2" name="center_b" type="Vector3" />
+			<param index="3" name="radius_b" type="float" />
+			<param index="4" name="transform_b" type="Transform3D" />
+			<description>
+				The manifold two spheres would produce if they met at these poses -- the narrow phase itself, run outside any world.
+				Returns [code]normal[/code] ([Vector3]) and [code]points[/code] (an [Array] of [code]{ point, separation, triangle_index }[/code]). [b]Both are local to A[/b], not world space, and an empty [code]points[/code] means the shapes are apart. [param transform_b] is B's pose in A's frame.
+				This is the question a spawn check asks: not "is there anything here" but "what would the contact look like".
+			</description>
+		</method>
+		<method name="collide_triangle_and_capsule" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="triangle" type="PackedVector3Array" />
+			<param index="1" name="center_b1" type="Vector3" />
+			<param index="2" name="center_b2" type="Vector3" />
+			<param index="3" name="radius_b" type="float" />
+			<param index="4" name="transform_b" type="Transform3D" />
+			<description>
+				The manifold between a single triangle and a capsule, with the same triangle-first ordering as [method collide_triangle_and_sphere].
+			</description>
+		</method>
+		<method name="collide_triangle_and_hull" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="triangle" type="PackedVector3Array" />
+			<param index="1" name="points_b" type="PackedVector3Array" />
+			<param index="2" name="transform_b" type="Transform3D" />
+			<param index="3" name="triangle_flags" type="int" default="0" />
+			<param index="4" name="enable_speculative" type="bool" default="true" />
+			<description>
+				The manifold between a single triangle and a convex hull.
+				[param triangle_flags] marks which of the triangle's edges are concave, as Box3D's mesh edge flags do; [code]0[/code] treats every edge as convex, which is right for a lone triangle. [param enable_speculative] keeps points that are close but not yet touching, as the solver does.
+			</description>
+		</method>
+		<method name="collide_triangle_and_sphere" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="triangle" type="PackedVector3Array" />
+			<param index="1" name="center_b" type="Vector3" />
+			<param index="2" name="radius_b" type="float" />
+			<param index="3" name="transform_b" type="Transform3D" />
+			<description>
+				The manifold between a single triangle and a sphere. [param triangle] is three points, already in A's frame, which is why it takes no transform of its own.
+				[b]The normal points from the triangle towards the other shape[/b], which is the ordering the mesh narrow phase uses.
+			</description>
+		</method>
+		<method name="compute_capsule_aabb" qualifiers="static">
+			<return type="AABB" />
+			<param index="0" name="center1" type="Vector3" />
+			<param index="1" name="center2" type="Vector3" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="transform" type="Transform3D" />
+			<description>
+				The world-space [AABB] of the capsule described by [param center1], [param center2] and [param radius], posed by [param transform].
+			</description>
+		</method>
+		<method name="compute_capsule_mass" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center1" type="Vector3" />
+			<param index="1" name="center2" type="Vector3" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="density" type="float" />
+			<description>
+				Mass properties of the capsule described by [param center1], [param center2] and [param radius] at [param density]. Same keys as [method compute_sphere_mass].
+			</description>
+		</method>
+		<method name="compute_hull_aabb" qualifiers="static">
+			<return type="AABB" />
+			<param index="0" name="points" type="PackedVector3Array" />
+			<param index="1" name="transform" type="Transform3D" />
+			<description>
+				The world-space [AABB] of the convex hull of [param points], posed by [param transform].
+			</description>
+		</method>
+		<method name="compute_hull_mass" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="points" type="PackedVector3Array" />
+			<param index="1" name="density" type="float" />
+			<description>
+				Mass properties of the convex hull of [param points] at [param density]. Same keys as [method compute_sphere_mass] -- the way to weigh a shape before deciding whether to build it.
+			</description>
+		</method>
+		<method name="compute_sphere_aabb" qualifiers="static">
+			<return type="AABB" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="transform" type="Transform3D" />
+			<description>
+				The world-space [AABB] of the sphere at [param center] with [param radius], posed by [param transform].
+			</description>
+		</method>
+		<method name="compute_sphere_mass" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="density" type="float" />
+			<description>
+				Mass properties of the sphere at [param center] with [param radius] at [param density]: [code]mass[/code] ([float]), [code]center[/code] ([Vector3]) and [code]inertia[/code] ([Basis]).
+				The same three keys [method Box3DBody.get_mass_data] uses, so a computed tensor can be handed straight to [method Box3DBody.set_mass_data].
+			</description>
+		</method>
+		<method name="get_sweep_transform" qualifiers="static">
+			<return type="Transform3D" />
+			<param index="0" name="from" type="Transform3D" />
+			<param index="1" name="to" type="Transform3D" />
+			<param index="2" name="time" type="float" />
+			<description>
+				The pose at [param time] along the sweep from [param from] to [param to], where [param time] is the fraction [method time_of_impact] reports. Rotation is interpolated as Box3D interpolates it, so this agrees with the impact the sweep found.
+			</description>
+		</method>
+		<method name="is_valid_ray" qualifiers="static">
+			<return type="bool" />
+			<param index="0" name="origin" type="Vector3" />
+			<param index="1" name="translation" type="Vector3" />
+			<param index="2" name="max_fraction" type="float" default="1.0" />
+			<description>
+				Whether a ray is well formed: finite origin and translation, and a [param max_fraction] Box3D accepts. Every ray cast here runs it first, so a bad ray is a clean miss rather than an assert -- call it yourself when you want to know [i]why[/i] a cast returned nothing.
+			</description>
+		</method>
+		<method name="overlap_capsule" qualifiers="static">
+			<return type="bool" />
+			<param index="0" name="center1" type="Vector3" />
+			<param index="1" name="center2" type="Vector3" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="transform" type="Transform3D" />
+			<param index="4" name="proxy_points" type="PackedVector3Array" />
+			<param index="5" name="proxy_radius" type="float" />
+			<description>
+				[method overlap_sphere] against a capsule described by [param center1], [param center2] and [param radius].
+			</description>
+		</method>
+		<method name="overlap_hull" qualifiers="static">
+			<return type="bool" />
+			<param index="0" name="points" type="PackedVector3Array" />
+			<param index="1" name="transform" type="Transform3D" />
+			<param index="2" name="proxy_points" type="PackedVector3Array" />
+			<param index="3" name="proxy_radius" type="float" />
+			<description>
+				[method overlap_sphere] against the convex hull of [param points].
+			</description>
+		</method>
+		<method name="overlap_sphere" qualifiers="static">
+			<return type="bool" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="transform" type="Transform3D" />
+			<param index="3" name="proxy_points" type="PackedVector3Array" />
+			<param index="4" name="proxy_radius" type="float" />
+			<description>
+				Whether the proxy described by [param proxy_points] and [param proxy_radius] overlaps the sphere at [param center] with [param radius], posed by [param transform].
+				[param transform] poses the [b]primitive[/b]; the proxy is already where its points say it is.
+			</description>
+		</method>
+		<method name="ray_cast_capsule" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center1" type="Vector3" />
+			<param index="1" name="center2" type="Vector3" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="origin" type="Vector3" />
+			<param index="4" name="translation" type="Vector3" />
+			<param index="5" name="max_fraction" type="float" default="1.0" />
+			<description>
+				Casts a ray at the capsule described by [param center1], [param center2] and [param radius]. Same result as [method ray_cast_sphere], including the inside-is-a-hit rule.
+			</description>
+		</method>
+		<method name="ray_cast_hollow_sphere" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="origin" type="Vector3" />
+			<param index="3" name="translation" type="Vector3" />
+			<param index="4" name="max_fraction" type="float" default="1.0" />
+			<description>
+				[method ray_cast_sphere] against a [b]shell[/b] rather than a ball: a ray starting inside passes through the interior and hits the far wall, which is what a containment or dome test wants.
+			</description>
+		</method>
+		<method name="ray_cast_hull" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="points" type="PackedVector3Array" />
+			<param index="1" name="origin" type="Vector3" />
+			<param index="2" name="translation" type="Vector3" />
+			<param index="3" name="max_fraction" type="float" default="1.0" />
+			<description>
+				Casts a ray at the convex hull of [param points]. The hull is built for the call and freed before it returns. Same result as [method ray_cast_sphere].
+			</description>
+		</method>
+		<method name="ray_cast_sphere" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="origin" type="Vector3" />
+			<param index="3" name="translation" type="Vector3" />
+			<param index="4" name="max_fraction" type="float" default="1.0" />
+			<description>
+				Casts a ray at the sphere at [param center] with [param radius], in the sphere's own frame.
+				Returns [code]hit[/code] ([bool]), plus [code]position[/code], [code]normal[/code], [code]fraction[/code] and [code]iterations[/code]. A zero-length translation is a point query, and an origin [b]inside[/b] the sphere reports a hit at the origin with fraction 0 and a zero normal.
+			</description>
+		</method>
+		<method name="shape_cast" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="points_a" type="PackedVector3Array" />
+			<param index="1" name="radius_a" type="float" />
+			<param index="2" name="points_b" type="PackedVector3Array" />
+			<param index="3" name="radius_b" type="float" />
+			<param index="4" name="transform_b" type="Transform3D" />
+			<param index="5" name="translation_b" type="Vector3" />
+			<param index="6" name="max_fraction" type="float" default="1.0" />
+			<param index="7" name="can_encroach" type="bool" default="false" />
+			<description>
+				Sweeps proxy B, posed at [param transform_b], along [param translation_b] against a fixed proxy A, in A's frame. Returns the same [Dictionary] as [method ray_cast_sphere]. Touching at the start is a miss.
+				This is the general form of the [code]shape_cast_*[/code] methods above, for when both shapes are point clouds.
+			</description>
+		</method>
+		<method name="shape_cast_capsule" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center1" type="Vector3" />
+			<param index="1" name="center2" type="Vector3" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="proxy_points" type="PackedVector3Array" />
+			<param index="4" name="proxy_radius" type="float" />
+			<param index="5" name="translation" type="Vector3" />
+			<param index="6" name="max_fraction" type="float" default="1.0" />
+			<param index="7" name="can_encroach" type="bool" default="false" />
+			<description>
+				[method shape_cast_sphere] against a capsule described by [param center1], [param center2] and [param radius].
+			</description>
+		</method>
+		<method name="shape_cast_hull" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="points" type="PackedVector3Array" />
+			<param index="1" name="proxy_points" type="PackedVector3Array" />
+			<param index="2" name="proxy_radius" type="float" />
+			<param index="3" name="translation" type="Vector3" />
+			<param index="4" name="max_fraction" type="float" default="1.0" />
+			<param index="5" name="can_encroach" type="bool" default="false" />
+			<description>
+				[method shape_cast_sphere] against the convex hull of [param points].
+			</description>
+		</method>
+		<method name="shape_cast_sphere" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="center" type="Vector3" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="proxy_points" type="PackedVector3Array" />
+			<param index="3" name="proxy_radius" type="float" />
+			<param index="4" name="translation" type="Vector3" />
+			<param index="5" name="max_fraction" type="float" default="1.0" />
+			<param index="6" name="can_encroach" type="bool" default="false" />
+			<description>
+				Sweeps the proxy described by [param proxy_points] and [param proxy_radius] along [param translation], against the sphere at [param center].
+				Returns the same [Dictionary] as [method ray_cast_sphere]. [b]Initial overlap is a miss[/b] here, the opposite of the ray casts: a sweep that starts touching reports nothing. [param can_encroach] lets a proxy with a radius close slightly further when it is already touching.
+			</description>
+		</method>
+		<method name="shape_distance" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="points_a" type="PackedVector3Array" />
+			<param index="1" name="radius_a" type="float" />
+			<param index="2" name="points_b" type="PackedVector3Array" />
+			<param index="3" name="radius_b" type="float" />
+			<param index="4" name="transform_b" type="Transform3D" />
+			<param index="5" name="use_radii" type="bool" default="true" />
+			<description>
+				The closest points between two convex proxies, with B posed at [param transform_b] in A's frame.
+				Returns [code]point_a[/code] and [code]point_b[/code] ([Vector3]), [code]normal[/code] ([Vector3]), [code]distance[/code] ([float]) and [code]iterations[/code] ([int]). A [code]distance[/code] of 0 means they overlap, and [code]normal[/code] is meaningless there -- that is upstream's overlap signal, so test the distance before trusting the normal.
+				[param use_radii] accounts for each proxy's radius; turn it off to measure between the point clouds themselves.
+			</description>
+		</method>
+		<method name="time_of_impact" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="points_a" type="PackedVector3Array" />
+			<param index="1" name="radius_a" type="float" />
+			<param index="2" name="from_a" type="Transform3D" />
+			<param index="3" name="to_a" type="Transform3D" />
+			<param index="4" name="points_b" type="PackedVector3Array" />
+			<param index="5" name="radius_b" type="float" />
+			<param index="6" name="from_b" type="Transform3D" />
+			<param index="7" name="to_b" type="Transform3D" />
+			<param index="8" name="max_fraction" type="float" default="1.0" />
+			<description>
+				The first moment between 0 and [param max_fraction] at which two [b]sweeping[/b] proxies touch. Each sweep is given as its frame's start and end pose ([param from_a] to [param to_a], [param from_b] to [param to_b]), with the points in that frame.
+				Returns [code]state[/code] (one of the [enum TOIState] values), [code]state_name[/code] ([String]), [code]fraction[/code] ([float]), [code]distance[/code] ([float]), [code]point[/code] and [code]normal[/code] ([Vector3]), plus three iteration counts for diagnostics. Feed [code]fraction[/code] to [method get_sweep_transform] to get the pose at the moment of impact.
+				This is how a fast projectile is tested against a moving target without stepping either of them. Upstream warns that it uses a swept separating axis and can miss intermediate collisions that do not tunnel.
+			</description>
+		</method>
+	</methods>
+	<constants>
+		<constant name="TOI_UNKNOWN" value="0" enum="TOIState">
+			No result: the query did not run to a conclusion. Treat it as "do not act on this".
+		</constant>
+		<constant name="TOI_FAILED" value="1" enum="TOIState">
+			The solver could not converge on an impact time. Rare, and a signal to fall back on a simpler test rather than to trust the fraction.
+		</constant>
+		<constant name="TOI_OVERLAPPED" value="2" enum="TOIState">
+			The two shapes already overlap at the start of the sweep, so there is no impact time to find.
+		</constant>
+		<constant name="TOI_HIT" value="3" enum="TOIState">
+			The shapes touch during the sweep. [code]fraction[/code] is when, and is the only state in which it means anything.
+		</constant>
+		<constant name="TOI_SEPARATED" value="4" enum="TOIState">
+			The shapes never touch over the whole sweep.
+		</constant>
+	</constants>
+</class>

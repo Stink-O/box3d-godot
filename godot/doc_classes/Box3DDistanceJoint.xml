@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DDistanceJoint" inherits="Box3DJoint" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Keeps two bodies a set distance apart: a rod, a rope, or a spring.
+	</brief_description>
+	<description>
+		Constrains the distance between the joint's anchor points on the two bodies. Rigid by default (a rod), a spring with [member spring_enabled], and a rope when [member limit_enabled] lets the distance vary between [member min_length] and [member max_length].
+		[b][member spring_enabled] gates the rest of the joint.[/b] While it is off the joint holds [member length] rigidly and Box3D ignores the limits and the motor entirely, so a winch or a rope that "does nothing" is usually a distance joint with no spring. The scene dock warns about it.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_current_length" qualifiers="const">
+			<return type="float" />
+			<description>
+				The current distance between the joint's anchors, in metres, which differs from [member length] whenever the spring or the limits let it.
+			</description>
+		</method>
+		<method name="get_motor_force" qualifiers="const">
+			<return type="float" />
+			<description>
+				Force the motor applied on the last step, in newtons.
+			</description>
+		</method>
+		<method name="get_spring_force_range" qualifiers="const">
+			<return type="Vector2" />
+			<description>
+				The spring force limits as a [Vector2] of (lower, upper), in newtons.
+			</description>
+		</method>
+		<method name="set_spring_force_range">
+			<return type="void" />
+			<param index="0" name="lower_force" type="float" />
+			<param index="1" name="upper_force" type="float" />
+			<description>
+				Clamps the force the spring may apply to [param lower] .. [param upper], in newtons. Box3D leaves this unlimited by default; a one-sided range makes a spring that can pull but not push (or the reverse).
+				Not an inspector property because the defaults are the float extremes, which no spin box can express.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="length" type="float" setter="set_length" getter="get_length" default="-1.0">
+			Rest distance between the anchors, in metres. A negative value means "whatever the bodies are apart when the joint is created", which is usually what you want when authoring in the editor.
+		</member>
+		<member name="limit_enabled" type="bool" setter="set_limit_enabled" getter="get_limit_enabled" default="false">
+			Clamps the distance to [member min_length] .. [member max_length]. Requires [member spring_enabled]: a rigid distance joint has no slack for a limit to act on. Together they give a rope that can go slack but not stretch past its length.
+		</member>
+		<member name="max_length" type="float" setter="set_max_length" getter="get_max_length" default="10.0">
+			Longest allowed distance, in metres, while [member limit_enabled] is on.
+		</member>
+		<member name="max_motor_force" type="float" setter="set_max_motor_force" getter="get_max_motor_force" default="0.0">
+			Force budget for the motor, in newtons. Box3D clamps the motor's impulse to this times the step, so at 0 the winch pulls nothing. The scene dock warns when the motor is on and this is 0.
+		</member>
+		<member name="min_length" type="float" setter="set_min_length" getter="get_min_length" default="0.0">
+			Shortest allowed distance, in metres, while [member limit_enabled] is on.
+		</member>
+		<member name="motor_enabled" type="bool" setter="set_motor_enabled" getter="get_motor_enabled" default="false">
+			Drives the distance between the bodies toward [member motor_speed] -- a winch. Requires [member spring_enabled]: with the joint rigid at [member length], Box3D never runs the motor.
+		</member>
+		<member name="motor_speed" type="float" setter="set_motor_speed" getter="get_motor_speed" default="0.0">
+			Target rate of change of the distance, in metres per second. Positive lengthens.
+		</member>
+		<member name="spring_damping" type="float" setter="set_spring_damping" getter="get_spring_damping" default="0.5">
+			Damping ratio of the spring, non-dimensional. 1.0 is critical damping (no overshoot); below 1 the joint oscillates. Only used while [member spring_enabled] is on.
+		</member>
+		<member name="spring_enabled" type="bool" setter="set_spring_enabled" getter="get_spring_enabled" default="false">
+			Makes the joint soft: instead of holding [member length] exactly it pulls toward it like a spring.
+		</member>
+		<member name="spring_hertz" type="float" setter="set_spring_hertz" getter="get_spring_hertz" default="4.0">
+			Stiffness of the spring, in cycles per second. Higher is stiffer. Only used while [member spring_enabled] is on.
+		</member>
+	</members>
+</class>

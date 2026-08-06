@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DBallJoint" inherits="Box3DJoint" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A spherical joint: a point on one body is pinned to a point on the other, free to rotate.
+	</brief_description>
+	<description>
+		A ball-and-socket. The bodies are pinned together at this node's origin and may rotate freely, unless the cone and twist limits narrow that down.
+		Ragdoll shoulders and hips, chains, pendulums. The limits are measured about [b]this node's local Z axis[/b]: [member cone_angle] caps how far Z may tilt away from its rest direction, and the twist limits cap rotation about Z itself.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_current_cone_angle" qualifiers="const">
+			<return type="float" />
+			<description>
+				How far the joint axis is currently tilted from its rest direction, in radians. Compare with [member cone_angle], which is the limit rather than the reading.
+			</description>
+		</method>
+		<method name="get_current_twist_angle" qualifiers="const">
+			<return type="float" />
+			<description>
+				The current twist about the joint axis, in radians.
+			</description>
+		</method>
+		<method name="get_motor_torque" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				Torque the motor applied on the last step, in newton-metres.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="cone_angle" type="float" setter="set_cone_angle" getter="get_cone_angle" default="0.5">
+			Half-angle of the allowed cone, in radians. 0 pins the axis, larger values open it up. Box3D accepts 0 to 90 degrees only: this is a half-angle, so 90 is already a full hemisphere of swing, and a larger value trips an assert in a debug build of Box3D.
+		</member>
+		<member name="cone_limit_enabled" type="bool" setter="set_cone_limit_enabled" getter="get_cone_limit_enabled" default="false">
+			Restricts how far the joint axis may swing away from its rest direction.
+		</member>
+		<member name="friction_torque" type="float" setter="set_friction_torque" getter="get_friction_torque" default="0.0">
+			Dry friction in the joint, in newton-metres: a torque that resists any rotation, so a ragdoll limb settles instead of swinging forever. 0 is frictionless.
+			It is shorthand for a motor with a zero velocity target, so it is [b]only applied while [member motor_enabled] is off[/b]; an explicit motor wins.
+			[b]This and the motor share one motor[/b], which is the whole of the interaction between the four: turning [member motor_enabled] on hands the motor to [member motor_velocity] and [member max_motor_torque], turning it off hands it back to this. Changing any of them applies live, without rebuilding the joint, so friction can be nudged on a loaded ragdoll without popping it.
+			Setting this wakes the bodies it holds; [member motor_enabled] and [member max_motor_torque] do not. A body frozen by friction can therefore fall asleep and then ignore the hand-back to an explicit motor -- wake it yourself, or keep [member Box3DBody.can_sleep] off on anything driven this way.
+		</member>
+		<member name="max_motor_torque" type="float" setter="set_max_motor_torque" getter="get_max_motor_torque" default="0.0">
+			Torque budget for the motor, in newton-metres. Box3D clamps the motor's impulse to this times the step, so at 0 the motor moves nothing; the scene dock warns when [member motor_enabled] is on and this is 0.
+		</member>
+		<member name="motor_enabled" type="bool" setter="set_motor_enabled" getter="get_motor_enabled" default="false">
+			Drives the relative angular velocity toward [member motor_velocity] within [member max_motor_torque] -- how a ragdoll limb is animated rather than merely constrained.
+		</member>
+		<member name="motor_velocity" type="Vector3" setter="set_motor_velocity" getter="get_motor_velocity" default="Vector3(0, 0, 0)">
+			Target relative angular velocity, in radians per second about each axis of the joint frame.
+		</member>
+		<member name="spring_damping" type="float" setter="set_spring_damping" getter="get_spring_damping" default="0.7">
+			Damping ratio of the spring, non-dimensional. 1.0 is critical damping (no overshoot); below 1 the joint oscillates. Only used while [member spring_enabled] is on.
+		</member>
+		<member name="spring_enabled" type="bool" setter="set_spring_enabled" getter="get_spring_enabled" default="false">
+			Adds a spring pulling the joint back toward its rest orientation.
+		</member>
+		<member name="spring_hertz" type="float" setter="set_spring_hertz" getter="get_spring_hertz" default="1.0">
+			Stiffness of the spring, in cycles per second. Higher is stiffer. Only used while [member spring_enabled] is on.
+		</member>
+		<member name="target_rotation" type="Quaternion" setter="set_target_rotation" getter="get_target_rotation" default="Quaternion(0, 0, 0, 1)">
+			Orientation the spring drives toward, as frame B relative to frame A. Only used while [member spring_enabled] is on.
+		</member>
+		<member name="twist_limit_enabled" type="bool" setter="set_twist_limit_enabled" getter="get_twist_limit_enabled" default="false">
+			Restricts rotation about the joint axis to [member twist_lower] .. [member twist_upper].
+		</member>
+		<member name="twist_lower" type="float" setter="set_twist_lower" getter="get_twist_lower" default="0.0">
+			Lowest allowed twist about the joint axis, in radians.
+		</member>
+		<member name="twist_upper" type="float" setter="set_twist_upper" getter="get_twist_upper" default="0.0">
+			Highest allowed twist about the joint axis, in radians.
+		</member>
+	</members>
+</class>

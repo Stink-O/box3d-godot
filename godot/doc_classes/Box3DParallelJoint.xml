@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DParallelJoint" inherits="Box3DJoint" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A spring that keeps two bodies' axes parallel -- the self-righting joint.
+	</brief_description>
+	<description>
+		Applies a torque that pulls [member body_b]'s copy of [b]this node's local Z axis[/b] toward [member body_a]'s. It constrains orientation only, never position.
+		Point the node's Z up and leave [member body_b] empty to keep a body upright while it is still free to yaw and to move -- a character capsule that must not topple, a hovering drone, a camera boom. Soften it with the spring settings so it rights itself over time instead of snapping.
+	</description>
+	<tutorials>
+	</tutorials>
+	<members>
+		<member name="max_torque" type="float" setter="set_max_torque" getter="get_max_torque" default="0.0">
+			Torque budget for the spring, in newton-metres. [code]0[/code] means unlimited -- cap it if the body should be able to lose the fight.
+		</member>
+		<member name="spring_damping" type="float" setter="set_spring_damping" getter="get_spring_damping" default="1.0">
+			Damping ratio of the aligning spring, non-dimensional. 1.0 settles without overshoot.
+		</member>
+		<member name="spring_hertz" type="float" setter="set_spring_hertz" getter="get_spring_hertz" default="1.0">
+			Stiffness of the aligning spring, in cycles per second. Higher snaps upright faster. [b]At 0 the joint applies no torque whatsoever[/b] -- this joint is nothing but its spring, so 0 hertz disables it rather than making it rigid.
+		</member>
+	</members>
+</class>

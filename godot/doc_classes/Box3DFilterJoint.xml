@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DFilterJoint" inherits="Box3DJoint" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Stops two specific bodies colliding with each other, and nothing else.
+	</brief_description>
+	<description>
+		The cheapest joint in Box3D: it applies no constraint at all. Its only effect is that [member body_a] and [member body_b] stop colliding with each other while staying in the same simulation island.
+		This is the case collision layers and masks cannot express: two bodies that share a layer, must keep colliding with everything else on it, and must ignore only each other -- a character and the crate it is carrying, two links of a chain that overlap by design, a turret and the hull it sits on.
+		Both bodies are required. Unlike the other joint types, leaving [member body_b] empty does not anchor anything to the world, it just leaves the joint with nothing to filter.
+		Inherited settings that describe a constraint ([member Box3DJoint.constraint_hertz], the spring and threshold properties) have no effect here, because there is no constraint to tune.
+	</description>
+	<tutorials>
+	</tutorials>
+</class>
