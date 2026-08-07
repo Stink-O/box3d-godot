@@ -22,6 +22,21 @@ config/icon="res://branding/icon.svg"
 boot_splash/bg_color=Color(0.098039, 0.101961, 0.121569, 1)
 boot_splash/image="res://branding/boot_splash.png"
 
+[file_customization]
+
+; FileSystem dock folder colours, one per folder's role: samples are the blue
+; product surface, tests green, shared helpers teal, binaries/manifest gray,
+; branding pink, the physics-engine comparison rig orange, tools yellow.
+folder_colors={
+"res://bin/": "gray",
+"res://branding/": "pink",
+"res://common/": "teal",
+"res://compare/": "orange",
+"res://samples/": "blue",
+"res://tests/": "green",
+"res://tools/": "yellow"
+}
+
 [display]
 
 window/size/viewport_width=1920
