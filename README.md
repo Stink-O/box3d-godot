@@ -21,7 +21,11 @@ upstream engine sources are unchanged; everything Godot-specific lives in
 
 - Targets **Godot 4.7**. One-command build (`scons`) compiles Box3D from source
   into the extension no prebuilt engine binary required.
-- **Full API parity with upstream Box3D.** Twenty registered classes cover
+- **Near-complete API parity with upstream Box3D.** (The gaps are deliberate
+  and documented: upstream's external task-system hooks stay unbound for
+  thread-safety, the raw solver callbacks ship as a data-driven rule table
+  instead of script callbacks, and a handful of C-level utilities that Godot
+  already provides are out of scope.) Twenty registered classes cover
   worlds; static/kinematic/dynamic bodies; box/sphere/capsule/cylinder/cone/
   convex-hull/triangle-mesh/height-field colliders; the full joint set (hinge,
   slider, distance, ball, fixed, motor, wheel, parallel, filter); contact &
