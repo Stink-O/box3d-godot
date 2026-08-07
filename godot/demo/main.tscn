@@ -377,7 +377,7 @@ tooltip_text = "Which solver runs the samples. Godot reads the physics engine on
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.45)
 theme_override_font_sizes/font_size = 11
-text = "Switching restarts the demo on the same sample. Box3D is the tested path; the others rebuild each scene with native bodies."
+text = "Switching restarts the demo on the same sample. Box3D is the tested path; the others rebuild each scene with native bodies. Some newer samples have no native rebuild yet, so Jolt or Godot Physics may show a blank scene."
 autowrap_mode = 2
 
 [node name="ReadoutSep" type="HSeparator" parent="UI/Sidebar/Margin/VBox" unique_id=413345837]
