@@ -353,15 +353,25 @@ var _sample_use_case: Label  ## dimmer line under it, see USE_CASES
 var _sample_blurb_box: Control  ## holds both labels, hidden while collapsed
 var _sample_blurb_toggle: Button  ## discloses the blurb; collapsed on every sample load
 var _side_scroll: ScrollContainer  ## the sidebar's scrollable middle, all platforms
-## Box3D fixes the worker count when the world is created, so the sidebar
-## can't live-edit it like the other settings. Instead a change reloads the
-## sample with this override applied before the world exists. Sticky across
-## Reset, cleared when switching samples (-1 = use the scene's own value).
-var _worker_override := -1
-## Contact tuning survives Reset the same way (a tuning experiment shouldn't
-## be lost to a rebuild); cleared when switching samples (-1 = scene's own).
-var _contact_hertz_override := -1.0
-var _contact_damping_override := -1.0
+## Solver settings the user has explicitly changed with the sidebar this
+## session, as `key -> the value they chose`. Every world the shell loads
+## afterwards gets these pushed back onto it -- Reset, the engine-switch
+## restart, the worker-count reload and a plain sample switch alike -- so a
+## tuning session survives a rebuild instead of being wiped by the fresh
+## scene's own defaults.
+##
+## It tracks INTENT, not a snapshot of the panel: a setting the user never
+## touched is not in here and keeps following whatever each sample authors
+## (Class Ring's 960 Hz substeps, a benchmark's worker count). That is the whole
+## reason this is a dirty set rather than "remember every control".
+##
+## Only real user edits are recorded -- every handler marks it AFTER the
+## _updating_sidebar guard, so the programmatic pushes in
+## _refresh_sidebar_from_world / _apply_sticky_settings never dirty anything.
+## An entry is dropped again the moment its control is put back to the value the
+## sample loaded with, which is what the ⟲ revert button beside it does; a
+## restart of the demo clears the lot.
+var _sticky := {}
 ## Screenshot-on-tick, see _save_shot.
 var _shot_path := ""
 var _shot_tick := 200
@@ -513,6 +523,7 @@ func _ready() -> void:
 	_setup_reverts()
 
 	_restore_overlay_state()
+	_take_sticky_handoff()  # sidebar edits carried across an engine switch
 	_add_web_notice()
 
 	# `-- --sample=Ragdoll` (case-insensitive) opens straight to that sample.
@@ -645,6 +656,7 @@ func _restart_with_engine(id: String) -> void:
 		_flash_info("Could not switch to %s: the demo cannot restart itself here."
 				% ENGINE_TITLES[id])
 		return
+	_stash_sticky_for_restart()
 	var args := _restart_args(id)
 	print("[engine] restarting on %s: %s" % [ENGINE_TITLES[id], " ".join(args)])
 	if not _spawn_replacement(args):
@@ -1168,6 +1180,7 @@ func _with_world(fn: Callable) -> void:
 func _on_substep_changed(value: float) -> void:
 	if _updating_sidebar:
 		return
+	_mark_sticky("substep_count", _substep_spin, int(value))
 	_with_world(func(world):
 		if "substep_count" in world:
 			world.substep_count = int(value))
@@ -1176,7 +1189,7 @@ func _on_substep_changed(value: float) -> void:
 func _on_worker_changed(value: float) -> void:
 	if _updating_sidebar:
 		return
-	_worker_override = int(value)
+	_mark_sticky("worker_count", _worker_spin, int(value))
 	if _current_path != "":
 		_load(_current_path, _current_name, true)
 
@@ -1184,6 +1197,7 @@ func _on_worker_changed(value: float) -> void:
 func _on_max_speed_changed(value: float) -> void:
 	if _updating_sidebar:
 		return
+	_mark_sticky("max_linear_speed", _max_speed_spin, value)
 	_with_world(func(world):
 		if "max_linear_speed" in world:
 			world.max_linear_speed = value)
@@ -1192,6 +1206,7 @@ func _on_max_speed_changed(value: float) -> void:
 func _on_gravity_changed(value: float) -> void:
 	if _updating_sidebar:
 		return
+	_mark_sticky("gravity_y", _gravity_spin, value)
 	_with_world(func(world):
 		var g: Vector3 = world.gravity
 		g.y = value
@@ -1201,6 +1216,7 @@ func _on_gravity_changed(value: float) -> void:
 func _on_continuous_changed(pressed: bool) -> void:
 	if _updating_sidebar:
 		return
+	_mark_sticky("continuous_collision", _continuous_check, pressed)
 	_with_world(func(world):
 		if "continuous_collision" in world:
 			world.continuous_collision = pressed)
@@ -1344,7 +1360,7 @@ func _show_controls_hint() -> void:
 func _on_contact_hertz_changed(value: float) -> void:
 	if _updating_sidebar:
 		return
-	_contact_hertz_override = value
+	_mark_sticky("contact_hertz", _contact_hertz_spin, value)
 	_with_world(func(world):
 		if "contact_hertz" in world:
 			world.contact_hertz = value)
@@ -1353,7 +1369,7 @@ func _on_contact_hertz_changed(value: float) -> void:
 func _on_contact_damping_changed(value: float) -> void:
 	if _updating_sidebar:
 		return
-	_contact_damping_override = value
+	_mark_sticky("contact_damping", _contact_damping_spin, value)
 	_with_world(func(world):
 		if "contact_damping" in world:
 			world.contact_damping = value)
@@ -1362,6 +1378,7 @@ func _on_contact_damping_changed(value: float) -> void:
 func _on_sleep_changed(pressed: bool) -> void:
 	if _updating_sidebar:
 		return
+	_mark_sticky("enable_sleep", _sleep_check, pressed)
 	_with_world(func(world):
 		if "enable_sleep" in world:
 			world.enable_sleep = pressed)
@@ -1370,6 +1387,7 @@ func _on_sleep_changed(pressed: bool) -> void:
 func _on_recycling_changed(pressed: bool) -> void:
 	if _updating_sidebar:
 		return
+	_mark_sticky("contact_recycling", _recycling_check, pressed)
 	_with_world(func(world): _set_recycling(world, pressed))
 
 
@@ -1378,6 +1396,104 @@ func _set_recycling(node: Node, on: bool) -> void:
 		node.contact_recycling = on
 	for child in node.get_children():
 		_set_recycling(child, on)
+
+
+# --- The dirty set: sidebar edits that outlive the world they were made in ---
+
+## Record (or drop) one user edit. Called from the control handlers only, past
+## their _updating_sidebar guard, so it hears real edits and nothing else.
+##
+## An edit that lands back ON the control's revert baseline -- the value this
+## sample loaded with -- removes the key instead of storing it, so a setting can
+## be handed back to the scene without leaving the shell. That is what the ⟲
+## button next to each control does: it sets the control through its own signal,
+## which arrives here as an ordinary edit that happens to match the baseline.
+func _mark_sticky(key: String, ctrl: Control, value: Variant) -> void:
+	var info: Dictionary = _reverts.get(ctrl, {})
+	if not info.is_empty() and not _revert_changed(_revert_value(ctrl), info["baseline"]):
+		_sticky.erase(key)
+	else:
+		_sticky[key] = value
+
+
+## Push the dirty set onto a freshly loaded world and onto the controls showing
+## it. Settings absent from the set are left exactly as the sample authored
+## them.
+##
+## `worker_count` is not applied here: Box3D fixes it when the world is created,
+## so _load writes it onto the scene's world node before add_child runs _ready,
+## and the sidebar picks the result up in _refresh_sidebar_from_world.
+##
+## Every property is probed with `in` first: on a native engine the rebuilt rig
+## has gravity and nothing else from this list, and a build whose extension
+## predates a property must not error on it.
+func _apply_sticky_settings(world) -> void:
+	if world == null or _sticky.is_empty():
+		return
+	_updating_sidebar = true
+	if _sticky.has("substep_count") and "substep_count" in world:
+		world.substep_count = int(_sticky["substep_count"])
+		_substep_spin.set_value_no_signal(world.substep_count)
+	if _sticky.has("max_linear_speed") and "max_linear_speed" in world:
+		world.max_linear_speed = float(_sticky["max_linear_speed"])
+		_max_speed_spin.set_value_no_signal(world.max_linear_speed)
+	if _sticky.has("gravity_y") and "gravity" in world:
+		var g: Vector3 = world.gravity
+		g.y = float(_sticky["gravity_y"])
+		world.gravity = g
+		_gravity_spin.set_value_no_signal(world.gravity.y)
+	if _sticky.has("continuous_collision") and "continuous_collision" in world:
+		world.continuous_collision = bool(_sticky["continuous_collision"])
+		_continuous_check.set_pressed_no_signal(world.continuous_collision)
+	if _sticky.has("enable_sleep") and "enable_sleep" in world:
+		world.enable_sleep = bool(_sticky["enable_sleep"])
+		_sleep_check.set_pressed_no_signal(world.enable_sleep)
+	if _sticky.has("contact_recycling") and _has_recycling:
+		# Per BODY, not per world: the fresh scene's bodies all start recycling.
+		var on := bool(_sticky["contact_recycling"])
+		_set_recycling(world, on)
+		_recycling_check.set_pressed_no_signal(on)
+	if _sticky.has("contact_hertz") and "contact_hertz" in world:
+		world.contact_hertz = float(_sticky["contact_hertz"])
+		_contact_hertz_spin.set_value_no_signal(world.contact_hertz)
+	if _sticky.has("contact_damping") and "contact_damping" in world:
+		world.contact_damping = float(_sticky["contact_damping"])
+		_contact_damping_spin.set_value_no_signal(world.contact_damping)
+	_updating_sidebar = false
+
+
+## Hand the dirty set to the process that replaces us on an engine switch.
+##
+## Comparing one scene on two solvers is the reason the engine selector exists,
+## and comparing it at DIFFERENT substep counts would be comparing nothing --
+## the same argument that already persists the overlays across the restart. The
+## handoff is consumed and erased at the next startup, so it only ever crosses
+## the one relaunch: a demo the user restarts themselves comes up following the
+## scenes again.
+func _stash_sticky_for_restart() -> void:
+	var layout := ConfigFile.new()
+	layout.load(SHELL_LAYOUT_PATH)
+	# has_section_key first: erasing a key that was never written is an engine
+	# error, not a no-op.
+	if _sticky.is_empty():
+		if layout.has_section_key("shell", "sticky_settings"):
+			layout.erase_section_key("shell", "sticky_settings")
+	else:
+		layout.set_value("shell", "sticky_settings", _sticky)
+	layout.save(SHELL_LAYOUT_PATH)
+
+
+func _take_sticky_handoff() -> void:
+	var layout := ConfigFile.new()
+	if layout.load(SHELL_LAYOUT_PATH) != OK:
+		return
+	if not layout.has_section_key("shell", "sticky_settings"):
+		return
+	var handed = layout.get_value("shell", "sticky_settings")
+	if handed is Dictionary:
+		_sticky = (handed as Dictionary).duplicate()
+	layout.erase_section_key("shell", "sticky_settings")
+	layout.save(SHELL_LAYOUT_PATH)
 
 
 ## Controls backed by a Box3DWorld property and by nothing else. NativeWorld
@@ -1505,10 +1621,6 @@ func _on_menu_id(id: int) -> void:
 
 func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	var fresh_sample := path != _current_path
-	if fresh_sample:
-		_worker_override = -1
-		_contact_hertz_override = -1.0
-		_contact_damping_override = -1.0
 	_debug_hidden.clear()  # the old sample's nodes are freed with it
 	if _current != null:
 		# Free immediately, not deferred: a queued free would leave both the
@@ -1532,12 +1644,14 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 		_current = scene.instantiate()
 		_current_path = path
 		_current_name = sample_name
-		# worker_count only takes effect at world creation, so apply the override
-		# before add_child triggers _ready.
-		if _worker_override > 0:
+		# worker_count only takes effect at world creation, so a user-chosen count
+		# has to be written before add_child triggers _ready. Samples that author
+		# their own count keep it unless the user has picked one.
+		var worker_override := int(_sticky.get("worker_count", -1))
+		if worker_override > 0:
 			var override_world = _current.get_node_or_null("Box3DWorld")
 			if override_world != null:
-				override_world.worker_count = _worker_override
+				override_world.worker_count = worker_override
 		_host.add_child(_current)
 	_step_count = 0
 	_body_count_cache = -1
@@ -1578,11 +1692,6 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 				_camera.frame_view(eye, target)
 			elif "camera_home" in _current and "camera_look_at" in _current:
 				_camera.frame_view(_current.camera_home, _current.camera_look_at)
-	# Reapply sticky contact tuning (survives Reset, cleared on sample switch).
-	if world != null and _contact_hertz_override > 0.0 and "contact_hertz" in world:
-		world.contact_hertz = _contact_hertz_override
-	if world != null and _contact_damping_override > 0.0 and "contact_damping" in world:
-		world.contact_damping = _contact_damping_override
 	_apply_debug()  # carry the debug-draw toggle into the newly loaded sample
 	_apply_async()  # same for the async-step preference
 	# A sample can ask for the body counter (Ball Flood, whose whole point IS
@@ -1608,6 +1717,11 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	# survived the reload still shows its revert button).
 	if fresh_sample and not _reverts.is_empty():
 		_capture_world_baselines()
+	# ONLY NOW put the user's own edits back on top. The baselines above are the
+	# values this sample authored, which is what makes every ⟲ a way back to the
+	# scene -- and what keeps a setting nobody touched following the scene in the
+	# first place.
+	_apply_sticky_settings(world)
 	_update_all_reverts()
 	# Show the Activate button only for samples that expose an activate() action.
 	_activate.visible = _current != null and _current.has_method("activate")
@@ -1864,12 +1978,18 @@ func _set_revert_baseline(ctrl: Control, value: Variant) -> void:
 		_update_revert(ctrl)
 
 
-func _add_revert(ctrl: Control) -> void:
+## `follows_scene` marks the controls backed by the loaded world. For those the
+## button is also the way OUT of the dirty set (_mark_sticky drops a key whose
+## control is back on its baseline), i.e. the affordance for "let this setting
+## follow the scene again" -- so it says so, and the settings currently
+## overriding their sample are exactly the \u27F2s on screen.
+func _add_revert(ctrl: Control, follows_scene := false) -> void:
 	var btn := Button.new()
 	btn.text = "\u27F2"
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.visible = false
-	btn.tooltip_text = "Revert to the original value"
+	btn.tooltip_text = "Back to this sample's value, and follow each scene again" \
+			if follows_scene else "Revert to the original value"
 	btn.pressed.connect(func() -> void:
 		_revert_apply(ctrl, _reverts[ctrl]["baseline"])
 		_update_revert(ctrl))
@@ -1901,8 +2021,11 @@ func _add_revert(ctrl: Control) -> void:
 func _setup_reverts() -> void:
 	for c in [_substep_spin, _worker_spin, _max_speed_spin, _gravity_spin,
 			_continuous_check, _sleep_check, _recycling_check,
-			_sidebar_debug_check, _stats_check, _async_check, _vsync_option,
 			_contact_hertz_spin, _contact_damping_spin]:
+		_add_revert(c, true)
+	# Shell-level display preferences: they belong to the session, not to the
+	# sample, and already outlive a load on their own.
+	for c in [_sidebar_debug_check, _stats_check, _async_check, _vsync_option]:
 		_add_revert(c)
 
 
