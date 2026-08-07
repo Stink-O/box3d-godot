@@ -621,8 +621,15 @@ DEMO=/path/to/box3d-android/godot/demo
 Both exit 0 and end in `ALL -> PASS`. Output after all changes is **diff-clean
 against the pre-change baseline**: 42 `[test]` lines, 30 `[samples]` lines.
 
-Two notes for whoever runs this next:
+Three notes for whoever runs this next:
 
+- **Every count in this document is the suite as it stood during the Android
+  campaign** (42 assertions, 29-30 sample scenes). The harness has grown a
+  long way since: as of 0.4.1 it is **442 `[test]` lines and 65 `[samples]`
+  lines**, and it only ever ratchets upward. Compare a fresh run against the
+  *current* Linux baseline, not against the numbers quoted below. The Android
+  results below are records of what was executed then, and are left as
+  written; nobody has re-run the full 442 on a device.
 - The harness tags lines **`[test]`** and `[samples]`; `--selftest` is the
   *flag*, not the tag. Grepping for `[selftest]` finds nothing.
 - The **first** `--import` on a clean tree exits 134 (SIGABRT) during editor
@@ -816,7 +823,9 @@ Read this section before repeating any claim from this document.
 
 - **The extension loads and runs on Android.** x86_64, API 35 emulator.
 - **Physics genuinely simulates on Android.** All 42 binding assertions and all
-  29 sample scenes pass on-device, via the project's own harness.
+  29 sample scenes pass on-device, via the project's own harness. That was the
+  whole suite at the time; it is now 442 assertions and 65 samples, and the
+  additions have not been re-run on a device.
 - **Linux is not broken.** Post-change output is diff-identical to baseline.
 - **All four `.so` files are the intended architecture** (`llvm-readelf -h`:
   AArch64 / X86-64 as intended) **and 16 KB aligned** (`0x4000` on every LOAD).

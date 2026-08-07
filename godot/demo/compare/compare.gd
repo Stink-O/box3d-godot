@@ -11,7 +11,7 @@ extends Node3D
 ## engine = box3d | godot | jolt
 ##
 ## Box3D runs the sample scene AS AUTHORED: Box3DWorld and Box3DBody nodes,
-## untouched. The native engines cannot, because 18 of the samples carry
+## untouched. The native engines cannot, because most of the samples carry
 ## `: Box3DBody` static annotations and common/cube.gd and common/bomb.gd
 ## literally `extends Box3DBody`, so swapping nodes breaks type-checking before
 ## physics is involved. Instead RigExtract reads the authored scene into a

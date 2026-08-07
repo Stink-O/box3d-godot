@@ -21,16 +21,38 @@ upstream engine sources are unchanged; everything Godot-specific lives in
 
 - Targets **Godot 4.7**. One-command build (`scons`) compiles Box3D from source
   into the extension no prebuilt engine binary required.
-- Covers worlds; static/kinematic/dynamic bodies; box/sphere/capsule/cylinder/
-  cone/convex-hull/triangle-mesh colliders; the full joint set (hinge, slider,
-  distance, ball, fixed, motor, wheel, parallel); contact & sensor events;
-  ray/shape/overlap queries; a character controller; continuous collision; and
-  live solver tuning.
-- Ships a **sample browser** demo (33 samples stacks, ragdoll, a drivable
+- **Full API parity with upstream Box3D.** Twenty registered classes cover
+  worlds; static/kinematic/dynamic bodies; box/sphere/capsule/cylinder/cone/
+  convex-hull/triangle-mesh/height-field colliders; the full joint set (hinge,
+  slider, distance, ball, fixed, motor, wheel, parallel, filter); contact &
+  sensor events; ray/shape/overlap queries; a character controller; continuous
+  collision; and live solver tuning. Every class carries **in-editor
+  documentation**, so F1 in the script editor answers for the binding the way
+  it does for a built-in node.
+- Ships a **sample browser** demo (65 samples stacks, ragdoll, a drivable
   car, joints, queries, and toys).
 - Runs on **Android** (arm64 + x86_64), verified on real hardware under
   Vulkan, with touch controls and a mobile-scaled UI in the demo. Build and
   toolchain walkthrough: **[`godot/ANDROID_BUILD.md`](godot/ANDROID_BUILD.md)**.
+
+**New in 0.4.x**, on top of the API surface above:
+
+- **Recording and replay.** `Box3DRecording` captures a world's steps and
+  `Box3DReplayPlayer` stands them back up. Box3D hashes the world after every
+  step and replay recompares, so replaying at a *different* worker count is a
+  live cross-thread determinism check rather than a playback feature.
+- **Contact rule tables.** `Box3DContactRules` is a data table that overrides
+  the solver's four contact callbacks: never-collide pairs, one-way platforms,
+  and friction and restitution mixing. The callbacks run on worker threads
+  where a GDScript `Callable` would be unsafe, so script authors data and C++
+  evaluates it on the hot path with no allocation and no lock.
+- **A debug draw overlay** that renders the solver's own view of the world:
+  shapes, contacts, joints and sleep state, straight out of Box3D.
+- **A character mover with spring suspension**, ported number for number from
+  upstream's `mover.cpp`, plus a third-person follow camera shared with the Car
+  sample.
+- **`Box3DGeometry` and `Box3DCollision`**, two static toolboxes exposing
+  Box3D's geometry and collision routines on their own, with no world required.
 
 
 

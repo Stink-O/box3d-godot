@@ -38,7 +38,7 @@ below.
 Box3D runs each sample **exactly as authored**: the `Box3DWorld` and `Box3DBody`
 nodes in the `.tscn`, untouched.
 
-The native engines cannot do that. 18 of the samples carry `: Box3DBody`
+The native engines cannot do that. Most of the samples carry `: Box3DBody`
 static type annotations, and `common/cube.gd` and `common/bomb.gd` literally
 `extends Box3DBody`, so swapping nodes for `RigidBody3D` breaks GDScript
 type-checking before physics is even involved. `tests/test_samples.gd` also
@@ -196,6 +196,24 @@ harness. They still run, badged:
 `_ready()`, which the extractor deliberately never runs, so their native side
 shows only the authored ground plane.
 
+### Script-built samples show a blank scene
+
+That last point has grown into the harness's main limitation, and it is worth
+stating on its own. The extractor reads **authored** nodes out of the `.tscn`
+and never runs `_ready()`, so a sample that builds its bodies from script has
+nothing for the extractor to find. Fifteen of the samples now author no
+`Box3DBody` node at all (`bullet_vs_stack`, `class_ring`, `gear_lift`,
+`grid_mesh`, `hit_events`, `hollow_box`, `joint_grid`, `live_geometry`,
+`manifold`, `mesh_reflection`, `mesh_tile`, `overlap_world`, `rewind`,
+`sensor_hits`, `tile_floor`), and under Jolt or Godot Physics those come up
+empty or ground-only.
+
+This is a gap in the harness rather than a result about the engines, and it is
+the price of the extractor's one safety property: instantiating a sample must
+never create a Box3D world or fire a sample script's side effects. The demo's
+sidebar says the same thing in one line under its engine selector, so nobody
+reads a blank scene as a solver failure.
+
 ## Recording
 
 1. Launch each engine full-screen at a fixed resolution, one at a time. The
@@ -216,5 +234,5 @@ Extracts and rebuilds every sample under `samples/`, asserting rig well-formedne
 carries its kind-specific parameters, every body has a shape, every joint
 endpoint is in range). Prints one line per scene plus `[verify] ALL -> PASS`.
 
-This lives in `compare/`, not `samples/`, so it does not change the 33
+This lives in `compare/`, not `samples/`, so it does not change the count of
 `[samples]` lines the repo's verification ritual expects.
