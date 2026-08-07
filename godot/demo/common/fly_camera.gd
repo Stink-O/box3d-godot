@@ -37,6 +37,12 @@ var _flying := false
 ## grab, and shoot into a guarded area from outside. Box3D only collides two
 ## shapes when both masks agree, so the guard's own mask can stay "all".
 const RAY_MASK := 0xFFFFFFFF ^ 2
+## How far from horizontal the view may tilt, radians (~86 deg), shared by the
+## free-fly look and the third-person boom. Upstream clamps its own camera the
+## same way and for the same reason (samples/sample.cpp: +-85 deg): at the pole
+## a look_at / Basis.looking_at with up = UP is degenerate, and the view snaps
+## through a 180 deg roll as it crosses.
+const PITCH_LIM := 1.5
 
 var _yaw := 0.0
 var _pitch := 0.0
@@ -93,6 +99,14 @@ var _follow_saved_pose := Transform3D()
 var _orbiting := false     ## right mouse held: mouse drags the orbit angles
 var _orbit_yaw := 0.0      ## user orbit offsets around the chase anchor (kept on release)
 var _orbit_pitch := 0.0
+## Orbit pitch bounds. The chase anchor is ALREADY tilted up (a boom sits above
+## the target) and _orbit_pitch adds to that, so the headroom the user gets is
+## whatever is left of PITCH_LIM -- set_follow() works it out per anchor. With a
+## flat cap instead, the Car's 21.8 deg boom plus 1.3 rad of orbit swung the
+## camera 6 deg PAST straight-up, where the aim basis is degenerate: the view
+## flipped on the way over and unflipped on the way back.
+const ORBIT_PITCH_MIN := -0.6
+var _orbit_pitch_max := PITCH_LIM
 var _pivot := Vector3.ZERO ## smoothed orbit centre (the target, a beat behind)
 var _heading := 0.0        ## smoothed target yaw the rig hangs from
 var _follow_blend := 1.0   ## 0 -> 1 entry blend from the free pose onto the rig
@@ -186,6 +200,8 @@ func set_follow(target: Node3D, local_anchor := Vector3(-8.0, 3.2, 0.0), look_he
 	_follow = target
 	_follow_anchor = local_anchor
 	_follow_look_height = look_height
+	var flat := Vector2(local_anchor.x, local_anchor.z).length()
+	_orbit_pitch_max = maxf(PITCH_LIM - atan2(local_anchor.y, flat), 0.0)
 	_returning = false
 	_orbit_yaw = 0.0
 	_orbit_pitch = 0.0
@@ -298,11 +314,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.relative.length() > 200.0:
 				return
 			if _orbiting and _follow != null:
-				_orbit_yaw -= event.relative.x * look_sensitivity
-				_orbit_pitch = clampf(_orbit_pitch + event.relative.y * look_sensitivity, -0.6, 1.3)
+				_orbit_by(event.relative)
 			elif _touch_looking:
 				_yaw -= event.relative.x * look_sensitivity
-				_pitch = clampf(_pitch - event.relative.y * look_sensitivity, -1.5, 1.5)
+				_pitch = clampf(_pitch - event.relative.y * look_sensitivity, -PITCH_LIM, PITCH_LIM)
 				rotation = Vector3(_pitch, _yaw, 0.0)
 		return
 
@@ -346,19 +361,26 @@ func _unhandled_input(event: InputEvent) -> void:
 						_grab_distance * (1.0 + reel * grab_reel_step * notch),
 						0.5, 500.0)
 	elif event is InputEventMouseMotion and _follow != null and _orbiting:
-		# Vertical inverted (flight-style): push the mouse up to dip the
-		# camera and look up at the target.
-		_orbit_yaw -= event.relative.x * look_sensitivity
-		_orbit_pitch = clampf(_orbit_pitch + event.relative.y * look_sensitivity, -0.6, 1.3)
+		_orbit_by(event.relative)
 	elif event is InputEventMouseMotion and _flying:
 		_yaw -= event.relative.x * look_sensitivity
-		_pitch = clampf(_pitch - event.relative.y * look_sensitivity, -1.5, 1.5)
+		_pitch = clampf(_pitch - event.relative.y * look_sensitivity, -PITCH_LIM, PITCH_LIM)
 		rotation = Vector3(_pitch, _yaw, 0.0)
 	elif event is InputEventKey and not event.echo and event.keycode == KEY_F:
 		if event.pressed:
 			_start_charge()
 		else:
 			_release_charge()
+
+
+# Swing the third-person orbit by a pointer delta (right-mouse drag on desktop,
+# one finger on touch). Vertical inverted (flight-style): push the mouse up to
+# dip the camera and look up at the target -- but only as far as the boom can
+# rise without passing over the target's head (see _orbit_pitch_max).
+func _orbit_by(rel: Vector2) -> void:
+	_orbit_yaw -= rel.x * look_sensitivity
+	_orbit_pitch = clampf(_orbit_pitch + rel.y * look_sensitivity,
+			ORBIT_PITCH_MIN, _orbit_pitch_max)
 
 
 # The two lowest-index touches define the pinch/pan gesture.
