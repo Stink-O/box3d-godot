@@ -34,18 +34,24 @@ android.release.x86_64 = "res://bin/libbox3d_godot.android.template_release.x86_
 web.debug.wasm32 = "res://bin/libbox3d_godot.web.template_debug.wasm32.nothreads.wasm"
 web.release.wasm32 = "res://bin/libbox3d_godot.web.template_release.wasm32.nothreads.wasm"
 
-; Threaded variant, kept for hosts that send real COOP/COEP headers.
+; Threaded variant, for hosts that send real COOP/COEP headers. This is what
+; the public demo runs: itch.io serves it cross-origin-isolated (the project's
+; SharedArrayBuffer checkbox), verified there on desktop, Android and iOS. The
+; single-threaded build above is the self-hosting fallback, not the deployment;
+; it always loads but costs 3.2x on the solver (Cube Pile: 1.24 ms/step at one
+; worker vs 0.39 at four).
 ;
-; Do NOT export the demo with thread_support on for a static host. A threaded
-; side module declares SHARED memory; without cross-origin isolation the engine
-; has no SharedArrayBuffer and hands it non-shared memory, and the module fails
-; to link outright:
+; Do NOT export the demo with thread_support on for a PLAIN static host. A
+; threaded side module declares SHARED memory; without cross-origin isolation
+; the engine has no SharedArrayBuffer and hands it non-shared memory, and the
+; module fails to link outright:
 ;   LinkError: "env" "memory": mismatch in shared state of memory
 ; Godot's PWA service worker can inject the headers, but it cannot do so on the
-; load that installs it, and a hard refresh bypasses it entirely -- so the page
-; is broken on a first visit and broken again on every forced reload. The web
-; demo therefore ships single-threaded, which costs 3.2x on the solver
-; (Cube Pile: 1.24 ms/step at one worker vs 0.39 at four) and always loads.
+; load that installs it, and a hard refresh bypasses it entirely -- so a
+; service worker is not a substitute for headers. The "Web Threaded" export
+; preset carries a head_include guard that shows a readable notice instead of a
+; black screen when the page turns out not to be isolated; never strip it, and
+; never flip the plain "Web" preset to thread_support.
 web.debug.threads.wasm32 = "res://bin/libbox3d_godot.web.template_debug.wasm32.wasm"
 web.release.threads.wasm32 = "res://bin/libbox3d_godot.web.template_release.wasm32.wasm"
 
@@ -54,8 +60,8 @@ web.release.threads.wasm32 = "res://bin/libbox3d_godot.web.template_release.wasm
 ; project rather than beside the sources -- copying bin/ into another project
 ; therefore brings the icons along with the libraries.
 ;
-; A class with no entry here inherits its parent's icon, which is why the eight
-; joint types each get one rather than falling back to Box3DJoint.
+; A class with no entry here inherits its parent's icon, which is why the nine
+; concrete joint types each get one rather than falling back to Box3DJoint.
 [icons]
 
 Box3DWorld = "res://bin/icons/Box3DWorld.svg"
@@ -81,4 +87,5 @@ Box3DCollision = "res://bin/icons/Box3DCollision.svg"
 ; placed in a scene, so these show in the class reference and in autocompletion.
 Box3DRecording = "res://bin/icons/Box3DRecording.svg"
 Box3DReplayPlayer = "res://bin/icons/Box3DReplayPlayer.svg"
+Box3DReplayRenderer = "res://bin/icons/Box3DReplayRenderer.svg"
 Box3DContactRules = "res://bin/icons/Box3DContactRules.svg"

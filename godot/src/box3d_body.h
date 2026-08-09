@@ -308,6 +308,12 @@ private:
 	// resize_own_shape() if it can, recreate_shapes() if it cannot. This is
 	// what every shape-dimension setter calls.
 	void resize_or_rebuild();
+	// Editor-only (F-004): tell the viewport gizmo that this body's authored
+	// geometry changed, so the collider outline follows an inspector edit
+	// live. Gated on is_editor_hint() for the same reason the configuration
+	// warnings are — a game that authors bodies at runtime should not pay an
+	// engine call per setter for something no one can see.
+	void refresh_gizmos();
 	void create_child_shape(Box3DCollisionShape *p_shape, const Transform3D &p_body_inv);
 
 public:
@@ -317,6 +323,14 @@ public:
 	// The placement math here mirrors create_child_shape() exactly; the two must
 	// be changed together.
 	bool resize_child_shape(Box3DCollisionShape *p_shape);
+	// Mesh used for Hull/Mesh/FitMesh colliders: an explicit collision_mesh (at
+	// identity), else the first child MeshInstance3D's mesh (at its local
+	// transform). Returns false if neither is available.
+	//
+	// Public, not bound: the editor gizmo layer (box3d_editor_gizmos.cpp) has
+	// to reach the same source mesh the collider is built from, because in the
+	// editor there is no live shape to ask b3Shape_GetHull.
+	bool resolve_collision_mesh(Ref<Mesh> &r_mesh, Transform3D &r_local);
 
 private:
 	// Bakes every Box3DCollisionShape child into one b3CompoundData and attaches
@@ -324,10 +338,6 @@ private:
 	// children describe no bakeable geometry, so the caller can fall back to the
 	// runtime compound.
 	bool create_baked_compound(const Transform3D &p_body_inv);
-	// Mesh used for Hull/Mesh/FitMesh colliders: an explicit collision_mesh (at
-	// identity), else the first child MeshInstance3D's mesh (at its local
-	// transform). Returns false if neither is available.
-	bool resolve_collision_mesh(Ref<Mesh> &r_mesh, Transform3D &r_local);
 	// Builds the b3HeightFieldData for the current height_field_* properties.
 	// Returns nullptr (after a warning) if they do not describe a legal field.
 	// The caller owns the result and must b3DestroyHeightField it.
@@ -574,6 +584,25 @@ public:
 	// it grows along +X / +Z, because b3CreateHeightFieldShape takes no local
 	// transform — offset the body by -0.5 * this to center it.
 	Vector3 get_height_field_extent() const;
+	// b3Shape_GetHeightField (box3d.h:959-960): the terrain the SOLVER holds,
+	// not the properties it was authored from. Empty unless this body's live
+	// shape is a height field. Keys: size, scale, min_height, max_height, aabb,
+	// clockwise, heights, materials.
+	//
+	// This is the only way to see a field built by the height_field_wave /
+	// height_field_holes path, where no explicit heights were ever authored and
+	// b3CreateWave generated them — the alternative is re-deriving upstream's
+	// generator in script, which is what samples/character.gd:475-496 has to do.
+	//
+	// "size" is Vector2i(columnCount, rowCount) and counts grid LINES, matching
+	// height_field_size; the field spans one fewer CELL on each axis.
+	// "heights" is one float per grid point, DECOMPRESSED
+	// (minHeight + heightScale * stored, src/height_field.c:23), in the same
+	// row-major z * columns + x order height_field_heights is authored in — so
+	// it round-trips, within the uint16 quantization the field stores in.
+	// "materials" is one byte per CELL, HEIGHT_FIELD_HOLE marking a hole, and is
+	// empty when the field carries no material array.
+	Dictionary get_height_field() const;
 	void set_density(double p_density);
 	double get_density() const;
 	void set_friction(double p_friction);

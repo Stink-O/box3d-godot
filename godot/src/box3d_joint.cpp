@@ -61,6 +61,10 @@ void Box3DJoint::refresh_warnings() {
 	// ragdoll per spawned enemy) should not pay to compose strings nobody reads.
 	if (Engine::get_singleton()->is_editor_hint()) {
 		update_configuration_warnings();
+		// F-004: the viewport gizmo draws the frame, the axes and the limits,
+		// so every setter that can change a warning can change the drawing too.
+		// This is the funnel all fifty of them already go through.
+		update_gizmos();
 	}
 }
 

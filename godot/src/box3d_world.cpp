@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <godot_cpp/core/math.hpp>
 
 using namespace godot;
@@ -141,6 +142,49 @@ int Box3DWorld::get_world_count() {
 
 int Box3DWorld::get_max_world_count() {
 	return b3GetMaxWorldCount();
+}
+
+String Box3DWorld::get_box3d_version() {
+	// Formatted exactly as upstream formats it for its window title and its
+	// About box (samples/main.cpp:558-560, samples/sample.cpp:1811).
+	const b3Version v = b3GetVersion();
+	return String::num_int64(v.major) + "." + String::num_int64(v.minor) + "." + String::num_int64(v.revision);
+}
+
+bool Box3DWorld::is_double_precision() {
+	return b3IsDoublePrecision();
+}
+
+// b3Log's capture handler for dump_memory_stats(). b3LogFcn takes no context
+// pointer (base.h:106), so the sink has to be a file static.
+static String *b3_log_sink = nullptr;
+
+static void b3_capture_log(const char *p_message) {
+	if (b3_log_sink != nullptr) {
+		*b3_log_sink += String::utf8(p_message) + "\n";
+	}
+}
+
+// Upstream's own default log function is `static` in src/core.c:93-96 and
+// there is no b3GetLogFcn, so restoring it means transcribing it. Keep this
+// byte-identical to upstream's, or a dump would silently change how every
+// later Box3D log line reads.
+static void b3_default_log(const char *p_message) {
+	printf("Box3D: %s\n", p_message);
+}
+
+String Box3DWorld::dump_memory_stats() const {
+	String out;
+	if (!is_world_alive()) {
+		return out;
+	}
+	join_async_step();
+	b3_log_sink = &out;
+	b3SetLogFcn(b3_capture_log);
+	b3World_DumpMemoryStats(world_id);
+	b3SetLogFcn(b3_default_log);
+	b3_log_sink = nullptr;
+	return out;
 }
 
 int Box3DWorld::get_graph_color_count() {
@@ -1950,14 +1994,7 @@ void Box3DWorld::refresh_debug_overlay_visibility() {
 	}
 }
 
-void Box3DWorld::push_mesh_shell(b3ShapeId p_shape, const Transform3D &p_transform, const Color &p_color) {
-	if (!b3Shape_IsValid(p_shape) || b3Shape_GetType(p_shape) != b3_meshShape) {
-		return;
-	}
-	const b3Mesh mesh = b3Shape_GetMesh(p_shape);
-	if (mesh.data == nullptr || mesh.data->triangleCount <= 0) {
-		return;
-	}
+Box3DWorld::DebugMeshShell &Box3DWorld::acquire_geom_shell(b3ShapeId p_shape) {
 	DebugMeshShell &shell = debug_mesh_shells[b3StoreShapeId(p_shape)];
 	shell.used = true;
 	if (shell.mi == nullptr) {
@@ -1966,7 +2003,8 @@ void Box3DWorld::push_mesh_shell(b3ShapeId p_shape, const Transform3D &p_transfo
 		// Unshaded so the state color reads as itself, and two-sided because a
 		// mesh collider is one-sided: the wireframe has to be visible from the
 		// side the triangles do NOT face, which is exactly where a mesh's
-		// behaviour surprises people.
+		// behaviour surprises people. A hull and a height field are closed and
+		// one-sided respectively, and neither minds the same material.
 		mat->set_shading_mode(BaseMaterial3D::SHADING_MODE_UNSHADED);
 		mat->set_cull_mode(BaseMaterial3D::CULL_DISABLED);
 		Ref<ArrayMesh> array_mesh;
@@ -1979,11 +2017,33 @@ void Box3DWorld::push_mesh_shell(b3ShapeId p_shape, const Transform3D &p_transfo
 		shell.mi->set_material_override(mat);
 		add_child(shell.mi);
 	}
+	return shell;
+}
+
+void Box3DWorld::finish_geom_shell(DebugMeshShell &p_shell, const Transform3D &p_transform, const Color &p_color) {
+	Ref<StandardMaterial3D> mat = p_shell.mi->get_material_override();
+	if (mat.is_valid()) {
+		mat->set_albedo(p_color);
+	}
+	p_shell.mi->set_transform(p_transform);
+	p_shell.mi->set_visible(true);
+}
+
+void Box3DWorld::push_mesh_shell(b3ShapeId p_shape, const Transform3D &p_transform, const Color &p_color) {
+	if (!b3Shape_IsValid(p_shape) || b3Shape_GetType(p_shape) != b3_meshShape) {
+		return;
+	}
+	const b3Mesh mesh = b3Shape_GetMesh(p_shape);
+	if (mesh.data == nullptr || mesh.data->triangleCount <= 0) {
+		return;
+	}
+	DebugMeshShell &shell = acquire_geom_shell(p_shape);
 	const Vector3 scale = to_gd(mesh.scale);
 	// The blob pointer changes on set_mesh, the scale on set_mesh_scale; a
 	// rebuild is only needed when one of them moves.
-	if (shell.data != (const void *)mesh.data || shell.scale != scale ||
+	if (shell.kind != SHELL_MESH || shell.data != (const void *)mesh.data || shell.scale != scale ||
 			shell.triangle_count != mesh.data->triangleCount) {
+		shell.kind = SHELL_MESH;
 		shell.data = (const void *)mesh.data;
 		shell.scale = scale;
 		shell.triangle_count = mesh.data->triangleCount;
@@ -2023,12 +2083,172 @@ void Box3DWorld::push_mesh_shell(b3ShapeId p_shape, const Transform3D &p_transfo
 			}
 		}
 	}
-	Ref<StandardMaterial3D> mat = shell.mi->get_material_override();
-	if (mat.is_valid()) {
-		mat->set_albedo(p_color);
+	finish_geom_shell(shell, p_transform, p_color);
+}
+
+// The 1 cm offset a hull vertex is drawn at, from an outward direction. See
+// push_hull_shell for why y is unsigned.
+static Vector3 hull_lift(const Vector3 &p_outward) {
+	const Vector3 dir = p_outward.normalized();
+	return Vector3(dir.x, Math::abs(dir.y), dir.z) * 0.01f;
+}
+
+void Box3DWorld::push_hull_shell(b3ShapeId p_shape, const Transform3D &p_transform, const Color &p_color) {
+	if (!b3Shape_IsValid(p_shape) || b3Shape_GetType(p_shape) != b3_hullShape) {
+		return;
 	}
-	shell.mi->set_transform(p_transform);
-	shell.mi->set_visible(true);
+	const b3HullData *hull = b3Shape_GetHull(p_shape);
+	if (hull == nullptr || hull->edgeCount <= 0 || hull->vertexCount <= 0) {
+		return;
+	}
+	DebugMeshShell &shell = acquire_geom_shell(p_shape);
+	// b3Shape_SetHull swaps the whole blob (src/shape.c:1511-1517 hands back
+	// whatever the shape holds), so the pointer and the half-edge count are the
+	// whole rebuild key. There is no separate scale: the node scale was baked
+	// into these points at create time.
+	if (shell.kind != SHELL_HULL || shell.data != (const void *)hull ||
+			shell.hash != hull->hash || shell.triangle_count != hull->edgeCount) {
+		shell.kind = SHELL_HULL;
+		shell.data = (const void *)hull;
+		shell.hash = hull->hash;
+		shell.scale = Vector3(1, 1, 1);
+		shell.triangle_count = hull->edgeCount;
+		Ref<ArrayMesh> array_mesh = shell.mi->get_mesh();
+		if (array_mesh.is_valid()) {
+			array_mesh->clear_surfaces();
+			// Points are the hull's own, in shape local space; the half-edges
+			// index into them (collision.h:146, collision.h:157). edgeCount is
+			// the HALF-edge count, i.e. twice the number of drawable edges
+			// (types.h:2013), so each pair is drawn once — by the half whose
+			// index is below its twin's.
+			const b3Vec3 *points = b3GetHullPoints(hull);
+			const b3HullHalfEdge *edges = b3GetHullEdges(hull);
+			if (points != nullptr && edges != nullptr &&
+					hull->edgeCount <= 2 * debug_mesh_shell_triangle_limit) {
+				PackedVector3Array lines;
+				lines.resize((int64_t)hull->edgeCount); // 2 vertices per drawn edge
+				Vector3 *w = lines.ptrw();
+				int used = 0;
+				const Vector3 center = to_gd(hull->center);
+				for (int e = 0; e < hull->edgeCount; ++e) {
+					const int twin = (int)edges[e].twin;
+					if (twin <= e || twin >= hull->edgeCount) {
+						continue; // the twin already drew this edge (or is bogus)
+					}
+					const Vector3 a = to_gd(points[edges[e].origin]);
+					const Vector3 b = to_gd(points[edges[twin].origin]);
+					// Pushed out from the hull centroid rather than along a face
+					// normal (an edge has two faces): same purpose as the mesh
+					// shell's lift, keeping the wireframe off whatever it
+					// coincides with. The vertical component is taken as its
+					// MAGNITUDE, never signed: a body's underside points down,
+					// and pushing those edges down buries them in the floor the
+					// body is resting on, which is where they are most worth
+					// seeing.
+					w[used++] = a + hull_lift(a - center);
+					w[used++] = b + hull_lift(b - center);
+				}
+				if (used > 0) {
+					lines.resize(used);
+					Array arrays;
+					arrays.resize(Mesh::ARRAY_MAX);
+					arrays[Mesh::ARRAY_VERTEX] = lines;
+					array_mesh->add_surface_from_arrays(Mesh::PRIMITIVE_LINES, arrays);
+				}
+			}
+		}
+	}
+	finish_geom_shell(shell, p_transform, p_color);
+}
+
+void Box3DWorld::push_height_field_shell(b3ShapeId p_shape, const Transform3D &p_transform, const Color &p_color) {
+	if (!b3Shape_IsValid(p_shape) || b3Shape_GetType(p_shape) != b3_heightShape) {
+		return;
+	}
+	const b3HeightFieldData *hf = b3Shape_GetHeightField(p_shape);
+	if (hf == nullptr || hf->columnCount < 2 || hf->rowCount < 2) {
+		return;
+	}
+	// Upstream's convention, verbatim (src/height_field.c:19-40): index =
+	// row * columnCount + column, x runs along columns and z along rows, and a
+	// grid point's height is minHeight + heightScale * compressedHeights[index].
+	// columnCount / rowCount are grid LINES, so the field spans one fewer cell
+	// on each axis, and the corner grid point sits at the body origin.
+	const int cols = hf->columnCount;
+	const int rows = hf->rowCount;
+	const int cell_count = (cols - 1) * (rows - 1);
+	DebugMeshShell &shell = acquire_geom_shell(p_shape);
+	const Vector3 scale = to_gd(hf->scale);
+	if (shell.kind != SHELL_HEIGHT_FIELD || shell.data != (const void *)hf ||
+			shell.hash != hf->hash || shell.scale != scale || shell.triangle_count != cell_count) {
+		shell.kind = SHELL_HEIGHT_FIELD;
+		shell.data = (const void *)hf;
+		shell.hash = hf->hash;
+		shell.scale = scale;
+		shell.triangle_count = cell_count;
+		Ref<ArrayMesh> array_mesh = shell.mi->get_mesh();
+		if (array_mesh.is_valid()) {
+			array_mesh->clear_surfaces();
+			const uint16_t *heights = b3GetHeightFieldCompressedHeights(hf);
+			// One uint8 per CELL; B3_HEIGHT_FIELD_HOLE (0xFF) means the cell
+			// carries no triangles at all (types.h:2274, src/height_field.c:540).
+			// The array is optional; a null one means no holes.
+			const uint8_t *materials = b3GetHeightFieldMaterialIndices(hf);
+			// Two triangles per cell, measured against the same budget the mesh
+			// shell uses.
+			if (heights != nullptr && 2 * cell_count <= debug_mesh_shell_triangle_limit) {
+				PackedVector3Array lines;
+				// Five segments per cell: the four grid edges plus the collision
+				// diagonal. Shared edges are drawn twice, which is what keeps a
+				// hole from erasing its neighbour's boundary.
+				lines.resize((int64_t)cell_count * 10);
+				Vector3 *w = lines.ptrw();
+				int used = 0;
+				// The field's own surface IS the sample's visual in every stock
+				// scene, so lift straight up: a height field has no overhangs.
+				const Vector3 lift(0.0f, 0.01f, 0.0f);
+				for (int row = 0; row < rows - 1; ++row) {
+					for (int column = 0; column < cols - 1; ++column) {
+						if (materials != nullptr &&
+								materials[row * (cols - 1) + column] == B3_HEIGHT_FIELD_HOLE) {
+							continue;
+						}
+						const int i11 = row * cols + column;
+						const int i12 = i11 + 1;
+						const int i21 = (row + 1) * cols + column;
+						const int i22 = i21 + 1;
+						// b3GetHeightFieldCellCorners, src/height_field.c:485-514.
+						const Vector3 c00 = Vector3((float)column, hf->minHeight + hf->heightScale * heights[i11], (float)row) * scale + lift;
+						const Vector3 c10 = Vector3((float)(column + 1), hf->minHeight + hf->heightScale * heights[i12], (float)row) * scale + lift;
+						const Vector3 c01 = Vector3((float)column, hf->minHeight + hf->heightScale * heights[i21], (float)(row + 1)) * scale + lift;
+						const Vector3 c11 = Vector3((float)(column + 1), hf->minHeight + hf->heightScale * heights[i22], (float)(row + 1)) * scale + lift;
+						w[used++] = c00;
+						w[used++] = c10;
+						w[used++] = c10;
+						w[used++] = c11;
+						w[used++] = c11;
+						w[used++] = c01;
+						w[used++] = c01;
+						w[used++] = c00;
+						// The diagonal the solver actually splits the cell on:
+						// both triangles share the (column + 1, row) to
+						// (column, row + 1) edge (src/height_field.c:544-560),
+						// whichever way the winding runs.
+						w[used++] = c10;
+						w[used++] = c01;
+					}
+				}
+				if (used > 0) {
+					lines.resize(used);
+					Array arrays;
+					arrays.resize(Mesh::ARRAY_MAX);
+					arrays[Mesh::ARRAY_VERTEX] = lines;
+					array_mesh->add_surface_from_arrays(Mesh::PRIMITIVE_LINES, arrays);
+				}
+			}
+		}
+	}
+	finish_geom_shell(shell, p_transform, p_color);
 }
 
 void Box3DWorld::sweep_mesh_shells() {
@@ -2280,6 +2500,18 @@ void fragment() {
 							Transform3D(Basis(to_gd(mxf.q)), to_gd_pos(mxf.p)), col);
 					continue;
 				}
+				// Same problem, one step subtler: set_hull retypes the geometry
+				// but b3Shape_GetType still says b3_hullShape, which an authored
+				// BOX / CYLINDER / CONE also is, so only the node can say the
+				// switch below would now draw a collider that isn't there. Those
+				// points are body-space too (set_hull folds in no child
+				// transform), so the shell rides the body.
+				if (cs->is_hull_retyped()) {
+					const b3WorldTransform hxf = b3Body_GetTransform(id);
+					push_hull_shell(cs->get_shape_id(),
+							Transform3D(Basis(to_gd(hxf.q)), to_gd_pos(hxf.p)), col);
+					continue;
+				}
 				Transform3D cxf = cs->get_global_transform();
 				float cr2 = (float)cs->get_capsule_radius();
 				switch (cs->get_shape_type()) {
@@ -2362,8 +2594,30 @@ void fragment() {
 					push_mesh_shell(sid, Transform3D(basis, origin), col);
 				}
 			} break;
+			case Box3DBody::HULL:
+			case Box3DBody::FIT_MESH: {
+				// A convex hull has no primitive to instance either, so it is
+				// drawn from its own half-edges. Both the collision_mesh hull
+				// and the fitted box reach the solver as b3_hullShape with the
+				// node scale and any centering offset already baked into the
+				// points (b3CreateTransformedHullShape / b3MakeScaledBoxHull),
+				// so the plain body transform is the whole placement.
+				b3ShapeId sid;
+				if (b3Body_GetShapes(id, &sid, 1) == 1) {
+					push_hull_shell(sid, Transform3D(basis, origin), col);
+				}
+			} break;
+			case Box3DBody::HEIGHT_FIELD: {
+				// The field ignores node scale (height_field_scale is its own
+				// knob) and grows +X/+Z from the body origin, so as above the
+				// body transform alone places it.
+				b3ShapeId sid;
+				if (b3Body_GetShapes(id, &sid, 1) == 1) {
+					push_height_field_shell(sid, Transform3D(basis, origin), col);
+				}
+			} break;
 			default:
-				break; // Hull colliders are not shelled
+				break;
 		}
 	}
 
@@ -2629,6 +2883,9 @@ void Box3DWorld::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_counters"), &Box3DWorld::get_counters);
 	ClassDB::bind_method(D_METHOD("get_live_settings"), &Box3DWorld::get_live_settings);
 	ClassDB::bind_method(D_METHOD("get_max_capacity"), &Box3DWorld::get_max_capacity);
+	ClassDB::bind_method(D_METHOD("dump_memory_stats"), &Box3DWorld::dump_memory_stats);
+	ClassDB::bind_static_method("Box3DWorld", D_METHOD("get_box3d_version"), &Box3DWorld::get_box3d_version);
+	ClassDB::bind_static_method("Box3DWorld", D_METHOD("is_double_precision"), &Box3DWorld::is_double_precision);
 	ClassDB::bind_static_method("Box3DWorld", D_METHOD("get_length_units_per_meter"), &Box3DWorld::get_length_units_per_meter);
 	ClassDB::bind_static_method("Box3DWorld", D_METHOD("set_length_units_per_meter", "units"), &Box3DWorld::set_length_units_per_meter);
 	ClassDB::bind_static_method("Box3DWorld", D_METHOD("get_world_count"), &Box3DWorld::get_world_count);

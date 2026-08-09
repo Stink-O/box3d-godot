@@ -8,14 +8,17 @@
 #include "box3d_collision.h"
 #include "box3d_collision_shape.h"
 #include "box3d_contact_rules.h"
+#include "box3d_editor_gizmos.h"
 #include "box3d_geometry.h"
 #include "box3d_joint.h"
 #include "box3d_multimesh_renderer.h"
 #include "box3d_replay.h"
+#include "box3d_replay_renderer.h"
 #include "box3d_world.h"
 
 #include <gdextension_interface.h>
 
+#include <godot_cpp/classes/editor_plugin_registration.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
@@ -23,6 +26,23 @@
 using namespace godot;
 
 void initialize_box3d_module(ModuleInitializationLevel p_level) {
+	// The editor-only layer (F-004): viewport gizmos for colliders and joints.
+	// This level is reached ONLY in the editor — an exported game never calls
+	// it, so none of these three classes is registered, instantiated or even
+	// reachable there. That is the whole of the editor gate; there is no
+	// runtime branch to pay for.
+	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
+		// Internal: this file is the only thing that instantiates them, and
+		// keeping them unexposed leaves the public class list (and its
+		// registered/documented/iconed invariant) untouched.
+		GDREGISTER_INTERNAL_CLASS(Box3DColliderGizmoPlugin);
+		GDREGISTER_INTERNAL_CLASS(Box3DJointGizmoPlugin);
+		// The engine instantiates this one BY NAME from the list add_by_type
+		// fills in, so it cannot be internal.
+		GDREGISTER_CLASS(Box3DEditorPlugin);
+		EditorPlugins::add_by_type<Box3DEditorPlugin>();
+		return;
+	}
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
@@ -48,6 +68,10 @@ void initialize_box3d_module(ModuleInitializationLevel p_level) {
 	// buffer and the player that stands its bytes back up.
 	GDREGISTER_CLASS(Box3DRecording);
 	GDREGISTER_CLASS(Box3DReplayPlayer);
+	// The Node3D that draws what a player is replaying: it installs the
+	// debug-shape callbacks and turns every replayed shape into a MultiMesh
+	// instance.
+	GDREGISTER_CLASS(Box3DReplayRenderer);
 	// Static-method utility classes: nothing instantiates them, but a class
 	// that is never registered is invisible to GDScript however complete its
 	// bindings are (the P-037 lesson).

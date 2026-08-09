@@ -17,6 +17,7 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
+#include <cstring>
 #include <vector>
 
 using namespace godot;
@@ -974,7 +975,14 @@ bool Box3DBody::resize_own_shape() {
 	return true;
 }
 
+void Box3DBody::refresh_gizmos() {
+	if (Engine::get_singleton()->is_editor_hint()) {
+		update_gizmos();
+	}
+}
+
 void Box3DBody::resize_or_rebuild() {
+	refresh_gizmos();
 	if (!resize_own_shape()) {
 		recreate_shapes();
 	}
@@ -1455,6 +1463,10 @@ void Box3DBody::destroy_body() {
 // Every shape goes and is built again from the current properties, on the SAME
 // b3 body. See the header for what that keeps and what it costs.
 bool Box3DBody::recreate_shapes() {
+	// Before the live-body bail-out: in the editor there is never a live body,
+	// and this is the funnel every geometry setter reaches, so it is the one
+	// place the gizmo has to hear about a change.
+	refresh_gizmos();
 	if (!body_live()) {
 		return false;
 	}
@@ -2168,6 +2180,9 @@ void Box3DBody::teleport(const Transform3D &p_xform) {
 
 void Box3DBody::set_body_type(int p_type) {
 	body_type = (BodyType)p_type;
+	// The outline colour is upstream's body-state colour, so the type is part
+	// of what the gizmo draws.
+	refresh_gizmos();
 	if (body_live()) {
 		// Upstream switches the type in place (expensive, but it keeps the
 		// shapes, joints and velocity a rebuild would throw away) and updates
@@ -2408,6 +2423,56 @@ Vector3 Box3DBody::get_height_field_extent() const {
 			height_field_scale.z * (height_field_size.y - 1));
 }
 
+Dictionary Box3DBody::get_height_field() const {
+	Dictionary out;
+	if (!body_live()) {
+		return out;
+	}
+	// The body's own shape, which is the only place a height field can be: a
+	// Box3DCollisionShape child cannot author one, and there is no setter that
+	// retypes a shape into one.
+	b3ShapeId sid;
+	if (b3Body_GetShapes(body_id, &sid, 1) != 1 || !b3Shape_IsValid(sid) ||
+			b3Shape_GetType(sid) != b3_heightShape) {
+		return out; // b3Shape_GetHeightField asserts on a type mismatch
+	}
+	const b3HeightFieldData *hf = b3Shape_GetHeightField(sid);
+	if (hf == nullptr) {
+		return out;
+	}
+	// columnCount runs along x, rowCount along z (src/height_field.c:19-40), and
+	// both count grid lines.
+	const int cols = hf->columnCount;
+	const int rows = hf->rowCount;
+	PackedFloat32Array heights;
+	const uint16_t *stored = b3GetHeightFieldCompressedHeights(hf);
+	if (stored != nullptr && cols > 0 && rows > 0) {
+		heights.resize((int64_t)cols * rows);
+		float *w = heights.ptrw();
+		for (int64_t i = 0, n = (int64_t)cols * rows; i < n; ++i) {
+			// The one decompression upstream documents (src/height_field.c:23).
+			w[i] = hf->minHeight + hf->heightScale * (float)stored[i];
+		}
+	}
+	PackedByteArray materials;
+	const uint8_t *cells = b3GetHeightFieldMaterialIndices(hf);
+	if (cells != nullptr && cols > 1 && rows > 1) {
+		const int64_t cell_count = (int64_t)(cols - 1) * (rows - 1);
+		materials.resize(cell_count);
+		memcpy(materials.ptrw(), cells, (size_t)cell_count);
+	}
+	const Vector3 lower = to_gd(hf->aabb.lowerBound);
+	out["size"] = Vector2i(cols, rows);
+	out["scale"] = to_gd(hf->scale);
+	out["min_height"] = (double)hf->minHeight;
+	out["max_height"] = (double)hf->maxHeight;
+	out["aabb"] = AABB(lower, to_gd(hf->aabb.upperBound) - lower);
+	out["clockwise"] = hf->clockwise;
+	out["heights"] = heights;
+	out["materials"] = materials;
+	return out;
+}
+
 void Box3DBody::set_density(double p_density) {
 	density = p_density;
 	apply_density();
@@ -2585,6 +2650,7 @@ double Box3DBody::get_sleep_threshold() const {
 
 void Box3DBody::set_enabled(bool p_enabled) {
 	enabled = p_enabled;
+	refresh_gizmos(); // slate gray when disabled, as upstream draws it
 	if (body_live()) {
 		// Disabling removes the body from the simulation entirely; upstream
 		// calls both directions expensive, so this is a state change, not a
@@ -2964,6 +3030,7 @@ void Box3DBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_height_field_clockwise", "enabled"), &Box3DBody::set_height_field_clockwise);
 	ClassDB::bind_method(D_METHOD("get_height_field_clockwise"), &Box3DBody::get_height_field_clockwise);
 	ClassDB::bind_method(D_METHOD("get_height_field_extent"), &Box3DBody::get_height_field_extent);
+	ClassDB::bind_method(D_METHOD("get_height_field"), &Box3DBody::get_height_field);
 	ClassDB::bind_method(D_METHOD("set_density", "density"), &Box3DBody::set_density);
 	ClassDB::bind_method(D_METHOD("get_density"), &Box3DBody::get_density);
 	ClassDB::bind_method(D_METHOD("set_friction", "friction"), &Box3DBody::set_friction);

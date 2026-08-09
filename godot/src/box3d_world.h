@@ -52,9 +52,12 @@ private:
 	double max_linear_speed = 0.0; // 0 = keep Box3D's default
 	int worker_count = 1; // >1 enables Box3D's internal multithreaded solver
 	bool debug_draw = false;
-	// Solver tuning, forwarded to b3World_SetContactTuning. Hertz follows
-	// upstream's sample app default (60; the core's b3DefaultWorldDef is 30),
-	// damping matches the core, at 1 length unit per meter (this binding
+	// Solver tuning, forwarded to b3World_SetContactTuning. Hertz 60 is a
+	// DELIBERATE DEVIATION from upstream: b3DefaultWorldDef is 30
+	// (src/types.c:20) and the sample app inherits it unmodified
+	// (samples/sample.cpp:398-406). This port's samples are tuned against 60;
+	// changing it alters every existing scene and is the user's call.
+	// Damping matches the core, at 1 length unit per meter (this binding
 	// never changes that scale).
 	double contact_hertz = 60.0;
 	double contact_damping = 10.0;
@@ -94,21 +97,33 @@ private:
 	};
 	MultiMeshInstance3D *debug_mm[DEBUG_PRIM_MAX] = {};
 	PackedFloat32Array debug_buffer[DEBUG_PRIM_MAX]; // reused bulk upload buffers
-	// A triangle soup has no primitive to instance, so the five MultiMeshes
-	// above cannot draw one: a mesh collider (Box3DBody's raw mesh_vertices
-	// path, or Box3DCollisionShape.set_mesh) used to get no shell at all, which
-	// made a set_mesh body the one shape Debug could not see. Each live mesh
-	// shape gets its own MeshInstance3D instead, drawing the collider's OWN
-	// triangles as a wireframe read back from Box3D (b3Shape_GetMesh), so what
-	// is drawn is the geometry the solver holds and not the node's visual.
-	// Keyed by b3StoreShapeId; the surface is rebuilt only when the shape's
-	// mesh blob, triangle count or scale changes, which is what makes a live
-	// set_mesh_scale cycle cost one rebuild instead of one per frame.
+	// Arbitrary geometry has no primitive to instance, so the five MultiMeshes
+	// above cannot draw it: mesh, convex hull and height-field colliders used to
+	// get no shell at all, which made them the shapes Debug could not see. Each
+	// such shape gets its own MeshInstance3D instead, drawing the collider's OWN
+	// geometry as a wireframe read back from Box3D (b3Shape_GetMesh,
+	// b3Shape_GetHull, b3Shape_GetHeightField), so what is drawn is what the
+	// solver holds and not the node's visual. Keyed by b3StoreShapeId; the
+	// surface is rebuilt only when the shape's blob, kind, element count or
+	// scale changes, which is what makes a live set_mesh_scale cycle cost one
+	// rebuild instead of one per frame.
+	enum DebugShellKind {
+		SHELL_MESH = 0,
+		SHELL_HULL = 1,
+		SHELL_HEIGHT_FIELD = 2,
+	};
 	struct DebugMeshShell {
 		MeshInstance3D *mi = nullptr; // owns its ArrayMesh and its material
-		const void *data = nullptr; // the b3MeshData the surface was built from
+		const void *data = nullptr; // the blob the surface was built from
 		Vector3 scale = Vector3(1, 1, 1);
-		int triangle_count = 0;
+		int triangle_count = 0; // mesh triangles, hull half-edges, or field cells
+		// b3HullData::hash / b3HeightFieldData::hash (types.h:1985, :2295): a
+		// content hash of the whole blob. The allocator can hand a replacement
+		// hull the address the old one just freed, so the pointer alone is not
+		// enough to notice a live b3Shape_SetHull. Zero for meshes, which have
+		// no such setter reachable from this binding.
+		uint32_t hash = 0;
+		int kind = SHELL_MESH;
 		bool used = false;
 	};
 	std::unordered_map<uint64_t, DebugMeshShell> debug_mesh_shells;
@@ -224,6 +239,24 @@ private:
 	// Draws one mesh collider's own triangles, in the body's frame and the
 	// body's state color. No-op for any shape that is not a live mesh.
 	void push_mesh_shell(b3ShapeId p_shape, const Transform3D &p_transform, const Color &p_color);
+	// Draws one convex hull collider's half-edges, in the body's frame and the
+	// body's state color. The hull Box3D hands back already has the node scale
+	// and any placement transform baked in (b3CreateTransformedHullShape bakes
+	// both at create time, src/shape.c:370-374), so the caller passes the plain
+	// body transform. No-op for any shape that is not a live hull.
+	void push_hull_shell(b3ShapeId p_shape, const Transform3D &p_transform, const Color &p_color);
+	// Draws one height-field collider's cell grid plus each cell's collision
+	// diagonal, in the body's frame and the body's state color. Hole cells are
+	// skipped. The field ignores node scale entirely (height_field_scale is its
+	// own knob) and its corner sits at the body origin growing +X/+Z, which is
+	// exactly what the local-space vertices below encode. No-op for any shape
+	// that is not a live height field.
+	void push_height_field_shell(b3ShapeId p_shape, const Transform3D &p_transform, const Color &p_color);
+	// Shared plumbing for the three above: finds or creates this shape's
+	// MeshInstance3D (and its unshaded two-sided material) and marks it used.
+	DebugMeshShell &acquire_geom_shell(b3ShapeId p_shape);
+	// The tail of the three above: state color, world transform, visibility.
+	static void finish_geom_shell(DebugMeshShell &p_shell, const Transform3D &p_transform, const Color &p_color);
 	// Hides (and forgets) every mesh shell the last refresh did not touch, so a
 	// freed body or a shape retyped away from a mesh leaves nothing behind.
 	void sweep_mesh_shells();
@@ -336,6 +369,26 @@ public:
 	// world is created.
 	static int get_world_count();
 	static int get_max_world_count();
+	// Which Box3D this binary wraps, and how it was built (F-014). Both are
+	// process-wide, hence static: b3GetVersion (base.h:169) and
+	// b3IsDoublePrecision (base.h:172), the pair upstream puts in its window
+	// title and its Help > About box (samples/main.cpp:557-560,
+	// samples/sample.cpp:1810-1811). The version comes back formatted the way
+	// upstream formats it, "major.minor.revision", because the three fields are
+	// only ever read together.
+	static String get_box3d_version();
+	static bool is_double_precision();
+	// b3World_DumpMemoryStats (box3d.h:237), the allocator breakdown behind
+	// upstream's Sim > Dump Mem Stats (samples/sample.cpp:1623-1626): id pools,
+	// island links, world arrays, solver sets, constraint graph, the hull
+	// database, the broad phase, the manifold allocators and a total.
+	//
+	// Upstream writes it a line at a time through b3Log, which has no return
+	// value and no context pointer, so this installs a capture handler for the
+	// span of the call and hands the lines back joined by newlines — nothing is
+	// printed. Empty when the world is dead. NOT thread-safe: b3SetLogFcn is
+	// process-global, so two threads dumping at once would interleave.
+	String dump_memory_stats() const;
 
 	// Upstream's debug palette (P-044). b3GetGraphColor (types.h:2946) hands
 	// back the colour box3d itself paints constraint-graph slot i with, so a

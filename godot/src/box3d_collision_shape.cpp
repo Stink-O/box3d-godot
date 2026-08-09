@@ -7,6 +7,7 @@
 #include "box3d_conversions.h"
 #include "box3d_world.h"
 
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
@@ -20,7 +21,16 @@ static Basis to_gd_basis(const b3Matrix3 &m) {
 	return Basis(to_gd(m.cx), to_gd(m.cy), to_gd(m.cz));
 }
 
+// Editor-only (F-004): redraw this shape's viewport outline after an authored
+// dimension changes. Gated like Box3DBody's, so a runtime scene pays nothing.
+void Box3DCollisionShape::refresh_gizmos() {
+	if (Engine::get_singleton()->is_editor_hint()) {
+		update_gizmos();
+	}
+}
+
 void Box3DCollisionShape::notify_parent() {
+	refresh_gizmos();
 	Box3DBody *body = Object::cast_to<Box3DBody>(get_parent());
 	if (body != nullptr) {
 		body->request_rebuild();
@@ -30,6 +40,7 @@ void Box3DCollisionShape::notify_parent() {
 // A geometry change: resize this one shape in place if the owning body can
 // (P-010), and only rebuild the whole body when it cannot.
 void Box3DCollisionShape::resize_or_notify() {
+	refresh_gizmos();
 	if (owner != nullptr && owner->resize_child_shape(this)) {
 		return;
 	}
@@ -59,8 +70,10 @@ void Box3DCollisionShape::on_shape_destroyed() {
 	shape_id = b3_nullShapeId;
 	owner = nullptr;
 	// The shape that referenced the blob is gone, and the shape this node gets
-	// next is built from its authored properties, not from that mesh.
+	// next is built from its authored properties, not from that mesh — nor from
+	// a set_hull() the old shape carried.
 	release_owned_mesh();
+	hull_retyped = false;
 }
 
 bool Box3DCollisionShape::shape_live() const {
@@ -267,6 +280,7 @@ void Box3DCollisionShape::set_sphere(const Vector3 &p_center, double p_radius, b
 	sphere.center = to_b3(p_center);
 	sphere.radius = (float)p_radius;
 	b3Shape_SetSphere(shape_id, &sphere);
+	hull_retyped = false; // no longer a hull, whatever it was before
 	if (p_update_mass && owner != nullptr) {
 		owner->apply_mass_from_shapes();
 	}
@@ -281,6 +295,7 @@ void Box3DCollisionShape::set_capsule(const Vector3 &p_center1, const Vector3 &p
 	capsule.center2 = to_b3(p_center2);
 	capsule.radius = (float)p_radius;
 	b3Shape_SetCapsule(shape_id, &capsule);
+	hull_retyped = false; // no longer a hull, whatever it was before
 	if (p_update_mass && owner != nullptr) {
 		owner->apply_mass_from_shapes();
 	}
@@ -312,6 +327,10 @@ void Box3DCollisionShape::set_hull(const PackedVector3Array &p_points, bool p_up
 	// free the moment the call returns.
 	b3Shape_SetHull(shape_id, hull);
 	b3DestroyHull(hull);
+	// This shape's geometry is no longer the one shape_type describes, and
+	// b3Shape_GetType cannot say so (an authored BOX / CYLINDER / CONE is a
+	// b3_hullShape too). The debug shell reads this to draw the real hull.
+	hull_retyped = true;
 	if (p_update_mass && owner != nullptr) {
 		owner->apply_mass_from_shapes();
 	}

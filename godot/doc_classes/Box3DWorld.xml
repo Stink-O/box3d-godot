@@ -27,11 +27,28 @@
 				[param collision_mask] selects which layers the blast reaches. It has no layer half, unlike the queries: Box3D's explosion definition carries a mask and no category of its own.
 			</description>
 		</method>
+		<method name="dump_memory_stats" qualifiers="const">
+			<return type="String" />
+			<description>
+				Box3D's own allocator breakdown for this world, returned as text: the id pools, island link arrays, world arrays, solver sets, the constraint graph, the shared hull database, the broad-phase trees and the manifold allocators, each with its byte count, and a total on the last line.
+				This is what [method get_counters] cannot tell you. The counters give totals -- how many bodies, how many contacts -- while this gives the arena layout, which is what you want when a mobile build starts running out of memory and you need to know [i]which[/i] structure is large.
+				Nothing is printed: upstream logs the dump a line at a time, and this captures those lines instead, so the caller decides whether to print it, write it to a file or show it in a debug panel. Empty while the world does not exist.
+				[b]Not thread safe.[/b] The capture is installed process-wide for the span of the call, so two threads dumping at once would interleave their output.
+			</description>
+		</method>
 		<method name="get_awake_body_count" qualifiers="const">
 			<return type="int" />
 			<description>
 				How many bodies the solver is still simulating. Sleeping and static bodies are not counted, so in a settled scene this falls to 0 however many bodies exist.
 				This is the number to watch when tuning [member enable_sleep] or hunting a body that refuses to settle: total body count says nothing about cost, this does. Returns 0 while the world does not exist.
+			</description>
+		</method>
+		<method name="get_box3d_version" qualifiers="static">
+			<return type="String" />
+			<description>
+				The version of Box3D this binary wraps, as [code]"major.minor.revision"[/code] -- the same three numbers upstream puts in its window title and its Help &gt; About box.
+				The prebuilt [code].so[/code] / [code].dll[/code] / [code].wasm[/code] ship as release assets and can drift from the sources you are reading, so this turns "which build is this?" from a filename guess into something a bug report can state. Pair it with [method is_double_precision].
+				Static: it describes the library, not a world, so it can be read before any [Box3DWorld] exists.
 			</description>
 		</method>
 		<method name="get_bounds" qualifiers="const">
@@ -139,6 +156,13 @@
 				A contact handle is Box3D's identifier for the contact [b]itself[/b], not for either shape, and it is the only way to follow one contact across steps: the shape ids identify the pair, and a pair can lose and remake its contact between steps without either shape changing.
 				The handle arrives as a [Vector3i] on [signal contact_began], [signal contact_ended] and [signal contact_hit], and it is [b]opaque[/b] -- the components are not coordinates and nothing should read them. It is a [Vector3i] because the handle does not fit an [int], and because a value type can key a [Dictionary], which is what tracking contacts over time needs.
 				Handles are transient: Box3D may destroy a contact whenever the world is stepped or modified, and every handle on a [signal contact_ended] payload is already stale by definition. Call this on the same world that emitted the handle.
+			</description>
+		</method>
+		<method name="is_double_precision" qualifiers="static">
+			<return type="bool" />
+			<description>
+				Whether the loaded Box3D was built with [code]BOX3D_DOUBLE_PRECISION[/code], upstream's large-world mode. Every binary this project ships is single precision, so this reads [code]false[/code]; it is here because a custom build changes the answer and nothing else reports it.
+				Static, like [method get_box3d_version], and worth logging beside it: the two together identify the binary exactly.
 			</description>
 		</method>
 		<method name="is_recording" qualifiers="const">

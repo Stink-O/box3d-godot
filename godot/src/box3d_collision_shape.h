@@ -73,6 +73,13 @@ private:
 	b3MeshData *owned_mesh = nullptr;
 	// Frees owned_mesh. Only safe once no live shape references it.
 	void release_owned_mesh();
+	// True once set_hull() has replaced this shape's geometry. b3Shape_GetType
+	// cannot report it — an authored BOX, CYLINDER or CONE reaches the solver as
+	// a b3_hullShape too — so the flag is the only way to know that shape_type
+	// and box_size no longer describe the collider. Cleared by the setters that
+	// retype away from a hull and by on_shape_destroyed, since the next shape is
+	// built from the authored properties again. Read by the debug shells.
+	bool hull_retyped = false;
 
 	ShapeType shape_type = BOX;
 	Vector3 box_size = Vector3(1, 1, 1);
@@ -133,6 +140,8 @@ private:
 	void notify_parent();
 	// notify_parent(), but tries a live in-place resize of this shape first.
 	void resize_or_notify();
+	// Editor-only (F-004): redraw the viewport outline for this shape.
+	void refresh_gizmos();
 	// b3Shape_IsValid plus a join of any in-flight async world step.
 	bool shape_live() const;
 	// Pushes the whole surface material onto a live shape. Returns false when
@@ -159,6 +168,10 @@ public:
 	// True while this node is being unparented; Box3DBody skips such a child
 	// when it walks its children to build shapes.
 	bool is_leaving() const { return leaving; }
+	// True when a set_hull() call has left this shape's geometry unrelated to
+	// its authored shape_type. Box3DWorld's debug draw reads it to shell the
+	// real hull instead of the primitive the node still claims to be.
+	bool is_hull_retyped() const { return hull_retyped; }
 	b3Filter make_filter() const;
 	// Resolves one EventMode against what the body would have given the shape.
 	static bool resolve_event(EventMode p_mode, bool p_inherited) {
