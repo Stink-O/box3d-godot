@@ -80,7 +80,8 @@ upstream engine sources are unchanged; everything Godot-specific lives in
   height fields and fitted meshes included, not just primitives.
 - **Bombs work everywhere**: the demo's blast now auto-calibrates to scenes
   authored at upstream's density, and a crash on exploding near dynamic
-  triangle-mesh bodies is guarded (and reported upstream).
+  triangle-mesh bodies is guarded (the underlying upstream bug is written
+  up, with the fix located, ready to file).
 - Smaller: the sample picker groups by category and highlights where you are;
   saving a recording is instant and threaded with a visible progress state;
   spacebar drives the replay transport.
