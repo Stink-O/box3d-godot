@@ -6,6 +6,7 @@
 #include <godot_cpp/classes/multi_mesh.hpp>
 #include <godot_cpp/classes/multi_mesh_instance3d.hpp>
 #include <godot_cpp/classes/node3d.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_float32_array.hpp>
 
 #include <box3d/box3d.h>
@@ -42,6 +43,19 @@ class Box3DMultiMeshRenderer : public Node3D {
 protected:
 	static void _bind_methods();
 	void _notification(int p_what);
+
+public:
+	// { Box3DBody: Color } for every body this node draws.
+	//
+	// A body rendered here has no visual of its own — build() frees the
+	// MeshInstance3D it came with — so its colour exists ONLY in this node's
+	// instance buffer, and nothing outside can read it back: MultiMesh colours
+	// live in the RenderingServer, which stores none of this under --headless.
+	// Anything that wants to carry these colours somewhere else has to ask, and
+	// this is the question. The demo's replay sidecar is the caller (F-042); the
+	// answer comes straight out of the buffer the instances are drawn from, so
+	// there is no second copy to keep in step.
+	Dictionary get_replay_body_colors() const;
 };
 
 } // namespace godot

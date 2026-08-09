@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Box3DReplayRenderer" inherits="Node3D" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Draws the world a [Box3DReplayPlayer] is replaying.
+	</brief_description>
+	<description>
+		A [Box3DReplayPlayer] hands out body transforms and nothing else, so on its own a script can move markers around but cannot know what any recorded body looks like: the geometry lives in the recording's byte stream, not in the scene. This node closes that gap. Give it a player and it draws the replay.
+		Each distinct recorded geometry becomes one mesh, and every shape using it becomes one [MultiMesh] instance, so a recorded pile of ten thousand identical boxes is one mesh and one draw call. Spheres, capsules, convex hulls, triangle meshes, height fields and compounds all come back as real surfaces, coloured with Box3D's own body-state palette (static, awake, sleeping) -- that being the only colour a recording carries, since a recording holds the solver's geometry and no art.
+			By default those surfaces are lit by the host scene's own lights, so a replay reads as objects. Turn on [member debug_style] to draw them the way a debug view draws instead.
+		If your scene coloured its bodies itself, hand those colours over through [member body_color_overrides] and the replay comes back looking like the scene rather than like a state palette. Keying that table is what [method Box3DRecording.get_body_key] is for.
+		Set [member player] [b]before[/b] stepping the player. Attaching a renderer rewinds the player to frame 0 -- that is Box3D's own contract for installing debug-shape callbacks, not a quirk of this node.
+		The drawn instances are ordinary children, so this node's own transform places the whole replay in the scene. Setting [member player] to [code]null[/code] detaches and frees everything the replay allocated.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="clear">
+			<return type="void" />
+			<description>
+				Drops every mesh and instance this node built. The player keeps replaying; it just stops being drawn until the next [method update] rebuilds what it needs.
+			</description>
+		</method>
+		<method name="capture_frame">
+			<return type="void" />
+			<param index="0" name="frame" type="int" />
+			<description>
+				Draws the player's current frame [b]and[/b] remembers it as [code]frame[/code], so returning to it later is a buffer upload rather than a replayed simulation. This is what a transport calls for every frame it shows through the player: playing forward once is what makes playing backward free.
+			</description>
+		</method>
+		<method name="clear_frame_cache">
+			<return type="void" />
+			<description>
+				Forgets every remembered frame. The meshes, the instances and the player are untouched; only the cache goes.
+			</description>
+		</method>
+		<method name="draw_cached_frame">
+			<return type="bool" />
+			<param index="0" name="frame" type="int" />
+			<description>
+				Re-uploads a remembered frame without touching the player at all. Returns [code]false[/code] when that frame is not cached, in which case nothing was drawn and the caller has to produce it the slow way -- by seeking the player and calling [method capture_frame].
+			</description>
+		</method>
+		<method name="get_cached_frame_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many frames are remembered -- in memory and in the spill file alike, because both draw without touching the player. [method get_resident_frame_count] is the memory half.
+			</description>
+		</method>
+		<method name="get_cached_runs" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Every remembered range, as inclusive [Vector2i] [code](first, last)[/code] frame pairs with adjacent runs joined. Usually one run; a scrub that jumped over cold territory leaves the frame it landed on as an island of its own, and this reports it as a separate run rather than filling in the gap. This is what a buffer band on a scrubber should paint.
+			</description>
+		</method>
+		<method name="get_indexed_through" qualifiers="const">
+			<return type="int" />
+			<description>
+				The highest frame [code]F[/code] for which every frame from 1 up to [code]F[/code] is remembered, or [code]0[/code] when the coverage is a window rather than a prefix.
+				This is the number a transport needs to stay forward-only: at or below it a frame is a buffer upload, above it a frame has never been simulated and only stepping the player forward can produce one. Once it stops tracking the frames being stored, the spill has stood down and the cache is a sliding window again.
+			</description>
+		</method>
+		<method name="get_frame_cache_disk_bytes" qualifiers="const">
+			<return type="int" />
+			<description>
+				Bytes of cache overflow currently living in the spill file. Zero when [member frame_cache_spill_path] is empty or nothing has overflowed yet.
+			</description>
+		</method>
+		<method name="get_resident_frame_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many remembered frames are in memory, i.e. the ones [method get_frame_cache_bytes] accounts for.
+			</description>
+		</method>
+		<method name="get_resident_runs" qualifiers="const">
+			<return type="Array" />
+			<description>
+				[method get_cached_runs] restricted to the frames still in memory. A buffer band can paint this over the other to show the working set sliding inside the coverage.
+			</description>
+		</method>
+		<method name="get_spill_read_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Chunks read back from the spill file. Introspection: this is how a test proves a frame really came off disk rather than out of memory.
+			</description>
+		</method>
+		<method name="get_spill_write_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Chunks written to the spill file.
+			</description>
+		</method>
+		<method name="get_cached_frame_range" qualifiers="const">
+			<return type="Vector2i" />
+			<description>
+				The lowest and highest remembered frame, or [code](-1, -1)[/code] when nothing is cached. The window is kept centred on the last frame actually displayed, and it has no holes in it unless something jumped: eviction only ever drops one of its two ends.
+			</description>
+		</method>
+		<method name="get_frame_cache_bytes" qualifiers="const">
+			<return type="int" />
+			<description>
+				What the remembered frames occupy IN MEMORY, in bytes. One instance costs 20 bytes. Anything the budget pushed out to [member frame_cache_spill_path] is counted by [method get_frame_cache_disk_bytes] instead.
+			</description>
+		</method>
+		<method name="get_geometry_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				The number of [b]distinct[/b] recorded geometries currently interned, which is also the number of draw calls. Far smaller than the shape count whenever the recording repeats a shape.
+			</description>
+		</method>
+		<method name="get_geometry_info" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="index" type="int" />
+			<description>
+				Describes one interned geometry: [code]type[/code] (Box3D's own shape spelling -- [code]sphere[/code], [code]capsule[/code], [code]hull[/code], [code]mesh[/code], [code]height_field[/code] or [code]compound[/code]), [code]triangles[/code], [code]instances[/code] drawn by the last [method update], and [code]approximate[/code].
+				[code]approximate[/code] is [code]true[/code] when the mesh is a stand-in rather than the recorded surface: a mesh or height field too large to rebuild is drawn as its own bounding box, and a compound holding spheres or capsules draws those children boxed. Returns an empty [Dictionary] for an out-of-range index.
+			</description>
+		</method>
+		<method name="get_instance_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many shapes the last [method update] actually drew. Shapes culled by [member drawing_bounds] are not counted.
+			</description>
+		</method>
+		<method name="get_override_instance_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many of the instances currently on screen took their colour from [member body_color_overrides] rather than from the recording's state palette. Answers for a frame served from the cache as well as for a freshly drawn one.
+				Zero with a non-empty table means the table's keys name no body in this recording -- or that [member debug_style] is on, which ignores it by design.
+			</description>
+		</method>
+		<method name="get_shape_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				How many replayed shapes this node has built a draw handle for. Unlike [method get_instance_count] this does not drop when a shape is culled, and it returns to zero when the player is detached.
+			</description>
+		</method>
+		<method name="get_triangle_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Triangles across the distinct meshes, [b]not[/b] multiplied by instance count -- i.e. what the replay costs in geometry, not in draws.
+			</description>
+		</method>
+		<method name="update">
+			<return type="void" />
+			<description>
+				Redraws from the player's current frame. Called for you every frame while [member auto_update] is on; call it by hand after stepping or seeking a player with [member auto_update] off.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="auto_update" type="bool" setter="set_auto_update" getter="is_auto_update" default="true">
+			Redraw every frame. Turn it off to drive the replay yourself and call [method update] after each step or seek -- which is what a timeline scrubber wants.
+		</member>
+		<member name="body_color_overrides" type="Dictionary" setter="set_body_color_overrides" getter="get_body_color_overrides" default="{}">
+			Colour the replay's bodies the way your scene coloured them, instead of by the solver's state palette. Keys are body identities from [method Box3DRecording.get_body_key] -- [code]"&lt;index&gt;:&lt;generation&gt;"[/code], the one identity a recording preserves -- and values are [Color]s. Keys naming a body this recording does not contain are simply never asked for.
+			Empty by default, and empty is the fallback: every body keeps the palette colour the recording carries, which is all a recording carries, since it holds physics and no art. That is what a recording made before anyone wrote a sidecar looks like, and it is not a degraded state.
+			[member debug_style] [b]ignores[/b] this. A debug view is asked for in order to see the solver's own state colours, and painting your art over them would answer a different question.
+			Setting this discards the frame cache: the override is baked into the cached instance rows, which is what keeps a backward scrub a pure buffer upload. Toggling [member debug_style] while a table is set discards it for the same reason. Both are one-off host actions, never per-frame ones.
+		</member>
+		<member name="body_material_overrides" type="Dictionary" setter="set_body_material_overrides" getter="get_body_material_overrides" default="{}">
+			Shade the replay's bodies the way your scene shaded them. Keys are the same body identities [member body_color_overrides] uses; values are Dictionaries with any of [code]"roughness"[/code], [code]"metallic"[/code] and [code]"specular"[/code], each a float in 0..1. Anything an entry leaves out, and every body with no entry at all, keeps this node's own response: roughness 0.85, metallic 0.0, specular 0.35.
+			Colour alone does not make a replay match the scene it came from. A car chassis at roughness 0.35 / metallic 0.25 reads as painted metal; the same albedo at roughness 0.85 / metallic 0 reads as flat plastic.
+			[member debug_style] [b]ignores[/b] this, for the same reason it ignores the colours.
+			Unlike [member body_color_overrides] this does [b]not[/b] discard the frame cache. A material belongs to the shape, not to the frame, so it is resolved once per shape and written into the instance row at upload -- which also means it costs the cache nothing per frame. Setting a non-empty table widens the instance row from 16 floats to 20 (the MultiMesh custom-data slot), so leaving it empty is also the cheaper upload.
+		</member>
+		<member name="debug_style" type="bool" setter="set_debug_style" getter="is_debug_style" default="false">
+			Draw the replay the way a debug view draws -- flat, self-lit, in Box3D's state palette, the same treatment [member Box3DWorld.debug_draw] gives its own shells -- instead of as ordinary lit surfaces. Off by default, because a host that has not asked for a debug view must not be handed one. The demo shell drives this straight off its Debug switch, so opening a recording inherits whatever was already on screen and follows the switch while the timeline is open.
+		</member>
+		<member name="frame_cache_budget" type="int" setter="set_frame_cache_budget" getter="get_frame_cache_budget" default="100663296">
+			Bytes the frame cache may hold IN MEMORY, 96 MB by default. Setting a smaller one evicts on the spot; [code]0[/code] turns caching off entirely and every displayed frame goes back to costing a player seek.
+			With no [member frame_cache_spill_path], a recording too big to fit becomes a sliding window around the frame you are looking at: the cache evicts from whichever end is further from the playhead, an index pass stands down once its own newest frames start being thrown away, and play or scrub inside the window still costs a buffer upload. Only a seek outside the window pays the player's keyframe restore -- which on a big scene is a snapshot deserialize plus a whole keyframe interval of re-simulation, and is measured in seconds.
+			With a spill path set this stops being a coverage limit and becomes a working-set size: what leaves memory is written out instead of lost.
+		</member>
+		<member name="frame_cache_disk_budget" type="int" setter="set_frame_cache_disk_budget" getter="get_frame_cache_disk_budget" default="2147483648">
+			Ceiling on [member frame_cache_spill_path], 2 GB by default. Reaching it stands the spill down softly rather than failing: further evictions drop their chunks as they would with no spill at all, the coverage stops being a prefix, and [method get_indexed_through] says so.
+		</member>
+		<member name="frame_cache_spill_path" type="String" setter="set_frame_cache_spill_path" getter="get_frame_cache_spill_path" default="&quot;&quot;">
+			Where the frame cache writes the chunks [member frame_cache_budget] pushes out. Empty by default, which means nowhere: a host that has not asked for a temp file does not get one, and the cache is the memory window described above.
+			[b]Why this is worth setting.[/b] A cached frame is quantised transforms -- 20 bytes an instance -- so writing one out and reading it back costs a fraction of a millisecond. Producing a frame the cache does not hold costs the player a keyframe restore and a re-step of the gap, which on a 16,000-body scene with the ring's spacing doubled to 256 frames is [b]seconds[/b]. Spilling the overflow makes how much of a recording you can scrub through a question about disk rather than about RAM.
+			[b]This is a temp file, and this node owns it.[/b] It is created on the first eviction, truncated whenever the cache is cleared, and deleted when the node is freed or the path changes -- so point it somewhere under [code]user://[/code] at a name no other instance will pick, and do not point it at anything you mind losing. The bytes are native and unversioned across builds; nothing is meant to read them but the process that wrote them.
+			[b]Not on the web.[/b] Under Emscripten [code]user://[/code] is a filesystem layer over the same heap the memory budget exists to bound, so spilling there saves nothing. Leave it empty on that platform and let the cache be a window.
+		</member>
+		<member name="drawing_bounds" type="AABB" setter="set_drawing_bounds" getter="get_drawing_bounds" default="AABB(0, 0, 0, 0, 0, 0)">
+			Shapes outside this box are culled before any geometry is built for them. Leave it at the default zero-size [AABB] and the recording's own accumulated bounds are used ([code]bounds[/code] from [method Box3DReplayPlayer.get_info]), inflated so a body at the very edge is not clipped.
+		</member>
+		<member name="player" type="Box3DReplayPlayer" setter="set_player" getter="get_player">
+			The player to draw. Setting one rewinds it to frame 0. Setting [code]null[/code] detaches and frees every mesh and handle.
+		</member>
+	</members>
+</class>

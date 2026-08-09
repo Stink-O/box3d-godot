@@ -151,6 +151,18 @@ func _process(_delta: float) -> void:
 		i += 1
 
 
+## F-042. An emitter ball has no MeshInstance3D of its own -- it is a slot in
+## this cloud -- so the replay sidecar has to ask the cloud what colour it gave
+## each one. `_colors` is already the authority (`_grow` and `_release` rewrite
+## the MultiMesh from it), so this is a read and not a second copy of anything.
+func get_replay_body_colors() -> Dictionary:
+	var out := {}
+	for i in _bodies.size():
+		if i < _colors.size() and is_instance_valid(_bodies[i]):
+			out[_bodies[i]] = _colors[i]
+	return out
+
+
 ## Swap-remove: the last ball takes slot i, and the shrunk prefix is what
 ## visible_instance_count draws.
 func _release(i: int) -> void:

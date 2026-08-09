@@ -10,4 +10,14 @@
 	</description>
 	<tutorials>
 	</tutorials>
+	<methods>
+		<method name="get_replay_body_colors" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				The colour this node gave each body it draws, as [code]{ Box3DBody: Color }[/code].
+				A body rendered here has no visual of its own -- this node frees the [MeshInstance3D] it came with -- so its colour exists only in this node's instance buffer, and nothing outside can read it back: [MultiMesh] colours live in the [RenderingServer], which stores none of them in a headless run. So anything that wants to carry these colours somewhere else has to ask, and this is the question.
+				The demo's replay sidecar is the caller: it asks at record-stop and writes the answers beside the recording, which is what lets [member Box3DReplayRenderer.body_color_overrides] bring a replay back looking like the scene that was recorded.
+			</description>
+		</method>
+	</methods>
 </class>

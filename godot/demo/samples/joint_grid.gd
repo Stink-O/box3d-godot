@@ -47,6 +47,9 @@ var camera_look_at := Vector3.ZERO
 var _n := GRID_N
 var _bodies: Array[Box3DBody] = []
 var _mm: MultiMesh
+## Per-body colour, kept beside the MultiMesh so something other than the GPU
+## can read it -- the replay sidecar asks for these (see get_replay_body_colors).
+var _colors: PackedColorArray = PackedColorArray()
 var _joint_count := 0
 
 
@@ -133,12 +136,14 @@ func _build_multimesh() -> void:
 	_mm.use_colors = true
 	_mm.mesh = sphere
 	_mm.instance_count = _bodies.size()
+	_colors.resize(_bodies.size())
 	for i in _bodies.size():
 		_mm.set_instance_transform(i, Transform3D(Basis(), _bodies[i].position))
 		# Static top row in slate, the hanging net in a column-wise hue ramp.
 		var hue := float(i / _n) / float(_n)
-		_mm.set_instance_color(i, Color(0.35, 0.4, 0.45) if _bodies[i].body_type == Box3DBody.STATIC
-			else Color.from_hsv(hue, 0.45, 0.95))
+		_colors[i] = Color(0.35, 0.4, 0.45) if _bodies[i].body_type == Box3DBody.STATIC \
+			else Color.from_hsv(hue, 0.45, 0.95)
+		_mm.set_instance_color(i, _colors[i])
 
 	var mmi := MultiMeshInstance3D.new()
 	mmi.name = "GridVisual"
@@ -151,6 +156,16 @@ func _process(_delta: float) -> void:
 		return
 	for i in _bodies.size():
 		_mm.set_instance_transform(i, _bodies[i].global_transform)
+
+
+## F-042: the grid's spheres carry no visual of their own, so the replay sidecar
+## has to ask this node what colour each one was drawn in.
+func get_replay_body_colors() -> Dictionary:
+	var out := {}
+	for i in _bodies.size():
+		if i < _colors.size() and is_instance_valid(_bodies[i]):
+			out[_bodies[i]] = _colors[i]
+	return out
 
 
 func get_bodies() -> Array[Box3DBody]:

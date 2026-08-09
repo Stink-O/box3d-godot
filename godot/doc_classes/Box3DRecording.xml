@@ -31,6 +31,17 @@
 				[param byte_capacity] is a reallocation hint, not a cap: the default buffer is 64 KiB and grows on demand, so a long recording of a heavy scene is tens of megabytes either way. Sizing it up front only saves the regrowth.
 			</description>
 		</method>
+		<method name="get_body_key" qualifiers="static">
+			<return type="String" />
+			<param index="0" name="body" type="Object" />
+			<description>
+				A live [Box3DBody]'s identity as [code]"&lt;index&gt;:&lt;generation&gt;"[/code], or [code]""[/code] if it is not a body or has no live body behind it.
+				[b]This is the one identity that crosses a recording.[/b] A recording holds physics and no art, so anything you want to carry alongside one -- colours, names, gameplay tags -- has to be keyed on something that means the same thing in the live world and in the replayed world, and this is that thing. Box3D retargets a recorded body id onto the replay world by replacing only the world field, keeping the index and generation, and it asserts on every replayed create that the id it got back is the id that was recorded. Bodies that already existed when recording started come through the snapshot seed, which serializes the id pools themselves, so their ids survive too.
+				Node names, node paths and "the third body in the scene" survive none of that.
+				The generation is part of the key on purpose: an index is a slot, and a slot is reused, so a body destroyed mid-recording and one created afterwards can share an index and must not be confused for each other.
+				The demo shell uses this to write a colour sidecar beside each recording, which is how a replay comes back looking like the scene that was recorded instead of like a state palette.
+			</description>
+		</method>
 		<method name="get_data" qualifiers="const">
 			<return type="PackedByteArray" />
 			<description>

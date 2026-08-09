@@ -14,6 +14,12 @@ extends Node3D
 ## like the original look) — no materials, no instance-uniform limits.
 
 var _bodies: Array[Box3DBody] = []
+## The colour each body was given, kept alongside the MultiMesh rather than only
+## in it. The MultiMesh is server-side state: `get_instance_color` reads back
+## through the RenderingServer, which stores nothing at all under `--headless`.
+## Keeping the array is 16 bytes a cube and is what lets the replay sidecar ask
+## (see `get_replay_body_colors` below).
+var _colors: PackedColorArray = PackedColorArray()
 var _mm: MultiMesh
 var _mmi: MultiMeshInstance3D
 var _world: Node = null
@@ -68,8 +74,10 @@ func _ready() -> void:
 	_mm.mesh = box
 	_mm.instance_count = _bodies.size()
 	_last.resize(_bodies.size())
+	_colors.resize(_bodies.size())
 	for i in _bodies.size():
-		_mm.set_instance_color(i, Color.from_hsv(randf(), 0.5, 0.95))
+		_colors[i] = Color.from_hsv(randf(), 0.5, 0.95)
+		_mm.set_instance_color(i, _colors[i])
 		# Bodies and the MultiMeshInstance are siblings under this node, so
 		# body-local transforms are already in the right space.
 		_last[i] = _bodies[i].transform
@@ -84,6 +92,19 @@ func _ready() -> void:
 	_mmi.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	RenderingServer.multimesh_set_physics_interpolated(_mm.get_rid(), false)
 	add_child(_mmi)
+
+
+## F-042. These cubes have no MeshInstance3D to read a material off -- this
+## script frees them above -- so the only way anything else can know what colour
+## a cube is is to ask the node that coloured it. `ShellRecorder` asks at
+## record-stop and writes the answers beside the recording, which is what makes
+## a replay of the pile come back as the pile instead of as one flat tan.
+func get_replay_body_colors() -> Dictionary:
+	var out := {}
+	for i in _bodies.size():
+		if i < _colors.size() and is_instance_valid(_bodies[i]):
+			out[_bodies[i]] = _colors[i]
+	return out
 
 
 func _process(_delta: float) -> void:

@@ -145,4 +145,24 @@ void Box3DMultiMeshRenderer::_notification(int p_what) {
 	}
 }
 
-void Box3DMultiMeshRenderer::_bind_methods() {}
+Dictionary Box3DMultiMeshRenderer::get_replay_body_colors() const {
+	Dictionary out;
+	// Colours are written once, into slots 12..15 of each 16-float instance
+	// row, by build(). Reading them back from there is why nothing has to be
+	// mirrored into a second array.
+	const float *r = buffer.ptr();
+	const int64_t rows = buffer.size() / 16;
+	for (size_t i = 0; i < bodies.size(); ++i) {
+		if (bodies[i] == nullptr || (int64_t)i >= rows) {
+			continue;
+		}
+		const float *inst = r + (int64_t)i * 16;
+		out[bodies[i]] = Color(inst[12], inst[13], inst[14], inst[15]);
+	}
+	return out;
+}
+
+void Box3DMultiMeshRenderer::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("get_replay_body_colors"),
+			&Box3DMultiMeshRenderer::get_replay_body_colors);
+}

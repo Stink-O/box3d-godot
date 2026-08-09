@@ -3,6 +3,7 @@
 
 #include "box3d_replay.h"
 
+#include "box3d_body.h"
 #include "box3d_conversions.h"
 #include "box3d_world.h"
 
@@ -96,9 +97,23 @@ void Box3DRecording::detach_world() {
 	recording_world = nullptr;
 }
 
+String Box3DRecording::get_body_key(Object *p_body) {
+	const Box3DBody *body = Object::cast_to<Box3DBody>(p_body);
+	if (body == nullptr) {
+		return String();
+	}
+	const b3BodyId id = body->get_body_id();
+	if (!b3Body_IsValid(id)) {
+		return String();
+	}
+	return String::num_int64(id.index1) + ":" + String::num_int64(id.generation);
+}
+
 void Box3DRecording::_bind_methods() {
 	ClassDB::bind_static_method("Box3DRecording", D_METHOD("create", "byte_capacity"),
 			&Box3DRecording::create, DEFVAL(0));
+	ClassDB::bind_static_method("Box3DRecording", D_METHOD("get_body_key", "body"),
+			&Box3DRecording::get_body_key);
 	ClassDB::bind_method(D_METHOD("get_size"), &Box3DRecording::get_size);
 	ClassDB::bind_method(D_METHOD("get_data"), &Box3DRecording::get_data);
 	ClassDB::bind_method(D_METHOD("save_to_file", "path"), &Box3DRecording::save_to_file);
@@ -144,7 +159,35 @@ bool Box3DReplayPlayer::open(const PackedByteArray &p_data, int p_worker_count) 
 	}
 	player = p;
 	worker_count = count;
+	++open_generation;
+	// Upstream requires the debug-shape callbacks be installed immediately
+	// after Create, because installing them rebuilds the world and rewinds to
+	// frame 0 (box3d.h:406-413). Doing it here means a renderer attached
+	// before the recording was opened does not have to sequence anything.
+	if (cb_create != nullptr || cb_destroy != nullptr) {
+		b3RecPlayer_SetDebugShapeCallbacks(player, cb_create, cb_destroy, cb_context);
+	}
 	return true;
+}
+
+void Box3DReplayPlayer::install_debug_shape_callbacks(b3CreateDebugShapeCallback *p_create,
+		b3DestroyDebugShapeCallback *p_destroy, void *p_context) {
+	cb_create = p_create;
+	cb_destroy = p_destroy;
+	cb_context = p_context;
+	if (player == nullptr) {
+		return;
+	}
+	// Destroys and rebuilds the replay world and rewinds to frame 0. The world
+	// id is not cached anywhere, so there is nothing to re-read here.
+	b3RecPlayer_SetDebugShapeCallbacks(player, cb_create, cb_destroy, cb_context);
+}
+
+b3WorldId Box3DReplayPlayer::get_replay_world_id() const {
+	if (player == nullptr) {
+		return b3_nullWorldId;
+	}
+	return b3RecPlayer_GetWorldId(player);
 }
 
 bool Box3DReplayPlayer::open_file(const String &p_path, int p_worker_count) {
