@@ -1,8 +1,10 @@
 extends Node3D
 
-## Box3D sample browser. A dropdown menu lists samples by category; picking
-## one instances its scene into SampleHost and points the shared camera at its
-## world. Add new samples to SAMPLES and drop the scene in samples/.
+## Box3D sample browser. A dropdown menu lists samples in a submenu per
+## category; picking one instances its scene into SampleHost and points the
+## shared camera at its world. Add new samples to SAMPLES and drop the scene in
+## samples/ -- the menu, the touch picker, `--sample=` and the selftest all read
+## that one registry.
 
 const SAMPLES := {
 	"Basics": {
@@ -18,6 +20,10 @@ const SAMPLES := {
 		"Conveyor Belt": "res://samples/conveyor_belt.tscn",
 		"Wind": "res://samples/wind.tscn",
 		"Live Geometry": "res://samples/live_geometry.tscn",
+	},
+	"Geometry": {
+		"Box Hull": "res://samples/box_hull.tscn",
+		"Hull Reduction": "res://samples/hull_reduction.tscn",
 	},
 	"Stacking & Friction": {
 		"Friction Ramp": "res://samples/friction_ramp.tscn",
@@ -90,6 +96,12 @@ const SAMPLES := {
 		"Overlap Recovery": "res://samples/overlap_recovery.tscn",
 		"High Mass Ratio": "res://samples/high_mass_ratio.tscn",
 	},
+	"Determinism": {
+		"Wave Pile": "res://samples/wave_pile.tscn",
+	},
+	"World": {
+		"Far Stack": "res://samples/far_stack.tscn",
+	},
 	"Mesh": {
 		"Height Field": "res://samples/height_field.tscn",
 		"Big Box": "res://samples/big_box_mesh.tscn",
@@ -124,6 +136,10 @@ const DESCRIPTIONS := {
 	"Restitution": "A row of balls with restitution rising from 0 to 1, dropped from the same height. Each one bounces back to a different fraction of the drop.",
 	"Conveyor Belt": "The ramp never moves. Its surface has a tangent velocity, so it carries crates uphill the way a real belt does, and the crates stop dead when they leave it.",
 	"Wind": "A jointed ribbon in a steady 6 m/s wind. This is real aerodynamic drag and lift on each plate's cross section, not a push, which is why the ribbon streams and flutters. Turn the wind off with the toggle and it falls limp.",
+	"Box Hull": "The same box built two ways at once: eight corners transformed by hand and handed to the hull builder, against the one call that does it for you. Their largest disagreement is measured rather than eyeballed, and it is zero for a rotation with a uniform scale.",
+	"Hull Reduction": "One cloud of 128 points hulled again and again under a rising vertex budget, one body per budget in a row. Left to right the collider goes from a tetrahedron to a faceted ball, and every one of them is a real collider, so the coarse ones rock on their flat faces while the fine ones roll.",
+	"Wave Pile": "A hundred convex bodies, spheres and capsules and boxes and rocks, dropped onto a wave field and left to fall asleep. The world records itself as it runs and the recording is then replayed at one, two, four and eight workers with every step's state hash checked, so the verdict is a live cross-thread determinism test.",
+	"Far Stack": "The same six box column rebuilt at the origin, ten kilometres out and a hundred kilometres out. Its settled height agrees to a tenth of a millimetre at every offset, because contacts are solved in delta space rather than in absolute coordinates.",
 	"Live Geometry": "Colliders being resized while the simulation runs: a growing box lifts a tower, a sphere breathes and its mass follows r cubed, and two spheres on a bar swap size so the body rolls toward the heavy end. Freeze it with the toggle and the whole scene goes to sleep.",
 	"Friction Ramp": "Identical boxes on one slope with different friction. The low friction ones slide away, the high friction ones stay put.",
 	"Pyramid": "The classic stacking test: a pyramid of boxes that has to stay square and then fall asleep.",
@@ -196,6 +212,10 @@ const USE_CASES := {
 	"Restitution": "Bouncy balls, grenades and anything that should rebound",
 	"Conveyor Belt": "Conveyors, treadmills and moving walkways",
 	"Wind": "Flags, banners and cloth strips that answer to the weather",
+	"Box Hull": "Knowing when the cheap scaled-box shortcut is safe for a transformed prop",
+	"Hull Reduction": "Choosing the vertex budget for a collider baked from an art mesh",
+	"Wave Pile": "Proving a build reproduces the same run whatever the thread count",
+	"Far Stack": "Deciding whether a large open world needs its origin rebased",
 	"Live Geometry": "Props that grow or shrink in play, like an inflating balloon",
 	"Friction Ramp": "Ice, mud and other surfaces that change how things slide",
 	"Pyramid": "Stackable crates the player can build with",
@@ -253,6 +273,52 @@ const USE_CASES := {
 	"Joint Grid": "Budgeting for joint-heavy scenes like chain nets and cloth",
 	"Rewind": "Killcams, action replays and reproducing a reported desync from the bytes",
 }
+
+
+## SAMPLES flattened to `{category, name, path}` rows, in registry order. One
+## place that walks the registry, so the menu, the touch picker, the `--sample=`
+## lookup and the selftest can never disagree about what a sample is called or
+## which category it lives in. Static: the selftest reads it off the script
+## without booting the shell.
+static func sample_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for category in SAMPLES:
+		for sample_name in SAMPLES[category]:
+			rows.append({
+				"category": category,
+				"name": sample_name,
+				"path": SAMPLES[category][sample_name],
+			})
+	return rows
+
+
+## The `--sample=` lookup, case-insensitive, returning that sample's row. An
+## empty dictionary means "no such sample" and the caller keeps its default,
+## which is why a typo on the command line silently opens the first sample.
+static func find_sample(wanted: String) -> Dictionary:
+	if wanted.is_empty():
+		return {}
+	var lower := wanted.to_lower()
+	for row in sample_rows():
+		if String(row["name"]).to_lower() == lower:
+			return row
+	return {}
+
+
+## Which category a sample is filed under, "" if it is not in the registry.
+static func category_of(sample_name: String) -> String:
+	for row in sample_rows():
+		if row["name"] == sample_name:
+			return String(row["category"])
+	return ""
+
+
+## A category's row in the Samples popup. The mark is what says "your sample is
+## in here"; every other row is padded to the same lead-in so moving the mark
+## never reflows the popup, and the count is there because a submenu hides how
+## much is behind it.
+static func menu_category_label(category: String, current: bool) -> String:
+	return "%s%s  (%d)" % ["•  " if current else "   ", category, SAMPLES[category].size()]
 
 ## Which solver runs the samples. Box3D is the default and the tested path; the
 ## native engines exist so the same shell -- same menu, camera, tools, reset --
@@ -335,6 +401,7 @@ const ENGINE_ACCENTS := {
 @onready var _readout: Label = $UI/Sidebar/Margin/VBox/Readout
 @onready var _set_start_btn: Button = $UI/Sidebar/Margin/VBox/StartViewRow/SetStartView
 @onready var _clear_start_btn: Button = $UI/Sidebar/Margin/VBox/StartViewRow/ClearStartView
+@onready var _bar: HBoxContainer = $UI/Bar
 
 ## Start views saved at runtime with the sidebar's "Set Start View" button,
 ## keyed by sample scene path. Highest-priority spawn view, survives restarts.
@@ -342,7 +409,9 @@ const START_VIEWS_PATH := "user://start_views.cfg"
 var _start_views := ConfigFile.new()
 
 var _current: Node = null
-var _items: Dictionary = {}  ## popup item id -> {path, name}
+var _items: Dictionary = {}  ## popup item id -> {path, name, category}
+var _cat_popups: Dictionary = {}  ## category -> its submenu PopupMenu
+var _cat_rows: Dictionary = {}  ## category -> its row index in the root popup
 var _current_path := ""
 var _current_name := ""
 var _debug_draw := false
@@ -380,8 +449,33 @@ var _debug_hidden_node_count := -1  ## tree size at the last hide walk (skip che
 ## Off by default; sticky across sample loads and resets once turned on.
 var _async_step := false
 
+## The sidebar's Recording section (F-R2), mirroring upstream's own
+## (`samples/sample.cpp:2005-2033`). All of it is built in code rather than in
+## main.tscn, the way the sample blurb and the ⟲ buttons are: the section only
+## exists on Box3D worlds and the scene should not carry rows that spend most of
+## their life hidden.
+var _recorder := ShellRecorder.new()
+var _record_box: Control = null  ## the whole section, hidden on native engines
+var _record_arm_row: Control = null  ## the two arm buttons, shown when idle
+var _record_stop_btn: Button = null  ## shown instead, while a session is live
+var _record_status: Label = null  ## upstream's "recording (from step N)" line
+var _record_status_row: Control = null  ## the status line plus its busy spinner
+var _record_spinner: ShellSpinner = null  ## shown while a save is in flight
+var _rec_spinner: ShellSpinner = null  ## the same, beside the top bar's pill
+var _rec_pill: Label = null  ## the same state in the top bar, so a closed sidebar cannot hide it
+## Replay (F-R3). The bar owns the player, the renderer and the transport; the
+## shell owns only "which sample is paused behind it" and how to get back.
+var _record_replay_row: Control = null
+var _record_open_btn: MenuButton = null
+var _record_last_btn: Button = null
+var _replay_paths := PackedStringArray()  ## what the Open menu is currently listing
+var _replay: ReplayTimeline = null
+
 var _touch: TouchControls = null  ## touch overlay, only on touchscreen devices
 var _sample_panel: PanelContainer = null  ## touch sample picker (desktop uses the popup)
+var _sample_scroll: ScrollContainer = null  ## its scrollable list, for scrolling to the current row
+var _touch_rows: Dictionary = {}  ## sample name -> its Button in the touch picker
+var _touch_sections: Dictionary = {}  ## category -> {head: Button, box: VBoxContainer}
 var _touch_layer: CanvasLayer = null  ## panels above the touch overlay, mobile only
 
 ## Engine selection. `_engine` is what was ASKED for (`--engine=`, written by
@@ -423,6 +517,7 @@ func _ready() -> void:
 	_sidebar_toggle.focus_mode = Control.FOCUS_NONE
 	_sidebar_toggle.toggled.connect(_on_sidebar_toggled)
 	_build_sample_blurb()
+	_build_record_section()
 
 	# Engine selector: same shell, different solver underneath.
 	_engine_option.focus_mode = Control.FOCUS_NONE
@@ -530,6 +625,7 @@ func _ready() -> void:
 	# `-- --profiler` opens with the solver profiler already up, so a recording
 	# setup does not have to click through the sidebar every launch.
 	var wanted := ""
+	var replay_arg := ""
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sample="):
 			wanted = arg.get_slice("=", 1).to_lower()
@@ -542,6 +638,12 @@ func _ready() -> void:
 			_shot_path = arg.get_slice("=", 1)
 		elif arg.begins_with("--shot-tick="):
 			_shot_tick = maxi(1, int(arg.get_slice("=", 1)))
+		elif arg.begins_with("--replay="):
+			# Open straight into the timeline on a saved recording. Same reason
+			# --sample= and --profiler exist: it makes the path scriptable, and
+			# replay smoothness is a thing that has to be MEASURED rather than
+			# eyeballed (`--replay=... --profiler --shot=out.png`).
+			replay_arg = arg.get_slice("=", 1)
 	var first_cat: String = SAMPLES.keys()[0]
 	var first_name: String = SAMPLES[first_cat].keys()[0]
 	# The browser build opens somewhere lighter. Cube Pile is 4096 bodies and
@@ -555,12 +657,20 @@ func _ready() -> void:
 			if SAMPLES[category].has(WEB_FIRST_SAMPLE):
 				first_cat = category
 				first_name = WEB_FIRST_SAMPLE
-	for category in SAMPLES:
-		for sample_name in SAMPLES[category]:
-			if sample_name.to_lower() == wanted:
-				first_cat = category
-				first_name = sample_name
+	var asked := find_sample(wanted)
+	if not asked.is_empty():
+		first_cat = String(asked["category"])
+		first_name = String(asked["name"])
+	if not wanted.is_empty():
+		# A --sample= that matches nothing is not an error, it just leaves the
+		# default in place -- which reads exactly like the sample being broken.
+		# Say which one actually opened, so a scripted run can check.
+		if asked.is_empty():
+			push_warning("--sample=%s matched no sample; opening %s" % [wanted, first_name])
+		print("[shell] --sample=%s -> %s (%s)" % [wanted, first_name, first_cat])
 	_load(SAMPLES[first_cat][first_name], first_name)
+	if not replay_arg.is_empty():
+		_enter_replay(replay_arg)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -868,9 +978,14 @@ func _apply_touch_scale() -> void:
 			minf(short_logical / 480.0, long_logical / 1100.0), 1.0, 2.5)
 
 
-## The MenuButton's popup is desktop furniture: a 40-row list that scrolls on
+## The MenuButton's popup is desktop furniture: a 69-row list that scrolls on
 ## hover and reads at desktop sizes. On touch it is swapped for a left-side
 ## panel of big drag-scrollable rows, the mirror image of the settings sidebar.
+##
+## The desktop menu's structure is mirrored here rather than reinvented: one
+## COLLAPSIBLE section per category (a finger cannot hover a submenu open, so
+## nesting becomes folding), the current sample's row outlined, and the current
+## category expanded and scrolled to whenever the panel is opened.
 func _setup_touch_sample_picker() -> void:
 	var bar: Control = _menu.get_parent()
 	var btn := Button.new()
@@ -880,7 +995,10 @@ func _setup_touch_sample_picker() -> void:
 	bar.add_child(btn)
 	bar.move_child(btn, _menu.get_index())
 	_menu.visible = false
-	btn.toggled.connect(func(on: bool): _sample_panel.visible = on)
+	btn.toggled.connect(func(on: bool):
+		_sample_panel.visible = on
+		if on:
+			_reveal_current_sample())
 
 	_sample_panel = PanelContainer.new()
 	_sample_panel.visible = false
@@ -894,14 +1012,27 @@ func _setup_touch_sample_picker() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.scroll_deadzone = 24
 	_sample_panel.add_child(scroll)
+	_sample_scroll = scroll
 	var vbox := VBoxContainer.new()
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(vbox)
+	_touch_rows.clear()
+	_touch_sections.clear()
 	for category in SAMPLES:
-		var head := Label.new()
-		head.text = category
-		head.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
+		var head := Button.new()
+		head.toggle_mode = true
+		head.focus_mode = Control.FOCUS_NONE
+		head.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		head.custom_minimum_size = Vector2(0.0, 44.0)
+		head.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
 		vbox.add_child(head)
+		var section := VBoxContainer.new()
+		section.visible = false
+		vbox.add_child(section)
+		_touch_sections[category] = {"head": head, "box": section}
+		head.toggled.connect(func(on: bool):
+			section.visible = on
+			_refresh_touch_headers())
 		for sample_name in SAMPLES[category]:
 			var row := Button.new()
 			row.text = sample_name
@@ -914,9 +1045,73 @@ func _setup_touch_sample_picker() -> void:
 			row.pressed.connect(func():
 				btn.button_pressed = false  # also hides the panel via toggled
 				_load(path, title))
-			vbox.add_child(row)
+			section.add_child(row)
+			_touch_rows[sample_name] = row
+	_refresh_touch_headers()
 	_pass_through_for_scroll(vbox)
 	_touch_layer.add_child(_sample_panel)
+
+
+## Fold arrow, category, a bullet when the current sample is inside it, and how
+## many samples it holds -- a folded section otherwise says nothing about what
+## it is hiding.
+func _refresh_touch_headers() -> void:
+	var current_cat := category_of(_current_name)
+	for category in _touch_sections:
+		var head: Button = _touch_sections[category]["head"]
+		head.text = "%s %s%s (%d)" % [
+			"v" if head.button_pressed else ">",
+			"• " if category == current_cat else "",
+			category,
+			SAMPLES[category].size(),
+		]
+
+
+## The touch picker's answer to the popup's radio check: the current row keeps
+## an outlined, tinted background so it is findable at a glance in a list of
+## identical buttons.
+func _mark_touch_current() -> void:
+	if _sample_panel == null:
+		return
+	for sample_name in _touch_rows:
+		var row: Button = _touch_rows[sample_name]
+		if sample_name == _current_name:
+			row.add_theme_stylebox_override("normal", _touch_current_row_style())
+			row.add_theme_color_override("font_color", Color(1, 1, 1))
+		else:
+			row.remove_theme_stylebox_override("normal")
+			row.remove_theme_color_override("font_color")
+	_refresh_touch_headers()
+
+
+func _touch_current_row_style() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.16, 0.34, 0.46, 0.85)
+	sb.border_color = Color(0.45, 0.82, 1.0, 0.95)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(4)
+	sb.set_content_margin_all(6)
+	return sb
+
+
+## Opening the panel should land on the sample you are running, not on the top
+## of an alphabet of categories: expand the one holding it and scroll its row
+## into view. Deferred by a frame because a section that has just been unfolded
+## has no size yet and ensure_control_visible would aim at the wrong place.
+func _reveal_current_sample() -> void:
+	var current_cat := category_of(_current_name)
+	if current_cat.is_empty():
+		return
+	var section: Dictionary = _touch_sections.get(current_cat, {})
+	if not section.is_empty():
+		var head: Button = section["head"]
+		head.button_pressed = true  # toggled shows the box and relabels
+	var row: Button = _touch_rows.get(_current_name)
+	if row == null or _sample_scroll == null:
+		return
+	await get_tree().process_frame
+	if is_instance_valid(row) and is_instance_valid(_sample_scroll):
+		_sample_scroll.ensure_control_visible(row)
 
 
 ## A Control whose mouse_filter is STOP (every Button/CheckBox default) ends
@@ -965,6 +1160,20 @@ func _physics_process(_delta: float) -> void:
 		_check_engine()
 	if _sidebar.visible:
 		_update_readout()
+	# The recording readout is a byte count climbing, so 4 Hz is plenty and a
+	# per-frame refresh would be the only cost recording adds to the shell.
+	if _recorder.is_recording():
+		# F-048: the appearance capture that used to happen all at once on the
+		# Stop click is amortised here instead, a slice a frame. Sub-0.1 ms per
+		# call on every sample measured, and it stops of its own accord once it
+		# has been round the world.
+		_recorder.poll_capture()
+		if _step_count % 15 == 0:
+			_update_record_indicator()
+	elif _recorder.is_saving():
+		# Only does anything on a build with no threads (the single-threaded web
+		# fallback), where the save is sliced across frames instead.
+		_recorder.poll_save()
 	# Body counting is a full tree walk, so refresh the overlay's count at 1 Hz.
 	if _stats_overlay.visible and _step_count % 60 == 0:
 		_push_stats_bodies()
@@ -1032,6 +1241,14 @@ func _on_debug_toggled(pressed: bool) -> void:
 
 
 func _apply_debug() -> void:
+	# F-038. A replay used to draw itself in the debug shells' own flat state-
+	# palette treatment whatever this switch said, so opening the timeline with
+	# Debug off put a debug view on screen while the checkbox still read off.
+	# The timeline follows the switch instead, in both directions, and NEVER
+	# writes back to it -- which is why the two cannot desync, and why leaving a
+	# replay restores nothing: nothing was changed to restore.
+	if _replay != null and is_instance_valid(_replay):
+		_replay.set_debug_style(_debug_draw)
 	if _current == null:
 		return
 	var world = _current.get_node_or_null("Box3DWorld")
@@ -1159,6 +1376,406 @@ func _sample_tooltip(sample_name: String) -> String:
 func _update_blurb_toggle_text() -> void:
 	var arrow := "v" if _sample_blurb_toggle.button_pressed else ">"
 	_sample_blurb_toggle.text = "%s About this sample" % arrow
+
+
+# --- Recording (F-R2): capture any sample, from the sidebar ------------------
+
+## Upstream's Recording panel, ported: two ways to arm and one to stop
+## (`samples/sample.cpp:2005-2033`).
+##
+##  * "Record (restart)" restarts the sample and arms at step 0, so the file is
+##    a whole clean session -- upstream's `SelectSample( ..., true )` followed by
+##    `StartRecording()` (`sample.cpp:2014-2018`), in that order.
+##  * "Record now" arms the world as it stands. This is not a lesser capture:
+##    `b3World_StartRecording` seeds the buffer from a snapshot of the live
+##    world (`src/recording.c:1017`), so the pile you are looking at is in the
+##    file even though it was built hundreds of steps ago.
+##
+## EVERYTHING THE SHELL DOES IS CAPTURED, with no special casing anywhere: the
+## F-key balls, the bombs and their blast impulses, the thrown ragdolls and the
+## mouse grab joint are all ordinary Box3D mutations of the recorded world, and
+## world mutations are exactly what the stream is made of.
+##
+## The section is Box3D-only. Godot Physics and Jolt have no recording API to
+## port, so on those engines it goes away entirely rather than offering buttons
+## that would have to explain themselves.
+func _build_record_section() -> void:
+	var vbox: Control = _side_scroll.get_node("Margin/VBox")
+	var box := VBoxContainer.new()
+	box.name = "RecordSection"
+	box.add_theme_constant_override("separation", 6)
+	_record_box = box
+
+	box.add_child(HSeparator.new())
+	var title := Label.new()
+	title.text = "Recording"
+	box.add_child(title)
+
+	var arm := HBoxContainer.new()
+	arm.name = "RecordArmRow"
+	_record_arm_row = arm
+	var restart_btn := Button.new()
+	restart_btn.text = "Record (restart)"
+	restart_btn.focus_mode = Control.FOCUS_NONE
+	restart_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	restart_btn.tooltip_text = "Restart this sample, then capture from step 0."
+	restart_btn.pressed.connect(_on_record_restart)
+	arm.add_child(restart_btn)
+	var now_btn := Button.new()
+	now_btn.text = "Record now"
+	now_btn.focus_mode = Control.FOCUS_NONE
+	now_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	now_btn.tooltip_text = "Capture from here. The world as it stands is seeded into the file."
+	now_btn.pressed.connect(_on_record_now)
+	arm.add_child(now_btn)
+	box.add_child(arm)
+
+	_record_stop_btn = Button.new()
+	_record_stop_btn.text = "Stop and save"
+	_record_stop_btn.focus_mode = Control.FOCUS_NONE
+	_record_stop_btn.visible = false
+	_record_stop_btn.pressed.connect(_on_record_stop)
+	box.add_child(_record_stop_btn)
+
+	# The status line and its busy indicator share a row so the spinner sits
+	# BESIDE the text rather than above it, and so hiding the spinner leaves the
+	# text exactly where it was: the row keeps its height either way.
+	var status_row := HBoxContainer.new()
+	status_row.name = "RecordStatusRow"
+	status_row.add_theme_constant_override("separation", 6)
+	_record_spinner = ShellSpinner.make(16.0, Color(0.35, 0.85, 0.6))
+	status_row.add_child(_record_spinner)
+	_record_status = Label.new()
+	_record_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_record_status.add_theme_font_size_override("font_size", 12)
+	_record_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	status_row.add_child(_record_status)
+	_record_status_row = status_row
+	status_row.visible = false
+	box.add_child(status_row)
+
+	# Playback (F-R3). A popup listing user://recordings rather than a file
+	# dialog: the shell has no native picker to offer in a browser tab or on
+	# Android, and that directory is the only place it ever writes.
+	var replay_row := HBoxContainer.new()
+	replay_row.name = "ReplayRow"
+	_record_replay_row = replay_row
+	_record_open_btn = MenuButton.new()
+	_record_open_btn.text = "Open recording"
+	_record_open_btn.focus_mode = Control.FOCUS_NONE
+	_record_open_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_record_open_btn.about_to_popup.connect(_refresh_replay_menu)
+	_record_open_btn.get_popup().id_pressed.connect(_on_replay_menu_id)
+	replay_row.add_child(_record_open_btn)
+	_record_last_btn = Button.new()
+	_record_last_btn.text = "Replay last"
+	_record_last_btn.focus_mode = Control.FOCUS_NONE
+	_record_last_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_record_last_btn.tooltip_text = "Play back the recording that was saved most recently."
+	_record_last_btn.pressed.connect(func() -> void: _enter_replay(ShellRecorder.last_path()))
+	replay_row.add_child(_record_last_btn)
+	box.add_child(replay_row)
+
+	vbox.add_child(box)
+	# Above the engine selector, below the world controls: it is about the
+	# sample, not about which solver is running it.
+	vbox.move_child(box, _engine_sep.get_index())
+
+	# The sidebar starts closed and a recording can run for minutes, so the same
+	# state also rides in the top bar where it cannot be hidden by accident.
+	_rec_pill = Label.new()
+	_rec_pill.name = "RecPill"
+	_rec_pill.visible = false
+	_rec_pill.add_theme_color_override("font_color", Color(1.0, 0.42, 0.42))
+	_bar.add_child(_rec_pill)
+	# F-048: the top bar carries the SAVING state too, for the same reason it
+	# carries the REC one -- the sidebar starts closed, and "why is the Stop
+	# button gone?" must be answerable without opening it.
+	_rec_spinner = ShellSpinner.make(16.0, Color(1.0, 0.42, 0.42))
+	_rec_spinner.name = "RecSpinner"
+	_bar.add_child(_rec_spinner)
+
+	_recorder.save_finished.connect(_on_record_saved)
+	_update_record_ui()
+
+
+func _record_world():
+	if _current == null:
+		return null
+	return _current.get_node_or_null("Box3DWorld")
+
+
+func _on_record_restart() -> void:
+	if _recorder.is_recording():
+		return
+	# Restart FIRST, arm second: upstream's order, and the reason the two
+	# buttons differ at all (`samples/sample.cpp:2014-2018`). Reset's own
+	# keep-the-camera behaviour is kept, so the view you framed the shot from
+	# survives the restart.
+	if _current_path != "":
+		_load(_current_path, _current_name, true)
+	_arm_recording()
+
+
+func _on_record_now() -> void:
+	if _recorder.is_recording():
+		return
+	_arm_recording()
+
+
+func _arm_recording() -> void:
+	if _recorder.start(_record_world(), _current_name, _step_count):
+		_flash_info("Recording from step %d" % _recorder.start_step)
+	else:
+		_flash_info("Recording could not start on this world")
+	_update_record_ui()
+
+
+## THE CLICK THE FIX IS ABOUT (F-048). It stops the session and hands the two
+## files to a background thread, which is why it does NOT report a save here:
+## the path it has is a promise, and `_on_record_saved` reports the receipt.
+## What the user sees in between is the record indicator turning into a
+## "Saving..." with a spinner, and the replay controls staying out of reach --
+## an honest busy state instead of a frozen window.
+func _on_record_stop() -> void:
+	var saved := _stop_recording()
+	if saved.is_empty():
+		_flash_info("Recording not saved: %s" % _recorder.last_error)
+	else:
+		_flash_info("Saving %s..." % saved.get_file())
+
+
+## The background save landed. Fires on the main thread, once per stop.
+func _on_record_saved(path: String, error: String) -> void:
+	if not error.is_empty():
+		_flash_info("Recording not saved: %s" % error)
+	elif not path.is_empty():
+		_flash_info("Saved %s" % path.get_file())
+	_update_record_ui()
+
+
+## Stop and WRITE. Also the single teardown path: a sample switch, a Reset, an
+## engine switch and quitting all come through here.
+##
+## SAVE, NOT DISCARD, and that is upstream's answer rather than a preference.
+## `Sample::~Sample()` and `Sample::CreateWorld()` both call `FinishRecording()`
+## before destroying the world (`samples/sample.cpp:343-348` and `:386-391`),
+## and `FinishRecording` writes the file (`:367-383`). Switching sample in
+## upstream's viewer destroys the sample, so a recording in flight is written
+## out, not thrown away. Discarding would also be the crueller default: the
+## bytes are unrecoverable and the file is cheap.
+func _stop_recording() -> String:
+	if not _recorder.is_recording():
+		return ""
+	var saved := _recorder.stop()
+	_update_record_ui()
+	return saved
+
+
+func _update_record_ui() -> void:
+	# `is_instance_valid`, not a null test: _exit_tree stops a live session
+	# while the UI may already be coming down around it.
+	if _record_box == null or not is_instance_valid(_record_box):
+		return
+	var live := _recorder.is_recording()
+	var saving := _recorder.is_saving()
+	var replaying := _replay != null and is_instance_valid(_replay)
+	# SAVING IS ITS OWN STATE, and the section says so honestly: the session is
+	# over (no Stop button, and clicking it again must be impossible), the file
+	# is not there yet (no replay row -- "Replay last" would open a recording
+	# that is still being written), and neither is a new session (no arm row,
+	# because arming would have to join the save it is meant to be hiding).
+	_record_arm_row.visible = not live and not replaying and not saving
+	_record_stop_btn.visible = live
+	_record_stop_btn.disabled = saving
+	_record_replay_row.visible = not live and not replaying and not saving
+	_rec_pill.visible = live or saving
+	_rec_spinner.visible = saving
+	# Probed here rather than per frame: it is a stat() on a remembered path.
+	_record_last_btn.disabled = ShellRecorder.last_path().is_empty()
+	if replaying:
+		_record_status.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
+		_record_status.text = "Replaying. Close the timeline to come back to the sample."
+		_record_status_row.visible = true
+		_record_spinner.visible = false
+		return
+	if saving:
+		# Deliberately the SAME green the live indicator uses: this is the tail
+		# of the recording, not a new kind of event, and the spinner is what
+		# says it is still going.
+		_record_status.add_theme_color_override("font_color", Color(0.35, 0.85, 0.6))
+		_record_status.text = "Saving the recording..."
+		_record_status_row.visible = true
+		_record_spinner.visible = true
+		_rec_pill.text = "SAVING"
+		return
+	_record_spinner.visible = false
+	if live:
+		_record_status.add_theme_color_override("font_color", Color(0.35, 0.85, 0.6))
+		_record_status.text = _recorder.status_text()
+		_record_status_row.visible = true
+	elif not _recorder.last_error.is_empty():
+		_record_status.add_theme_color_override("font_color", Color(1.0, 0.5, 0.45))
+		_record_status.text = "Not saved: %s" % _recorder.last_error
+		_record_status_row.visible = true
+	elif not _recorder.last_saved.is_empty():
+		_record_status.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
+		_record_status.text = "Saved %s" % _recorder.last_saved.get_file()
+		_record_status_row.visible = true
+	else:
+		_record_status_row.visible = false
+	_update_record_indicator()
+
+
+## The climbing byte count, refreshed on a timer rather than on an event. Cheap:
+## `b3Recording_GetSize` is live during a session, unlike the bytes themselves.
+func _update_record_indicator() -> void:
+	if not _recorder.is_recording():
+		return
+	var text := _recorder.status_text()
+	_record_status.text = text
+	_rec_pill.text = "REC  %s" % text
+
+
+# --- Replay (F-R3): the timeline takes over the viewport ---------------------
+
+## Fill the Open menu from `user://recordings`, newest first. Rebuilt on every
+## popup because a recording can be made between two openings of it.
+func _refresh_replay_menu() -> void:
+	var popup: PopupMenu = _record_open_btn.get_popup()
+	popup.clear()
+	_replay_paths = ShellRecorder.list_saved()
+	if _replay_paths.is_empty():
+		popup.add_item("No recordings yet", -1)
+		popup.set_item_disabled(0, true)
+		return
+	# Enough to pick from without turning into a scrolling wall.
+	var shown := mini(_replay_paths.size(), 24)
+	for i in range(shown):
+		popup.add_item(_replay_paths[i].get_file(), i)
+
+
+func _on_replay_menu_id(id: int) -> void:
+	if id < 0 or id >= _replay_paths.size():
+		return
+	_enter_replay(_replay_paths[id])
+
+
+## Hand the viewport to a recording.
+##
+## The live sample is PAUSED AND HIDDEN rather than freed: a recording is a
+## different world standing beside this one, not this one rewound (the player
+## builds its own world and retargets every recorded id onto it), and keeping
+## the sample means coming back is a restart rather than a reload from disk.
+func _enter_replay(path: String) -> void:
+	# F-048: a recording still being written is not openable, and the buttons
+	# that lead here are hidden while a save is in flight. This is the belt to
+	# that braces -- `--replay=` and a script can still arrive mid-save.
+	_recorder.flush_save()
+	if path.is_empty() or not FileAccess.file_exists(path):
+		_flash_info("No recording to replay yet -- record one first")
+		return
+	var carried := _stop_recording()
+	if not carried.is_empty():
+		# Entering replay straight after arming is a plausible slip; the file is
+		# written rather than lost, as everywhere else -- and waited for, since
+		# the very next thing this does is open a file from that directory.
+		_recorder.flush_save()
+		print("[shell] recording saved before replay -> %s" % carried)
+	_teardown_replay()
+
+	_set_live_stepping(false)
+	if _current != null:
+		_current.visible = false
+	# The web banner is bottom-wide and so is the timeline.
+	var notice := $UI.get_node_or_null("WebNotice")
+	if notice != null:
+		notice.visible = false
+
+	var bar := ReplayTimeline.new()
+	bar.name = "ReplayTimeline"
+	# F-038: the timeline inherits the debug state the shell is already in,
+	# before it opens anything, so the first frame drawn is already right.
+	bar.set_debug_style(_debug_draw)
+	$UI.add_child(bar)
+	if not bar.open_recording(path, _host):
+		bar.queue_free()
+		if _current != null:
+			_current.visible = true
+		_set_live_stepping(true)
+		if notice != null:
+			notice.visible = true
+		_flash_info("Could not open %s" % path.get_file())
+		return
+	_replay = bar
+	bar.closed.connect(_exit_replay)
+	# Detach the camera from the live world WITHOUT moving it: a shot or a grab
+	# would otherwise land in a world that is hidden and not stepping.
+	# set_world_keep_view is the no-move door; plain set_world would re-pose.
+	_camera.set_world_keep_view(null)
+	_update_record_ui()
+	# Printed, not just flashed: `--replay=` makes this scriptable, and a run
+	# that silently failed to enter replay would otherwise look like a run that
+	# entered it and drew nothing.
+	print("[shell] replaying %s (%d frames)" % [path, bar.get_frame_count()])
+	_flash_info("Replaying %s   ·   Close returns to the sample" % path.get_file())
+
+
+## THE CAMERA IS NEVER WRITTEN TO BY REPLAY -- a deliberate deviation from
+## upstream (user decision, 2026-08-08). Upstream's replay viewer overrides
+## `FocusHome` to fit the recording's own bounds (`samples/sample.h:154-156`,
+## `b3RecPlayerInfo.bounds`), which reads as the view teleporting somewhere
+## unrelated the moment you press play. Here replay behaves like the Reset
+## button: it rebuilds what you are looking AT and leaves where you are looking
+## FROM exactly alone, on entry, throughout, and on the way back out. The
+## recording's own bounds are still available through `get_info()` if a framing
+## affordance is ever wanted; it would have to be opt-in.
+
+
+## Free the bar without touching the sample. Idempotent, and safe to call from
+## `_load`, which is where a sample switch made from inside replay arrives.
+func _teardown_replay() -> void:
+	if _replay == null:
+		return
+	var bar := _replay
+	_replay = null
+	if is_instance_valid(bar):
+		# Explicit, not left to the queued free: this releases the replay world
+		# and every debug-shape handle the renderer was given, and those handles
+		# are the host's to free (upstream only destroys them from
+		# b3DestroyShape and from snapshot restore).
+		bar.close_recording()
+		bar.queue_free()
+	if _current != null and is_instance_valid(_current):
+		_current.visible = true
+	var notice := $UI.get_node_or_null("WebNotice")
+	if notice != null:
+		notice.visible = true
+	_update_record_ui()
+
+
+## Back to the live sample. The restart path already knows how to rebuild the
+## world, re-frame the spawn view, re-attach the camera and the profiler and
+## push the dirty set back on, so this reuses it wholesale rather than
+## un-hiding a world that has been sitting frozen.
+func _exit_replay() -> void:
+	if _replay == null:
+		return
+	_teardown_replay()
+	if _current_path != "":
+		# keep_camera, like the Reset button: coming back from a replay must not
+		# move the view either (see the note above _teardown_replay).
+		_load(_current_path, _current_name, true)
+
+
+## Whether the live sample keeps stepping. Only Box3D worlds have `auto_step`;
+## a native rig has no equivalent, and hiding it is enough there.
+func _set_live_stepping(on: bool) -> void:
+	if _current == null or not is_instance_valid(_current):
+		return
+	var world = _current.get_node_or_null("Box3DWorld")
+	if world != null and "auto_step" in world:
+		world.auto_step = on
 
 
 func _on_sidebar_toggled(pressed: bool) -> void:
@@ -1512,6 +2129,10 @@ func _set_box3d_rows_visible(on: bool) -> void:
 	# The debug shells are drawn by the Box3D world itself; there is nothing
 	# behind the toggle on a native engine.
 	_debug_toggle.visible = on
+	# Same for recording: Godot Physics and Jolt have no equivalent to bind, so
+	# the whole section goes rather than explaining an absence.
+	if _record_box != null:
+		_record_box.visible = on
 
 
 # Pull the just-loaded sample's world settings into the sidebar controls
@@ -1593,23 +2214,109 @@ func _count_bodies(node: Node) -> int:
 	return n
 
 
+## The Samples dropdown: a SUBMENU per category rather than one 69-row list
+## with separators in it, which is what it had grown into. Category order and
+## the order inside each category are the registry's, so the menu is SAMPLES
+## read out loud.
+##
+## The sample you are on is marked in three places, because the ask was to be
+## able to see it without hunting:
+##
+##  * a header line at the top of the root popup naming it outright,
+##  * a bullet on its CATEGORY row (menu_category_label pads every other row to
+##    the same lead-in, so moving the mark never reflows the popup), and
+##  * a radio check on the item itself, inside its category.
+##
+## Opening either popup also lands on it: `set_focused_item` draws the row in
+## the hover style (the outline) and `scroll_to_item` brings it into view, so
+## the menu opens looking at where you already are rather than at the top.
 func _build_menu() -> void:
-	# One popup with a labeled separator per category, an item per sample.
 	var popup: PopupMenu = _menu.get_popup()
 	popup.clear()
+	# clear() drops the ITEMS; the submenu nodes are children and stay behind.
+	for child in popup.get_children():
+		if child is PopupMenu:
+			popup.remove_child(child)
+			child.free()
 	_items.clear()
+	_cat_popups.clear()
+	_cat_rows.clear()
+	# Index 0, kept in place and rewritten by _mark_current_sample.
+	popup.add_separator("Samples")
 	var id := 0
 	for category in SAMPLES:
-		popup.add_separator(category)
+		var sub := PopupMenu.new()
+		sub.name = "Cat%d" % _cat_popups.size()
 		for sample_name in SAMPLES[category]:
-			popup.add_item(sample_name, id)
+			sub.add_radio_check_item(sample_name, id)
 			var blurb: String = _sample_tooltip(sample_name)
 			if not blurb.is_empty():
-				popup.set_item_tooltip(popup.get_item_index(id), blurb)
-			_items[id] = {"path": SAMPLES[category][sample_name], "name": sample_name}
+				sub.set_item_tooltip(sub.get_item_index(id), blurb)
+			_items[id] = {
+				"path": SAMPLES[category][sample_name],
+				"name": sample_name,
+				"category": category,
+			}
 			id += 1
-	if not popup.id_pressed.is_connected(_on_menu_id):
-		popup.id_pressed.connect(_on_menu_id)
+		sub.id_pressed.connect(_on_menu_id)
+		# about_to_popup is the documented hook, but a submenu is also shown
+		# straight from a hover timer, so visibility_changed is the belt to its
+		# braces. Focusing twice is harmless.
+		sub.about_to_popup.connect(_focus_current_in_category.bind(category))
+		sub.visibility_changed.connect(func():
+			if sub.visible:
+				_focus_current_in_category(category))
+		popup.add_submenu_node_item(menu_category_label(category, false), sub)
+		_cat_popups[category] = sub
+		_cat_rows[category] = popup.item_count - 1
+	if not popup.about_to_popup.is_connected(_focus_current_category):
+		popup.about_to_popup.connect(_focus_current_category)
+	_mark_current_sample()
+
+
+## Point the whole picker at whatever is loaded now: the popup's header line,
+## the category mark, the radio check on the item, the top-bar tooltip, and the
+## touch panel's highlighted row. Called from _load, so Reset and the engine
+## switch keep it honest too.
+func _mark_current_sample() -> void:
+	var current_cat := category_of(_current_name)
+	var popup: PopupMenu = _menu.get_popup()
+	if popup.item_count > 0:
+		popup.set_item_text(0, "Samples" if _current_name.is_empty()
+				else "Current:  %s" % _current_name)
+	for category in _cat_popups:
+		popup.set_item_text(_cat_rows[category],
+				menu_category_label(category, category == current_cat))
+		var sub: PopupMenu = _cat_popups[category]
+		for i in range(sub.item_count):
+			var entry: Dictionary = _items.get(sub.get_item_id(i), {})
+			sub.set_item_checked(i, entry.get("name", "") == _current_name)
+	_menu.tooltip_text = "Samples" if _current_name.is_empty() \
+			else "Current sample: %s  (%s)" % [_current_name, current_cat]
+	_mark_touch_current()
+
+
+## Open the root popup on the current sample's category rather than on the top
+## of the list.
+func _focus_current_category() -> void:
+	var row: int = _cat_rows.get(category_of(_current_name), -1)
+	if row < 0:
+		return
+	var popup: PopupMenu = _menu.get_popup()
+	popup.set_focused_item(row)
+	popup.scroll_to_item(row)
+
+
+## Same inside a category: the checked item is the one the submenu opens on.
+func _focus_current_in_category(category: String) -> void:
+	var sub: PopupMenu = _cat_popups.get(category)
+	if sub == null:
+		return
+	for i in range(sub.item_count):
+		if sub.is_item_checked(i):
+			sub.set_focused_item(i)
+			sub.scroll_to_item(i)
+			return
 
 
 func _on_menu_id(id: int) -> void:
@@ -1621,6 +2328,22 @@ func _on_menu_id(id: int) -> void:
 
 func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	var fresh_sample := path != _current_path
+	# A recording binds to ONE world, and this function is where every world in
+	# the shell dies -- sample switch, Reset, engine switch, worker reload. Stop
+	# and write first, matching upstream, which finishes the recording before it
+	# destroys the world in both places it does so (`samples/sample.cpp:343-348`,
+	# `:386-391`).
+	var carried_over := _stop_recording()
+	# F-048: a save is in flight after `_stop_recording` returns, and the world
+	# it captured is about to be freed. Joined rather than left running, because
+	# a sample switch already costs far more than the ~85 ms this can wait --
+	# see `ShellRecorder.flush_save` for the argument.
+	_recorder.flush_save()
+	if not carried_over.is_empty():
+		print("[shell] recording saved on sample change -> %s" % carried_over)
+	# Picking a sample from inside replay leaves replay. (_exit_replay comes
+	# back through here, which is why teardown is idempotent.)
+	_teardown_replay()
 	_debug_hidden.clear()  # the old sample's nodes are freed with it
 	if _current != null:
 		# Free immediately, not deferred: a queued free would leave both the
@@ -1754,6 +2477,9 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 		_sample_blurb_toggle.set_pressed_no_signal(false)
 		_sample_blurb_toggle.visible = not _sample_blurb.text.is_empty()
 		_update_blurb_toggle_text()
+	# Both pickers follow the load rather than the click, so the mark is right
+	# after a Reset, an engine switch, a --sample= boot and a replay exit too.
+	_mark_current_sample()
 	_info_flash_id += 1  # cancel any pending flash from the previous sample
 	_show_controls_hint()
 	_update_engine_note()  # this sample's port notes, if it is running natively
@@ -1786,7 +2512,8 @@ func _build_native(path: String) -> Node3D:
 	var rig := RigExtract.from_scene(path)
 	var built := RigNative.build(rig, world)
 	# Per-world gravity has no native node equivalent; NativeWorld forwards it to
-	# the space. 30 of the samples set a value of their own.
+	# the space. Some samples set a value of their own -- the count and how to
+	# recount it live on RigExtract.NON_DEFAULT_GRAVITY_SAMPLES.
 	var gravity: Vector3 = rig.get("gravity", Vector3(0, -9.8, 0))
 	world.gravity = gravity
 
@@ -2099,6 +2826,22 @@ func _restore_overlay_state() -> void:
 		var on := bool(layout.get_value("shell", "body_counter"))
 		_body_count_check.set_pressed_no_signal(on)
 		_body_count_label.visible = on
+
+
+## Quitting mid-recording still writes the file, which is upstream's behaviour
+## (`Sample::~Sample()` finishes the recording before destroying the world,
+## `samples/sample.cpp:343-348`). The buffer survives its world either way --
+## `b3DestroyWorld` stops the session itself (`src/physics_world.c:414-415`) --
+## so this is safe however the tree comes down around it.
+func _exit_tree() -> void:
+	var saved := _stop_recording()
+	# Nothing will poll or reap the save after this, so it finishes here.
+	_recorder.flush_save()
+	if not saved.is_empty():
+		print("[shell] recording saved on exit -> %s" % saved)
+	# The replay world and its debug-shape handles are ours to release; the bar
+	# does it on close, and a quit mid-replay has to reach that path.
+	_teardown_replay()
 
 
 func _save_overlay_state() -> void:

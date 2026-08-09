@@ -1,0 +1,17 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://samples/box_hull.gd" id="1_bh"]
+
+[node name="BoxHull" type="Node3D"]
+script = ExtResource("1_bh")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -10, 0)
+
+[node name="Status" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6, 0)
+billboard = 1
+text = "measuring"
+font_size = 40
+outline_size = 14
+modulate = Color(0.85, 0.95, 0.75, 1)

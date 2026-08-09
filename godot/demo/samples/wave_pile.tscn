@@ -1,0 +1,25 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://samples/wave_pile.gd" id="1_wp"]
+
+[node name="WavePile" type="Node3D"]
+script = ExtResource("1_wp")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -10, 0)
+
+[node name="Terrain" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, -10)
+body_type = 0
+shape_type = 8
+height_field_size = Vector2i(21, 21)
+height_field_scale = Vector3(1, 0.6, 1)
+height_field_wave = Vector2(0.06, 0.08)
+
+[node name="Status" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7.5, 0)
+billboard = 1
+text = "settling (step 0, 100 awake)"
+font_size = 48
+outline_size = 15
+modulate = Color(0.65, 0.9, 1, 1)

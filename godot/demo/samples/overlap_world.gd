@@ -133,6 +133,22 @@ func _ready() -> void:
 		# bakes the node scale in at creation and cannot mirror it.
 		var torus := _body("Torus%d" % index, body_type, Vector3(3.0, y, 0.0),
 				Basis(Vector3.RIGHT, 0.5 * PI))
+		# This is the only DYNAMIC mesh shape in the library (the sample shows
+		# the same three shapes as static, kinematic AND dynamic), and an
+		# explosion cannot survive meeting one: b3World_Explode walks the
+		# dynamic tree and calls b3MakeShapeProxy on every shape it finds
+		# (src/physics_world.c:3364), whose default branch asserts and hands
+		# back a NULL point list (src/shape.c:1062-1066) -- so a release build
+		# dereferences null and the process dies. Reproduced: throw the shell's
+		# bomb anywhere near this row and Godot takes SIGSEGV.
+		#
+		# Opting the body out is upstream's own escape hatch and costs nothing
+		# physically: the callback tests explosionScale BEFORE building the
+		# proxy (:3349), and b3GetShapeProjectedArea returns 0 for a mesh
+		# anyway (src/shape.c:709-710), so this shape could never have taken
+		# blast impulse. The missing guard inside b3World_Explode is upstream's
+		# to fix; see the note on SPRINT_STATE.md.
+		torus.explosion_scale = 0.0
 		var torus_shape := Box3DCollisionShape.new()
 		torus_shape.name = "TorusMesh"
 		torus_shape.shape_type = Box3DCollisionShape.BOX

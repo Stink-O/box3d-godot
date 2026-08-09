@@ -27,6 +27,55 @@ static func burst(parent: Node, at: Vector3, radius := 3.0, tint := Color(1.0, 0
 	fx.global_position = at
 
 
+## Impulse-per-area is NOT scale free, and that is why the shell's one bomb
+## could not move half the sample library. b3World_Explode gives a body
+## `impulsePerArea * projectedArea` of impulse (src/physics_world.c:3403-3417),
+## and its mass is density * volume, so the velocity a blast imparts falls off
+## as 1/density. Samples that keep upstream's b3DefaultShapeDef density of 1000
+## (src/types.c:72-73) -- Gear Lift, Wave Pile, Top Down Friction, Spinning
+## Stick, Character -- are a THOUSAND times harder to shift than the demo's
+## density-1 cubes, and the bomb's 9.0 did essentially nothing to them:
+## measured Gear Lift 0.06 m/s and Wave Pile 0.015 m/s, against Cube Pile's
+## 32 m/s from the identical call.
+##
+## Upstream has no such problem because it tunes impulsePerArea per sample:
+## 10000 for its density-1000 Top Down Friction (samples/sample_joint.cpp:535,
+## which this port already carries verbatim in samples/top_down_friction.gd:53),
+## 200 / 1000 for the benchmark ones (samples/sample_benchmark.cpp:1303). The
+## shell's bomb has no per-sample knob, so instead it CALIBRATES: it fires,
+## measures what the blast actually did, and tops the same blast up if the
+## median kick landed far under what an explosion should feel like.
+##
+## A scene that already responds is left exactly alone -- one explode call,
+## bit-identical to before this existed.
+##
+## A kick under this many m/s is not a push you can see, and no sample tunes
+## for one: sweeping the bomb across all 69 samples, the median kick lands
+## between 0.68 (Persistent Contact) and 53 (Bowling) everywhere the scene is
+## in demo units, and between 0.002 and 0.032 in the six that carry upstream's
+## density. The band from 0.032 to 0.68 is EMPTY -- a factor of twenty of clear
+## air -- which is what makes this threshold safe rather than a tuning knob.
+## Everything above it, including the deliberately heavy ones (Huge Pyramid at
+## density 10, Wind's tiny plates), is left exactly alone.
+const CALIBRATION_DEADBAND := 0.3
+## Where a blast that DOES engage is taken to, in m/s. Bridge is 3.8 and Class
+## Ring is 5.1, so this sits at the quiet end of what the library already does
+## -- a clear shove, not a cartoon.
+const CALIBRATION_FLOOR := 6.0
+## Ceiling on the top-up, as a multiple of the impulse asked for. 1000 is the
+## density-1-to-density-1000 ratio, which is the entire observed gap; it puts
+## the bomb inside upstream's own 200..10000 range for those scenes rather
+## than past it. Only Spinning Stick's single 160 kg bar needs the clamp.
+const CALIBRATION_MAX := 1000.0
+## The impulse the floor above is defined AT (common/bomb.gd BLAST_IMPULSE).
+## Calibrating against a fixed nominal rather than against whatever was passed
+## keeps the shell's blast slider proportional: half the slider still means
+## half the blast, on every sample. This is a units correction, not an override.
+const CALIBRATION_NOMINAL := 9.0
+
+const _FALLOFF := 1.0  ## metres past blast_radius over which the impulse fades to zero
+
+
 ## Physics blast plus the visual flash, in one call. Works on either backend:
 ## Box3DWorld gets its own explode, a NativeWorld gets the approximation below.
 static func blast(world: Node, at: Vector3, blast_radius := 8.0,
@@ -34,10 +83,69 @@ static func blast(world: Node, at: Vector3, blast_radius := 8.0,
 	if world == null:
 		return
 	if world is Box3DWorld:
-		(world as Box3DWorld).explode(at, blast_radius, impulse, 1.0)
+		_box3d_explode(world as Box3DWorld, at, blast_radius, impulse)
 	else:
 		_native_explode(world, at, blast_radius, impulse)
 	burst(world, at, blast_radius * 0.55, tint)
+
+
+## Box3D's explode, calibrated (see the block above). Because the impulse is
+## linear in impulsePerArea, the top-up is just a second explode with the
+## REMAINING impulse -- the same upstream call, no state touched, no per-body
+## fudging, and a recording replays it exactly as it happened.
+static func _box3d_explode(world: Box3DWorld, at: Vector3, radius: float,
+		impulse: float) -> void:
+	# Bodies the blast can reach, by the same surface-distance test the
+	# explosion callback uses (src/physics_world.c:3374). Only dynamic ones:
+	# b3World_Explode queries the dynamic tree alone (:3457), so a static or
+	# kinematic body in the ball would read as a zero and skew the median.
+	var reachable: Array = []
+	var before: Array = []
+	for b in world.overlap_sphere(at, radius + _FALLOFF):
+		var body := b as Box3DBody
+		if body == null or body.body_type != Box3DBody.DYNAMIC:
+			continue
+		reachable.append(body)
+		before.append(body.get_linear_velocity())
+
+	world.explode(at, radius, impulse, _FALLOFF)
+
+	if reachable.is_empty() or is_zero_approx(impulse):
+		return
+	# b3World_Explode writes straight into the solver's velocity state
+	# (:3417-3421), so reading back now measures the blast and nothing else.
+	# Only bodies that moved count: b3GetShapeProjectedArea is 0 for anything
+	# that is not a sphere, capsule or hull (src/shape.c:689-712) and a shape
+	# with explosionScale 0 opts out (:3349), and neither of those is a units
+	# problem -- letting them into the median would just mask a real one.
+	var kicks := PackedFloat64Array()
+	for i in reachable.size():
+		var body: Box3DBody = reachable[i]
+		var kick := (body.get_linear_velocity() - (before[i] as Vector3)).length()
+		if kick > 0.0:
+			kicks.append(kick)
+	if kicks.is_empty():
+		return
+	kicks.sort()
+	var scale := _calibration_scale(kicks[kicks.size() / 2], impulse)
+	if scale <= 1.0:
+		return
+	world.explode(at, radius, impulse * (scale - 1.0), _FALLOFF)
+
+
+## The factor a blast has to be multiplied by, given the median kick it just
+## delivered and the impulse-per-area that delivered it. 1.0 means "this scene
+## is in demo units, leave it alone", which is the answer for all but six of
+## the samples.
+static func _calibration_scale(median_kick: float, impulse: float) -> float:
+	if median_kick <= 0.0 or is_zero_approx(impulse):
+		return 1.0
+	# Normalised back to the nominal impulse, so the same scene always gets the
+	# same verdict no matter where the shell's blast slider sits.
+	var nominal_kick := median_kick * CALIBRATION_NOMINAL / absf(impulse)
+	if nominal_kick >= CALIBRATION_DEADBAND:
+		return 1.0
+	return minf(CALIBRATION_FLOOR / nominal_kick, CALIBRATION_MAX)
 
 
 ## Box3D's explode applies an impulse per unit of exposed area, fading with
@@ -69,6 +177,13 @@ static func _native_explode(world: Node, at: Vector3, radius: float,
 	# hundreds of blocks.
 	var hits := state.intersect_shape(query, 2048)
 	var seen := {}
+	# Gathered first, applied second, because the same calibration the Box3D
+	# branch does by measuring is done here by arithmetic: this branch computes
+	# every impulse itself, so the kick each body would get is known before any
+	# of it is applied.
+	var targets: Array[RigidBody3D] = []
+	var pushes: Array[Vector3] = []
+	var kicks := PackedFloat64Array()
 	for hit: Dictionary in hits:
 		var rb := hit.get("collider") as RigidBody3D
 		if rb == null or seen.has(rb):
@@ -81,7 +196,19 @@ static func _native_explode(world: Node, at: Vector3, radius: float,
 			continue
 		dir = dir / dist if dist > 0.001 else Vector3.UP
 		var falloff := 1.0 - dist / radius
-		rb.apply_central_impulse(dir * impulse * falloff * _area_estimate(rb))
+		var push := dir * impulse * falloff * _area_estimate(rb)
+		targets.append(rb)
+		pushes.append(push)
+		var kick := push.length() / maxf(rb.mass, 0.0001)
+		if kick > 0.0:
+			kicks.append(kick)
+
+	var scale := 1.0
+	if not kicks.is_empty():
+		kicks.sort()
+		scale = _calibration_scale(kicks[kicks.size() / 2], impulse)
+	for i in targets.size():
+		targets[i].apply_central_impulse(pushes[i] * scale)
 
 
 ## Rough exposed-area of a body's first collision shape, the term Box3D's

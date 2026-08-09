@@ -37,6 +37,25 @@ const BODY_TYPES := ["static", "kinematic", "dynamic"]
 const DEFAULT_GRAVITY := Vector3(0, -9.8, 0)
 const DEFAULT_SUBSTEPS := 4
 
+## How many demo samples author a world gravity that is NOT DEFAULT_GRAVITY.
+## The single source of truth for that count: the native backends have no
+## per-world gravity node, so every one of these samples runs wrong unless the
+## value is pushed onto the space (NativeWorld._push_gravity,
+## RigNative.apply_world_settings). Kept as a constant so the number lives in
+## one place instead of in four comments that drift apart.
+##
+## The recount command is the authority, not the number -- this drifts with
+## every ported sample (it was 5 of 65 an hour before it was 9 of 69):
+##   grep -h '^gravity = Vector3' godot/demo/samples/*.tscn | grep -vc '(0, -9.8, 0)'
+## A scene with no `gravity` line at all is at DEFAULT_GRAVITY and does not
+## count; a sample that also sets gravity from script re-sets what its scene
+## already says, so nothing is counted twice.
+##
+## 9 of 69 samples: car, character, spinning_stick, wave_pile, box_hull,
+## far_stack and hull_reduction at (0, -10, 0); gyro_torque and overlap_world
+## at zero.
+const NON_DEFAULT_GRAVITY_SAMPLES := 9
+
 # Box3D class name -> Joint.kind.
 const JOINT_KINDS := {
 	"Box3DBallJoint": "ball",

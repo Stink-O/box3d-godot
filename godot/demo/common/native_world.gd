@@ -44,9 +44,10 @@ func _space() -> RID:
 	return world.space if world != null else RID()
 
 
-## Gravity is a space parameter natively, not a per-world node property. 30 of
-## the samples set a non-default value (car -10, gyro_torque zero), so this
-## has to be honoured or those samples simply run wrong.
+## Gravity is a space parameter natively, not a per-world node property.
+## RigExtract.NON_DEFAULT_GRAVITY_SAMPLES of the samples set a non-default
+## value (car -10, gyro_torque zero), so this has to be honoured or those
+## samples simply run wrong.
 ## The space's default area is not exposed to script, but both servers'
 ## area_set_param() accept a SPACE rid and forward it to that space's default
 ## area, so the space RID is the handle.

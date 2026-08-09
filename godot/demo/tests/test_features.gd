@@ -88,6 +88,16 @@ func _ready() -> void:
 	_test_geometry()
 	_test_collision()
 	await _test_recording_replay()
+	await _test_shell_recorder()
+	await _test_spinner()
+	await _test_replay_timeline()
+	await _test_replay_colors()
+	await _test_replay_car_visuals()
+	_test_blast_calibration()
+	await _test_sample_fidelity()
+	await _test_developer_globals()
+	await _test_height_field_readback()
+	_test_sample_registry()
 	print("[test] ALL -> ", "PASS" if _all_ok else "FAIL")
 	get_tree().quit(0 if _all_ok else 1)
 
@@ -4344,4 +4354,1673 @@ func _test_recording_replay() -> void:
 	_check("the length scale survived the refusals (%.3f)" % Box3DWorld.get_length_units_per_meter(),
 		absf(Box3DWorld.get_length_units_per_meter() - 1.0) < 1e-6)
 
+	# --- F-R1: the replay draws real geometry -------------------------------
+	# Box3DReplayRenderer installs upstream's debug-shape callbacks
+	# (b3RecPlayer_SetDebugShapeCallbacks, box3d.h:406-417) on the player and
+	# turns every replayed shape into a MultiMesh instance. A class that is
+	# never registered is invisible to GDScript however complete its bindings
+	# are, so that assertion comes first.
+	_check("Box3DReplayRenderer is registered", ClassDB.class_exists("Box3DReplayRenderer"))
+	var pr := Box3DReplayPlayer.new()
+	_check("a player opens for the renderer", pr.open(bytes, 1))
+	pr.step_frame()
+	var rr := Box3DReplayRenderer.new()
+	rr.name = "ReplayRenderer"
+	rr.auto_update = false
+	add_child(rr)
+	rr.player = pr
+	_check("the renderer holds its player", rr.get_player() == pr)
+	_check("nothing is drawn before an update", rr.get_instance_count() == 0)
+	# Installing the callbacks rebuilds the replay world and rewinds to frame 0
+	# (box3d.h:408-410) — that is upstream's contract, not a bug.
+	_check("attaching a renderer rewinds the player to 0 (%d)" % pr.get_frame(), pr.get_frame() == 0)
+
+	pr.step_frame()
+	rr.update()
+	print("  renderer: geometries=%d shapes=%d instances=%d triangles=%d"
+		% [rr.get_geometry_count(), rr.get_shape_count(), rr.get_instance_count(), rr.get_triangle_count()])
+	_check("the replay interned real geometry (%d meshes)" % rr.get_geometry_count(),
+		rr.get_geometry_count() > 0)
+	_check("every replayed shape got a draw handle (%d)" % rr.get_shape_count(), rr.get_shape_count() > 0)
+	_check("one instance was drawn per shape (%d of %d)" % [rr.get_instance_count(), rr.get_shape_count()],
+		rr.get_instance_count() == rr.get_shape_count())
+	_check("the interned geometry has triangles (%d)" % rr.get_triangle_count(),
+		rr.get_triangle_count() > 0)
+	# Identical shapes share one mesh: that dedup is what keeps a pile of
+	# thousands of boxes at a single draw call.
+	_check("identical shapes share a mesh (%d instances over %d meshes)"
+		% [rr.get_instance_count(), rr.get_geometry_count()],
+		rr.get_instance_count() > rr.get_geometry_count())
+
+	var gi: Dictionary = rr.get_geometry_info(0)
+	print("  geometry 0 = %s" % gi)
+	_check("geometry info names an upstream shape type (%s)" % gi.get("type", "?"),
+		gi.get("type", "") in ["sphere", "capsule", "hull", "mesh", "height_field", "compound"])
+	_check("geometry info reports triangles and instances",
+		int(gi.get("triangles", 0)) > 0 and int(gi.get("instances", 0)) > 0)
+	_check("an out-of-range geometry index is empty", rr.get_geometry_info(9999).is_empty())
+
+	# Seeking rebuilds the replay world under the same callbacks; upstream
+	# releases the old handles as it restores (src/world_snapshot.c:765-777),
+	# so the handle count must come back to where it was, not grow.
+	var shapes_before: int = rr.get_shape_count()
+	pr.seek_frame(40)
+	rr.update()
+	_check("a forward seek keeps drawing (%d instances)" % rr.get_instance_count(),
+		rr.get_instance_count() > 0)
+	pr.seek_frame(5)
+	rr.update()
+	_check("a backward seek keeps drawing after the world is rebuilt (%d instances)"
+		% rr.get_instance_count(), rr.get_instance_count() > 0)
+	_check("the rebuild released the old shape handles (%d, was %d)"
+		% [rr.get_shape_count(), shapes_before], rr.get_shape_count() == shapes_before)
+
+	rr.clear()
+	_check("clear() drops every interned mesh", rr.get_geometry_count() == 0)
+	rr.player = null
+	_check("detaching the player frees every shape handle", rr.get_shape_count() == 0)
+	rr.update()
+	_check("a detached renderer draws nothing", rr.get_instance_count() == 0)
+	pr.close()
+	rr.free()
+
+	# --- F-R1: every recorded shape type comes back as real geometry --------
+	# The pile above is boxes only, i.e. one decoder (hulls). This records a
+	# scene holding one of each authorable shape so the sphere, capsule, mesh
+	# and height-field decoders are exercised too, and checks that identical
+	# shapes collapse onto a single shared mesh.
+	var mixed := Box3DWorld.new()
+	mixed.name = "MixedRecWorld"
+	mixed.auto_step = false
+	mixed.worker_count = 1
+	add_child(mixed)
+
+	var terrain := Box3DBody.new()
+	terrain.body_type = Box3DBody.STATIC
+	terrain.shape_type = Box3DBody.HEIGHT_FIELD
+	terrain.height_field_size = Vector2i(4, 4)
+	terrain.height_field_scale = Vector3(2, 1, 2)
+	terrain.height_field_heights = PackedFloat32Array([
+		0, 0, 0, 0, 0, 0.5, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 0, 0])
+	terrain.position = Vector3(-20, -1, -20)
+	mixed.add_child(terrain)
+
+	var mesh_floor := Box3DBody.new()
+	mesh_floor.body_type = Box3DBody.STATIC
+	mesh_floor.shape_type = Box3DBody.MESH
+	mesh_floor.mesh_vertices = PackedVector3Array([
+		Vector3(-5, 0, -5), Vector3(-5, 0, 5), Vector3(5, 0, 5), Vector3(5, 0, -5)])
+	mesh_floor.mesh_indices = PackedInt32Array([0, 1, 2, 2, 3, 0])
+	mixed.add_child(mesh_floor)
+
+	for i in range(3):
+		var ball2 := Box3DBody.new()
+		ball2.shape_type = Box3DBody.SPHERE
+		ball2.sphere_radius = 0.4
+		ball2.position = Vector3(float(i) * 0.2, 3.0 + float(i), 0)
+		mixed.add_child(ball2)
+	var cap2 := Box3DBody.new()
+	cap2.shape_type = Box3DBody.CAPSULE
+	cap2.capsule_radius = 0.3
+	cap2.capsule_height = 1.2
+	cap2.position = Vector3(1.5, 4, 0)
+	mixed.add_child(cap2)
+	var cyl2 := Box3DBody.new()
+	cyl2.shape_type = Box3DBody.CYLINDER
+	cyl2.capsule_radius = 0.4
+	cyl2.capsule_height = 0.8
+	cyl2.position = Vector3(-1.5, 4, 0)
+	mixed.add_child(cyl2)
+	await get_tree().physics_frame
+
+	var mrec := Box3DRecording.new()
+	_check("the mixed scene starts recording", mixed.start_recording(mrec))
+	for i in range(20):
+		mixed.step(1.0 / 60.0)
+	_check("the mixed scene stops recording", mixed.stop_recording())
+
+	var mp := Box3DReplayPlayer.new()
+	_check("the mixed recording opens", mp.open(mrec.get_data(), 1))
+	var mr := Box3DReplayRenderer.new()
+	mr.name = "MixedReplayRenderer"
+	mr.auto_update = false
+	add_child(mr)
+	mr.player = mp
+	mp.step_frame()
+	mr.update()
+	var kinds := {}
+	var approximate := 0
+	for i in range(mr.get_geometry_count()):
+		var d: Dictionary = mr.get_geometry_info(i)
+		kinds[d["type"]] = int(kinds.get(d["type"], 0)) + int(d["instances"])
+		if bool(d["approximate"]):
+			approximate += 1
+	print("  mixed replay: %s over %d meshes, %d instances, %d triangles"
+		% [kinds, mr.get_geometry_count(), mr.get_instance_count(), mr.get_triangle_count()])
+	for kind in ["sphere", "capsule", "hull", "mesh", "height_field"]:
+		_check("the replay rebuilt the %s geometry" % kind, kinds.has(kind))
+	_check("three identical spheres collapse onto one mesh (%d instances)" % int(kinds.get("sphere", 0)),
+		int(kinds.get("sphere", 0)) == 3 and mr.get_geometry_count() < mr.get_instance_count())
+	_check("no recorded geometry needed the approximate fallback (%d)" % approximate, approximate == 0)
+	mp.close()
+	mr.free()
+	mixed.free()
+
 	world.free()
+
+
+## F-R2: the SHELL's record session, not the raw binding.
+##
+## `ShellRecorder` (`res://replay_recorder.gd`) is what the sidebar's Recording
+## section drives, and its whole job is the plumbing between a sample's world
+## and a file on disk: arm, stop, name, write, remember. The binding underneath
+## is already covered by _test_recording_replay; what is checked here is that a
+## recording made the way the shell makes one can be OPENED again, which is the
+## only property a user can actually observe.
+func _test_shell_recorder() -> void:
+	var recordings := "user://recordings"
+	var path := "%s/_selftest_shell.b3rec" % recordings
+	# The recorder remembers its last path in the SHELL's own settings file, so
+	# a headless run would otherwise leave the demo's "Replay last" button
+	# pointing at a temporary file this test is about to delete. Put it back.
+	var prior_last := _read_last_recording()
+
+	var rec := ShellRecorder.new()
+	_check("a fresh shell recorder is idle", not rec.is_recording())
+	_check("stopping an idle recorder writes nothing", rec.stop() == "")
+	_check("arming without a world is refused", not rec.start(null, "None", 0))
+
+	# A NativeWorld-shaped node (no start_recording) must be refused rather than
+	# erroring: that is what keeps the section honest on Godot Physics and Jolt.
+	var not_a_world := Node3D.new()
+	add_child(not_a_world)
+	_check("arming on a world with no recording API is refused",
+		not rec.start(not_a_world, "Native", 0))
+	not_a_world.free()
+
+	var world := Box3DWorld.new()
+	world.name = "ShellRecWorld"
+	world.auto_step = false
+	world.worker_count = 1
+	add_child(world)
+	var ground := Box3DBody.new()
+	ground.body_type = Box3DBody.STATIC
+	ground.shape_type = Box3DBody.BOX
+	ground.box_size = Vector3(20, 1, 20)
+	ground.position = Vector3(0, -0.5, 0)
+	world.add_child(ground)
+	for i in range(12):
+		var b := Box3DBody.new()
+		b.shape_type = Box3DBody.BOX
+		b.box_size = Vector3(0.5, 0.5, 0.5)
+		b.position = Vector3(float(i % 4) * 0.6 - 0.9, 1.0 + float(i) * 0.7, 0.0)
+		world.add_child(b)
+	await get_tree().physics_frame
+
+	# "Record now": arm the world as it stands. Step 137 stands in for the
+	# shell's step counter, which is all upstream's indicator reports.
+	_check("the shell recorder arms on a live world", rec.start(world, "Cube Pile", 137))
+	_check("the world agrees it is recording", world.is_recording())
+	_check("a second arm is refused", not rec.start(world, "Cube Pile", 0))
+	_check("the indicator names the start step (%s)" % rec.status_text(),
+		rec.status_text().contains("from step 137"))
+	for i in range(90):
+		world.step(1.0 / 60.0)
+	_check("the buffer grew while the session ran (%d bytes)" % rec.get_size(), rec.get_size() > 0)
+
+	# F-048: the WHOLE POINT of the fix is what this click costs, so it is timed.
+	# On the reported case (Huge Pyramid, 300 frames, 38.3 MB) it was 113,809 ms
+	# and is now 4.9 ms; this twelve-body world is nowhere near that, so the
+	# bound is set at two 60 Hz frames -- the acceptance bar itself -- which
+	# catches a regression that puts ANY of the writing back on the main thread.
+	var before_last := ShellRecorder.last_path()
+	var t0 := Time.get_ticks_usec()
+	var written: String = rec.stop(path)
+	var stop_us := Time.get_ticks_usec() - t0
+	_check("stop writes a file (%s)" % written, written == path)
+	_check("stop returns inside two frames (%.2f ms)" % (stop_us / 1000.0),
+		stop_us < 35000)
+	_check("the recorder is idle again", not rec.is_recording() and not world.is_recording())
+	# The save is in flight, and while it is, the recording is NOT offerable:
+	# "Replay last" reads the remembered path, and that is only written once the
+	# bytes are really there.
+	var was_saving := rec.is_saving()
+	_check("a save is in flight after the click (threads=%s)"
+		% OS.has_feature("threads"), was_saving)
+	if was_saving:
+		_check("and the remembered path is not moved to it yet",
+			ShellRecorder.last_path() == before_last)
+		_check("nor is last_saved", rec.last_saved != path)
+		if OS.has_feature("threads"):
+			await rec.save_finished
+		else:
+			# The sliced fallback is driven by the shell's frame hook; with no
+			# shell around it, drive it here. This is the single-threaded web
+			# build's path.
+			while rec.is_saving():
+				rec.poll_save()
+	_check("the save reports itself finished", not rec.is_saving())
+	_check("no error was reported (%s)" % rec.last_error, rec.last_error.is_empty())
+	_check("the file is on disk", FileAccess.file_exists(path))
+	_check("and the file is complete (%d bytes)" % FileAccess.get_file_as_bytes(path).size(),
+		FileAccess.get_file_as_bytes(path).size() > 0)
+
+	# THE point of the whole section: what the shell wrote must open again.
+	var player := Box3DReplayPlayer.new()
+	_check("the shell's own file opens in a player", player.open_file(path, 1))
+	var count: int = player.get_frame_count()
+	_check("the reopened recording has frames (%d)" % count, count > 0)
+	_check("it holds the bodies the sample had (%d)" % player.get_body_count(),
+		player.get_body_count() > 0)
+
+	# Seeking BOTH directions off a shell-made file (the timeline's whole job).
+	player.seek_frame(count / 2)
+	var mid: int = player.get_frame()
+	_check("a forward seek lands (%d)" % mid, mid == count / 2)
+	player.seek_frame(2)
+	_check("a backward seek lands (%d)" % player.get_frame(), player.get_frame() == 2)
+
+	# And it draws: a renderer over a shell recording must intern real geometry.
+	var renderer := Box3DReplayRenderer.new()
+	renderer.name = "ShellReplayRenderer"
+	renderer.auto_update = false
+	add_child(renderer)
+	renderer.player = player
+	player.step_frame()
+	renderer.update()
+	_check("a shell recording draws real geometry (%d meshes, %d instances)"
+		% [renderer.get_geometry_count(), renderer.get_instance_count()],
+		renderer.get_geometry_count() > 0 and renderer.get_instance_count() > 0)
+	renderer.player = null
+	_check("detaching frees every shape handle", renderer.get_shape_count() == 0)
+	renderer.free()
+	player.close()
+
+	# Naming and the remembered path.
+	_check("the last written path is remembered", ShellRecorder.last_path() == path)
+	var listed: PackedStringArray = ShellRecorder.list_saved()
+	_check("the saved list finds it (%d files)" % listed.size(), listed.has(path))
+	var suggested: String = ShellRecorder.suggest_path("Cube Pile")
+	_check("a default name is derived from the sample (%s)" % suggested.get_file(),
+		suggested.begins_with(recordings) and suggested.ends_with(".b3rec")
+			and suggested.get_file().begins_with("cube_pile-"))
+	_check("an empty sample name still yields a legal name (%s)"
+		% ShellRecorder.suggest_path("").get_file(),
+		ShellRecorder.suggest_path("").get_file().begins_with("recording-"))
+
+	# F-048: THE INCREMENTAL CAPTURE. The appearance walk that used to run in one
+	# lump on the Stop click is amortised across the session; what has to hold is
+	# that it reaches everything and gets the same answers the one-lump walk did.
+	var inc_path := "%s/_selftest_incremental.b3rec" % recordings
+	# Three of the twelve get something to be read OFF: the bodies above are
+	# bare, and a walk that reaches every body but reads none of them would pass
+	# a comparison of two empty sidecars without proving anything.
+	var painted := [Color(0.2, 0.4, 0.8), Color(0.8, 0.2, 0.4), Color(0.4, 0.8, 0.2)]
+	for i in range(3):
+		var body: Box3DBody = world.get_child(i + 1)
+		var mi := MeshInstance3D.new()
+		mi.mesh = BoxMesh.new()
+		var mat := StandardMaterial3D.new()
+		# Channel values that survive the sidecar's 8-bit hex round trip exactly,
+		# so the comparison below is an equality and not a tolerance.
+		mat.albedo_color = painted[i]
+		mi.material_override = mat
+		body.add_child(mi)
+	await get_tree().physics_frame
+	_check("the recorder arms for the incremental pass", rec.start(world, "Cube Pile", 0))
+	_check("a fresh pass has captured nothing yet", rec.captured_count() == 0
+		and not rec.capture_complete())
+	# 13 bodies in a handful of nodes: two slices is already generous.
+	for i in range(20):
+		world.step(1.0 / 60.0)
+		rec.poll_capture(8)
+	_check("the pass finished while the session ran (%d bodies, %d readable)"
+		% [rec.captured_count(), rec.visual_count()],
+		rec.capture_complete() and rec.captured_count() == 13 and rec.visual_count() == 3)
+	var cold: Dictionary = ShellRecorder.capture_colors(world)
+	_check("the one-shot capture reads the same three (%d)" % cold.size(), cold.size() == 3)
+	_check("stop with the pass complete still returns fast",
+		_timed_stop(rec, inc_path) < 35000)
+	rec.flush_save()
+	var warm: Dictionary = ShellRecorder.load_colors(inc_path)
+	var same := warm.size() == cold.size()
+	for k in cold:
+		if not warm.has(k) or (warm[k] as Color) != (cold[k] as Color):
+			same = false
+	_check("the incremental sidecar matches a one-shot capture (%d vs %d)"
+		% [warm.size(), cold.size()], same)
+	DirAccess.remove_absolute(inc_path)
+	DirAccess.remove_absolute(inc_path + ShellRecorder.VISUAL_EXT)
+
+	# Bodies created AFTER the pass has been round are still captured, by the
+	# stop-time sweep. This is the case the sweep exists for.
+	var late_path := "%s/_selftest_late.b3rec" % recordings
+	_check("the recorder arms once more", rec.start(world, "Cube Pile", 0))
+	for i in range(20):
+		rec.poll_capture(64)
+		world.step(1.0 / 60.0)
+	var late := Box3DBody.new()
+	late.shape_type = Box3DBody.BOX
+	late.box_size = Vector3(0.4, 0.4, 0.4)
+	late.position = Vector3(3.0, 4.0, 0.0)
+	var late_mesh := MeshInstance3D.new()
+	late_mesh.mesh = BoxMesh.new()
+	var late_mat := StandardMaterial3D.new()
+	late_mat.albedo_color = Color(0.2, 0.4, 0.8)
+	late_mesh.material_override = late_mat
+	late.add_child(late_mesh)
+	world.add_child(late)
+	await get_tree().physics_frame
+	var late_key: String = Box3DRecording.get_body_key(late)
+	rec.stop(late_path)
+	rec.flush_save()
+	var late_colors: Dictionary = ShellRecorder.load_colors(late_path)
+	_check("a body created after the pass is swept up at stop (%d bodies)"
+		% late_colors.size(),
+		late_colors.has(late_key)
+			and (late_colors[late_key] as Color).is_equal_approx(Color(0.2, 0.4, 0.8)))
+	late.free()
+	DirAccess.remove_absolute(late_path)
+	DirAccess.remove_absolute(late_path + ShellRecorder.VISUAL_EXT)
+
+	# F-048: THE NO-THREAD PATH, which only the single-threaded web build takes
+	# in production. Forced here, because a fallback nobody can run is a
+	# fallback nobody can test -- and this one ships as a release asset.
+	var sliced_path := "%s/_selftest_sliced.b3rec" % recordings
+	rec.force_sliced_save = true
+	_check("the recorder arms for the sliced save", rec.start(world, "Cube Pile", 0))
+	for i in range(30):
+		world.step(1.0 / 60.0)
+		rec.poll_capture()
+	var sliced_us := _timed_stop(rec, sliced_path)
+	_check("the sliced stop still returns fast (%.2f ms)" % (sliced_us / 1000.0),
+		sliced_us < 35000)
+	_check("and the save is still in flight after it", rec.is_saving())
+	var slices := 0
+	while rec.is_saving() and slices < 4096:
+		rec.poll_save()
+		slices += 1
+	_check("the slices finish the save (%d slices)" % slices,
+		not rec.is_saving() and slices > 1 and rec.last_error.is_empty())
+	var sliced_player := Box3DReplayPlayer.new()
+	_check("and what they wrote replays", sliced_player.open_file(sliced_path, 1)
+		and sliced_player.get_frame_count() > 0)
+	sliced_player.close()
+	_check("the sliced save wrote its sidecar too",
+		not ShellRecorder.load_colors(sliced_path).is_empty())
+	rec.force_sliced_save = false
+	DirAccess.remove_absolute(sliced_path)
+	DirAccess.remove_absolute(sliced_path + ShellRecorder.VISUAL_EXT)
+
+	# Discard: stop the session, write nothing.
+	var throwaway := "%s/_selftest_discard.b3rec" % recordings
+	_check("the recorder re-arms after a save", rec.start(world, "Cube Pile", 0))
+	for i in range(10):
+		world.step(1.0 / 60.0)
+	rec.discard()
+	_check("discard closes the session", not rec.is_recording() and not world.is_recording())
+	_check("discard wrote nothing", not FileAccess.file_exists(throwaway))
+
+	# A world freed under a live session still leaves a complete buffer:
+	# b3DestroyWorld stops the recording itself (src/physics_world.c:414-415),
+	# which is what makes "switch sample while recording" saveable at all.
+	_check("the recorder arms one last time", rec.start(world, "Cube Pile", 0))
+	for i in range(20):
+		world.step(1.0 / 60.0)
+	world.free()
+	var orphan := "%s/_selftest_orphan.b3rec" % recordings
+	var orphan_path: String = rec.stop(orphan)
+	rec.flush_save()
+	_check("a session whose world was freed still saves (%s)" % orphan_path,
+		orphan_path == orphan and FileAccess.file_exists(orphan))
+	var orphan_player := Box3DReplayPlayer.new()
+	_check("and the orphaned file replays", orphan_player.open_file(orphan, 1)
+		and orphan_player.get_frame_count() > 0)
+	orphan_player.close()
+
+	DirAccess.remove_absolute(path)
+	DirAccess.remove_absolute(orphan)
+	_write_last_recording(prior_last)
+	_check("the shell's remembered path was left as it was found",
+		_read_last_recording() == prior_last)
+
+
+## `stop()` timed in microseconds, so the acceptance bound is written once.
+func _timed_stop(p_rec: ShellRecorder, p_path: String) -> int:
+	var t := Time.get_ticks_usec()
+	p_rec.stop(p_path)
+	return Time.get_ticks_usec() - t
+
+
+## F-048's busy indicator (`res://common/spinner.gd`).
+##
+## The artwork is an SVG whose own animation is SMIL, which Godot does not play
+## -- the import gives one static frame -- so the motion is this control's, and
+## the only thing a headless run can observe about a spinning image is that its
+## angle moves while it is showing and stops when it is not.
+func _test_spinner() -> void:
+	var host := Control.new()
+	host.name = "SpinnerHost"
+	add_child(host)
+	var spin := ShellSpinner.make(20.0, Color(0.35, 0.85, 0.6))
+	host.add_child(spin)
+	_check("a spinner starts hidden and still", not spin.visible and spin.angle == 0.0)
+	_check("its artwork loads", ShellSpinner.texture() != null)
+	_check("it never takes the mouse", spin.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	_check("it asks for the size it was made at (%.0f)" % spin.custom_minimum_size.x,
+		is_equal_approx(spin.custom_minimum_size.x, 20.0))
+
+	spin.visible = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var moved := spin.angle
+	_check("a visible spinner turns (%.3f rad)" % moved, moved != 0.0)
+	# Counterclockwise, matching the source animation's 360 -> 0 sweep: in
+	# Godot's y-down 2D space that is a DECREASING angle, wrapped into [0, TAU).
+	_check("and it turns counterclockwise (%.3f rad)" % moved, moved > PI)
+	await get_tree().process_frame
+	_check("it keeps turning (%.3f rad)" % spin.angle, spin.angle != moved)
+
+	spin.visible = false
+	await get_tree().process_frame
+	var parked := spin.angle
+	await get_tree().process_frame
+	_check("a hidden spinner stops (%.3f rad)" % parked, is_equal_approx(spin.angle, parked))
+	spin.visible = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check("and picks up again when it is shown", spin.angle != parked)
+	host.free()
+
+
+func _read_last_recording() -> String:
+	var layout := ConfigFile.new()
+	if layout.load(ShellRecorder.LAYOUT_PATH) != OK:
+		return ""
+	if not layout.has_section_key(ShellRecorder.LAYOUT_SECTION, ShellRecorder.LAYOUT_KEY):
+		return ""
+	return str(layout.get_value(ShellRecorder.LAYOUT_SECTION, ShellRecorder.LAYOUT_KEY))
+
+
+func _write_last_recording(value: String) -> void:
+	var layout := ConfigFile.new()
+	layout.load(ShellRecorder.LAYOUT_PATH)
+	if value.is_empty():
+		if layout.has_section_key(ShellRecorder.LAYOUT_SECTION, ShellRecorder.LAYOUT_KEY):
+			layout.erase_section_key(ShellRecorder.LAYOUT_SECTION, ShellRecorder.LAYOUT_KEY)
+	else:
+		layout.set_value(ShellRecorder.LAYOUT_SECTION, ShellRecorder.LAYOUT_KEY, value)
+	layout.save(ShellRecorder.LAYOUT_PATH)
+
+
+## F-R3: the shell's replay transport, driven without any of its widgets.
+##
+## `ReplayTimeline` (`res://replay_timeline.gd`) is the bottom bar the sidebar
+## opens a recording into. The buttons themselves are covered by the shell boot
+## check; what is asserted here is the plumbing behind them -- that a recording
+## opens, draws, seeks in both directions, indexes itself without blocking, and
+## leaves nothing behind when it closes.
+func _test_replay_timeline() -> void:
+	var path := "user://recordings/_selftest_timeline.b3rec"
+	var prior_last := _read_last_recording()
+
+	var world := Box3DWorld.new()
+	world.name = "TimelineRecWorld"
+	world.auto_step = false
+	world.worker_count = 1
+	add_child(world)
+	var ground := Box3DBody.new()
+	ground.body_type = Box3DBody.STATIC
+	ground.shape_type = Box3DBody.BOX
+	ground.box_size = Vector3(20, 1, 20)
+	ground.position = Vector3(0, -0.5, 0)
+	world.add_child(ground)
+	for i in range(16):
+		var b := Box3DBody.new()
+		b.shape_type = Box3DBody.SPHERE
+		b.sphere_radius = 0.3
+		b.position = Vector3(float(i % 4) * 0.7 - 1.05, 1.0 + float(i) * 0.5, 0.0)
+		world.add_child(b)
+	await get_tree().physics_frame
+
+	var rec := ShellRecorder.new()
+	_check("the timeline test records a scene", rec.start(world, "Timeline", 0))
+	for i in range(120):
+		world.step(1.0 / 60.0)
+	_check("and writes it", rec.stop(path) == path)
+	# F-048: the write is on a background thread now, so a test that is about to
+	# read the file waits for it. `flush_save` is the same call the shell's own
+	# teardown paths make.
+	rec.flush_save()
+	world.free()
+
+	var host := Node3D.new()
+	host.name = "ReplayHost"
+	add_child(host)
+
+	var bar := ReplayTimeline.new()
+	bar.name = "Timeline"
+	# The index pass is left off for the first half so the transport assertions
+	# below are not racing it; it gets its own section afterwards.
+	bar.auto_pregen = false
+	add_child(bar)
+
+	_check("a missing recording is refused, not fatal",
+		not bar.open_recording("user://recordings/_no_such_file.b3rec", host))
+	_check("nothing was attached by the refusal", host.get_child_count() == 0)
+
+	_check("the timeline opens the recording", bar.open_recording(path, host))
+	_check("it is open", bar.is_open())
+	var count: int = bar.get_frame_count()
+	_check("it knows the frame count (%d)" % count, count > 0)
+	# Frame 0 is before the recording's first dispatch, so the bar steps once on
+	# open to land on a state with bodies in it.
+	_check("it opens on the first real frame (%d)" % bar.get_frame(), bar.get_frame() == 1)
+	_check("the renderer was parented to the host", host.get_child_count() == 1)
+
+	var renderer: Box3DReplayRenderer = bar.get_renderer()
+	_check("the bar owns a renderer", renderer != null)
+	_check("the opening frame is drawn (%d instances over %d meshes)"
+		% [renderer.get_instance_count(), renderer.get_geometry_count()],
+		renderer.get_instance_count() > 0 and renderer.get_geometry_count() > 0)
+
+	# Transport: single-step both ways.
+	bar.step_by(1)
+	_check("a single step forward lands (%d)" % bar.get_frame(), bar.get_frame() == 2)
+	bar.step_by(-1)
+	_check("a single step back lands (%d)" % bar.get_frame(), bar.get_frame() == 1)
+	_check("the step back still drew (%d instances)" % renderer.get_instance_count(),
+		renderer.get_instance_count() > 0)
+
+	# The scrubber's seek, in both directions.
+	bar.seek_to(count)
+	_check("seeking to the end lands (%d of %d)" % [bar.get_frame(), count],
+		bar.get_frame() == count)
+	bar.seek_to(count / 2)
+	_check("a backward seek off the end lands (%d)" % bar.get_frame(),
+		bar.get_frame() == count / 2)
+	_check("and it is still drawing (%d instances)" % renderer.get_instance_count(),
+		renderer.get_instance_count() > 0)
+	bar.seek_to(-40)
+	_check("a seek below zero clamps (%d)" % bar.get_frame(), bar.get_frame() == 0)
+	bar.seek_to(count + 500)
+	_check("a seek past the end clamps (%d)" % bar.get_frame(), bar.get_frame() == count)
+
+	# Backward play is repeated seek_frame(frame - 1) through the keyframe ring.
+	# Walking a stretch of it by hand is what proves the ring is doing its job.
+	bar.seek_to(60)
+	var reverse_ok := true
+	for i in range(20):
+		bar.step_by(-1)
+		if bar.get_frame() != 60 - (i + 1):
+			reverse_ok = false
+			break
+	_check("twenty frames of reverse land one frame at a time (%d)" % bar.get_frame(), reverse_ok)
+	_check("reverse play reports its per-frame cost (%d us, avg %.0f us)"
+		% [bar.get_last_advance_usec(), bar.get_average_advance_usec()],
+		bar.get_last_advance_usec() >= 0 and bar.get_average_advance_usec() >= 0.0)
+
+	bar.set_direction(-1)
+	_check("the transport holds a backward direction", bar.get_direction() == -1)
+	bar.set_direction(1)
+	_check("and a forward one", bar.get_direction() == 1)
+	bar.set_direction(0)
+	_check("and pauses", bar.get_direction() == 0)
+
+	# Divergence is informational and, at the worker count this replays at,
+	# should not fire at all.
+	_check("nothing diverged (%d)" % bar.get_diverge_frame(), bar.get_diverge_frame() < 0)
+
+	bar.close_recording()
+	_check("closing releases the player", not bar.is_open())
+	_check("and leaves no replay nodes behind (%d)" % host.get_child_count(),
+		host.get_child_count() == 0)
+
+	# --- the amortized index pass -------------------------------------------
+	# Upstream pre-generates the whole keyframe ring behind a blocking modal
+	# (samples/sample_replay.cpp:400-480). Here it runs in small slices across
+	# ordinary frames, and the recording is playable throughout. Awaiting
+	# process frames is exactly how a user experiences it.
+	bar.auto_pregen = true
+	_check("the timeline reopens for the index pass", bar.open_recording(path, host))
+	_check("it does not claim to be indexed yet", not bar.is_indexed())
+	var spins := 0
+	while not bar.is_indexed() and spins < 900:
+		spins += 1
+		await get_tree().process_frame
+	_check("the index pass completes on its own (%d frames of slicing)" % spins,
+		bar.is_indexed())
+	# F-R4 changed this: the pass used to scrub the viewport forward as it ran
+	# and rewind to 0 when it finished. It now fills the frame cache instead of
+	# uploading what it walks, so it never moves the view -- the user is looking
+	# at a still image the whole time, parked on the frame the bar opened on.
+	_check("the pass left the view where the user had it (%d)" % bar.get_frame(),
+		bar.get_frame() == 1)
+	_check("a full pass over the recording found no hash mismatch (%d)"
+		% bar.get_diverge_frame(), bar.get_diverge_frame() < 0)
+	_check("the pass cached the whole recording (%d of %d frames, %.2f MB)"
+		% [bar.get_cached_frame_count(), count,
+			float(bar.get_frame_cache_bytes()) / (1024.0 * 1024.0)],
+		bar.get_cached_frame_count() >= count)
+	# A filled ring is what makes backward play affordable; prove it still seeks.
+	bar.seek_to(count)
+	bar.seek_to(4)
+	_check("the indexed recording still seeks both ways (%d)" % bar.get_frame(),
+		bar.get_frame() == 4)
+	_check("and still draws (%d instances)" % bar.get_renderer().get_instance_count(),
+		bar.get_renderer().get_instance_count() > 0)
+
+	# --- F-R4: backward playback does not use the solver ---------------------
+	# A displayed frame is a list of shape transforms; producing one needs the
+	# solver, LOOKING at one does not. Upstream's backward step re-simulates
+	# (b3RecPlayer_SeekFrame restores the nearest keyframe and re-steps the gap,
+	# src/recording_replay.c:3148-3194), which is why reverse playback tanked on
+	# a big scene. Box3DReplayRenderer remembers the frames the transport shows,
+	# so a backward step inside that window is a MultiMesh upload.
+	#
+	# Measured on Cube Pile (4097 shapes, 400 frames, Linux template_debug):
+	# backward play 148 ms/frame -> 0.04 ms, random scrub 334 ms -> 0.04 ms,
+	# against 8.4 ms/frame for a first forward pass. The assertions here are on
+	# the MECHANISM, not on wall-clock numbers, which would be flaky.
+	bar.seek_to(20)
+	renderer = bar.get_renderer()
+	renderer.clear_frame_cache()
+	_check("the frame cache starts empty when cleared (%d frames, %d bytes)"
+		% [renderer.get_cached_frame_count(), renderer.get_frame_cache_bytes()],
+		renderer.get_cached_frame_count() == 0 and renderer.get_frame_cache_bytes() == 0)
+
+	bar.seek_to(20)
+	_check("a seek that missed the cache came from the player",
+		not bar.was_last_frame_cached())
+	_check("and was remembered on the way past (%d frames cached)"
+		% renderer.get_cached_frame_count(), renderer.has_cached_frame(20))
+
+	# Walk forward, then walk the same stretch back. Every one of the backward
+	# frames must come out of the cache -- that IS the fix.
+	for i in range(24):
+		bar.step_by(1)
+	_check("forward play filled the cache (%d frames, %.3f MB)"
+		% [renderer.get_cached_frame_count(),
+			float(renderer.get_frame_cache_bytes()) / (1024.0 * 1024.0)],
+		renderer.get_cached_frame_count() >= 24)
+	var cached_back := 0
+	var reverse_frames_ok := true
+	for i in range(24):
+		bar.step_by(-1)
+		if bar.was_last_frame_cached():
+			cached_back += 1
+		if bar.get_frame() != 44 - (i + 1):
+			reverse_frames_ok = false
+	_check("reversing over played frames lands on every one (%d)" % bar.get_frame(),
+		reverse_frames_ok and bar.get_frame() == 20)
+	_check("and every one of them came from the cache, not the solver (%d of 24)"
+		% cached_back, cached_back == 24)
+
+	# A cached frame has to BE the frame it was captured from, not merely the
+	# right instance count. Draw it live, read every instance, come back to it
+	# through the cache and compare.
+	renderer.clear_frame_cache()
+	bar.seek_to(30)
+	var live_xf: Array[Transform3D] = []
+	var live_col: Array[Color] = []
+	for g in range(renderer.get_geometry_count()):
+		var ginfo: Dictionary = renderer.get_geometry_info(g)
+		for i in range(int(ginfo["instances"])):
+			live_xf.append(renderer.get_instance_transform(g, i))
+			live_col.append(renderer.get_instance_color(g, i))
+	_check("the live frame drew instances to compare against (%d)" % live_xf.size(),
+		live_xf.size() > 0)
+	bar.seek_to(31)
+	_check("the cache serves frame 30 back", renderer.draw_cached_frame(30))
+	var worst := 0.0
+	var colours_exact := true
+	var k := 0
+	for g in range(renderer.get_geometry_count()):
+		var ginfo2: Dictionary = renderer.get_geometry_info(g)
+		for i in range(int(ginfo2["instances"])):
+			if k >= live_xf.size():
+				break
+			var xf: Transform3D = renderer.get_instance_transform(g, i)
+			worst = maxf(worst, (xf.origin - live_xf[k].origin).length())
+			for axis in range(3):
+				worst = maxf(worst, (xf.basis[axis] - live_xf[k].basis[axis]).length())
+			if renderer.get_instance_color(g, i) != live_col[k]:
+				colours_exact = false
+			k += 1
+	_check("the cached frame carries every instance the live one did (%d)" % k,
+		k == live_xf.size())
+	# The cached row is quantised: 21-bit position axes over the frame's own
+	# AABB and a smallest-three rotation at 20 bits, so the error is CONTENT
+	# RELATIVE -- one part in 2^21 of whatever the frame spans (1.9e-6 measured
+	# on this recording's ~9 m span; sub-millimetre even on the perf rig's
+	# 800 m post-bomb debris field). Colours come from upstream's 8-bit hex
+	# palette and are stored as RGBA8, so they are exact.
+	_check("cached transforms reproduce the live ones (worst component %.9f)" % worst,
+		worst < 1e-4)
+	_check("and cached colours are exact", colours_exact)
+	# The packed row is the whole of the F-045 fix: 32 bytes an instance would
+	# have truncated Huge Pyramid at 188 frames. On a recording this small the
+	# chunk headers and bitsets amortize poorly (24.2 observed here vs 20.1 on
+	# the perf rig's thousands of instances), so the bound is set to catch a
+	# regression to the old 32-byte row, not to flatter the header overhead.
+	var per_inst := float(renderer.get_frame_cache_bytes()) \
+		/ float(maxi(renderer.get_cached_frame_count() * renderer.get_instance_count(), 1))
+	_check("a cached frame stays well under the old 32 bytes an instance (%.1f)" % per_inst,
+		per_inst < 30.0)
+
+	# The fallback still works when the cache cannot help: a backward step into
+	# a range that was never displayed rebuilds it through the keyframe ring,
+	# and backfills its neighbours so the next steps are free.
+	renderer.clear_frame_cache()
+	bar.seek_to(90)
+	renderer.clear_frame_cache()
+	bar.step_by(-1)
+	_check("a backward step with an empty cache still lands (%d)" % bar.get_frame(),
+		bar.get_frame() == 89)
+	_check("and it backfilled its neighbours rather than one frame (%d cached)"
+		% renderer.get_cached_frame_count(), renderer.get_cached_frame_count() > 1)
+	bar.step_by(-1)
+	_check("so the next backward step is served from the cache (%d)" % bar.get_frame(),
+		bar.was_last_frame_cached() and bar.get_frame() == 88)
+
+	# The budget is a real cap, and zero turns the whole thing off without
+	# breaking the transport -- which is the fallback path, exercised.
+	renderer.frame_cache_budget = 0
+	_check("a zero budget empties the cache", renderer.get_cached_frame_count() == 0)
+	bar.seek_to(50)
+	bar.step_by(-1)
+	_check("the transport still works with caching off (%d)" % bar.get_frame(),
+		bar.get_frame() == 49 and not bar.was_last_frame_cached())
+	renderer.frame_cache_budget = 1 << 20
+	_check("the budget reads back (%d bytes)" % renderer.get_frame_cache_budget(),
+		renderer.get_frame_cache_budget() == 1 << 20)
+	for i in range(40):
+		bar.step_by(1)
+	_check("a small budget holds the cache under it (%d bytes over %d frames)"
+		% [renderer.get_frame_cache_bytes(), renderer.get_cached_frame_count()],
+		renderer.get_frame_cache_bytes() <= (1 << 20) or renderer.get_cached_frame_count() == 1)
+	var window: Vector2i = renderer.get_cached_frame_range()
+	_check("and keeps a window around the playhead (%d..%d, frame %d)"
+		% [window.x, window.y, bar.get_frame()],
+		window.x <= bar.get_frame() and bar.get_frame() <= window.y)
+
+	# --- F-038: a replay is not automatically a debug view -------------------
+	# The renderer used to draw with Box3DWorld's debug-shell material whatever
+	# the shell's Debug switch said, so opening the timeline with Debug off put
+	# a debug view on screen while the checkbox still read off. The bar mirrors
+	# the switch onto the renderer and never writes back to it.
+	var style_probe := Box3DReplayRenderer.new()
+	_check("a renderer draws real surfaces by default, not debug shells",
+		not style_probe.debug_style)
+	style_probe.free()
+	_check("the bar inherits the host's debug state (off)", not bar.is_debug_style())
+	_check("and the renderer agrees", not bar.get_renderer().debug_style)
+	bar.set_debug_style(true)
+	_check("turning the host's switch on reaches the renderer",
+		bar.is_debug_style() and bar.get_renderer().debug_style)
+	bar.set_debug_style(false)
+	_check("and turning it off again reaches it too",
+		not bar.is_debug_style() and not bar.get_renderer().debug_style)
+	# --- F-044: the index pass is something you can SEE ----------------------
+	# The pass is deliberately non-blocking (upstream blocks behind a modal,
+	# samples/sample_replay.cpp:400-480), and the price of that was a user who
+	# could not tell it was happening: it reported itself as one fragment of a
+	# 12 px status strip. It now reports twice, off the SAME source -- the frame
+	# cache -- so the "Indexing NN%" readout and the buffered band painted on
+	# the scrubber's track can never disagree with each other.
+	bar.close_recording()
+	bar.auto_pregen = true
+	_check("the timeline reopens for the indexing readout", bar.open_recording(path, host))
+	renderer = bar.get_renderer()
+	renderer.clear_frame_cache()
+	_check("an empty cache buffers nothing and reads 0%% (%d run(s), %d%%)"
+		% [bar.get_cached_runs().size(), bar.get_index_percent()],
+		bar.get_cached_runs().is_empty() and bar.get_index_percent() == 0)
+
+	# Mid-index made deterministic rather than raced against the 3 ms slice: a
+	# partly filled cache is exactly the state the pass passes through, and the
+	# readout has to be a live percentage there, never 0 and never 100.
+	bar.seek_to(10)
+	for i in range(20):
+		bar.step_by(1)
+	var part_pct := bar.get_index_percent()
+	var part_runs := bar.get_cached_runs()
+	var part_covered := 0
+	for r in part_runs:
+		part_covered += r.y - r.x + 1
+	_check("a part-filled cache reads strictly between 0%% and 100%% (%d%% over %d of %d frames)"
+		% [part_pct, bar.get_cached_frame_count(), count],
+		part_pct > 0 and part_pct < 100)
+	_check("and the band spans exactly the frames the cache holds (%d of %d over %d run(s))"
+		% [part_covered, bar.get_cached_frame_count(), part_runs.size()],
+		part_covered == bar.get_cached_frame_count() and part_runs.size() == 1)
+	_check("which is the stretch that was actually walked (%d..%d)"
+		% [part_runs[0].x, part_runs[0].y],
+		part_runs[0].x == 10 and part_runs[0].y == 30)
+
+	# A cache with a HOLE in it is two bands, not one long one. Eviction only
+	# ever drops an END of the window, so the only way to make a hole is to jump
+	# over one, which is what a scrub into cold territory does.
+	renderer.clear_frame_cache()
+	bar.seek_to(20)
+	bar.seek_to(count - 10)
+	var hole_runs := bar.get_cached_runs()
+	_check("a cache with a gap in it draws as separate bands (%d run(s) over %d frames)"
+		% [hole_runs.size(), bar.get_cached_frame_count()],
+		hole_runs.size() == 2 and hole_runs[0].x == 20 and hole_runs[1].y == count - 10)
+
+	# Now let the real pass run and watch the readout while it does. Every
+	# sample it takes has to be a percentage under 100 and a band that never
+	# claims more of the recording than there is.
+	var saw_indexing := false
+	var index_bad := ""
+	spins = 0
+	while spins < 900:
+		if bar.is_indexing():
+			saw_indexing = true
+			var live_pct := bar.get_index_percent()
+			if live_pct < 0 or live_pct > 99:
+				index_bad = "percent %d" % live_pct
+			var live_covered := 0
+			for r in bar.get_cached_runs():
+				live_covered += r.y - r.x + 1
+			if live_covered > count + 1:
+				index_bad = "band claims %d of %d frames" % [live_covered, count]
+		if bar.is_indexed():
+			break
+		spins += 1
+		await get_tree().process_frame
+	_check("the index pass still completes on its own (%d frames of slicing)" % spins,
+		bar.is_indexed())
+	_check("the readout was live while it ran (%s)"
+		% ("clean" if index_bad == "" else index_bad),
+		saw_indexing and index_bad == "")
+	_check("a finished pass reads 100%% and stops announcing itself (%d%%, indexing %s)"
+		% [bar.get_index_percent(), bar.is_indexing()],
+		bar.get_index_percent() == 100 and not bar.is_indexing())
+	var done_runs := bar.get_cached_runs()
+	var done_covered := 0
+	for r in done_runs:
+		done_covered += r.y - r.x + 1
+	# Frame 0 is before the recording's first dispatch and is not a state the
+	# pass walks, so the band covers 1..count -- the whole of what there is.
+	_check("and the band covers the whole recording (%d run(s), %d..%d of %d)"
+		% [done_runs.size(), done_runs[0].x, done_runs[0].y, count],
+		done_runs.size() == 1 and done_runs[0].x <= 1 and done_runs[0].y == count)
+	_check("the finished band still claims exactly what is cached (%d of %d)"
+		% [done_covered, bar.get_cached_frame_count()],
+		done_covered == bar.get_cached_frame_count())
+	# Interaction stands the pass down; it must take the big readout with it
+	# rather than leave a frozen percentage on screen.
+	bar.seek_to(5)
+	_check("a completed pass does not re-announce itself after a scrub",
+		not bar.is_indexing() and bar.is_indexed())
+	bar.close_recording()
+	_check("a closed timeline buffers nothing (%d run(s), %d%%)"
+		% [bar.get_cached_runs().size(), bar.get_index_percent()],
+		bar.get_cached_runs().is_empty() and bar.get_index_percent() == 0)
+	bar.auto_pregen = false
+	_check("the timeline reopens after the indexing checks", bar.open_recording(path, host))
+
+	# --- F-050: the overflow goes to disk, so coverage stops being a window --
+	#
+	# THE CASE. The memory budget is a WINDOW, and a long recording of a big
+	# scene does not fit in it: a user's 1200-frame Huge Pyramid indexed 306
+	# frames into 96 MB and stood down, and past that band a seek cost the
+	# player a keyframe restore and a re-step of the gap -- 6.1 SECONDS,
+	# measured, six hundred frames out. A cached frame is quantised transforms,
+	# so writing it out and reading it back beats re-simulating it by three
+	# orders of magnitude and does not compete for RAM.
+	#
+	# Made deterministic rather than raced against a scene big enough to
+	# overflow 96 MB: the budget is squeezed until this recording overflows it,
+	# which is the same code path at a size a selftest can afford.
+	var spill_path := "user://replay_cache/selftest_%d.b3fc" % OS.get_process_id()
+	var squeezed := 8192
+	renderer = bar.get_renderer()
+	renderer.clear_frame_cache()
+	renderer.frame_cache_spill_path = ""
+	renderer.frame_cache_budget = squeezed
+	bar.seek_to(1)
+	for i in range(count - 1):
+		bar.step_by(1)
+	var window_frames := renderer.get_cached_frame_count()
+	_check("with nowhere to spill, an over-budget cache is a window and loses frames (%d of %d, %d B)"
+		% [window_frames, count, renderer.get_frame_cache_bytes()],
+		window_frames < count and renderer.get_frame_cache_bytes() <= squeezed)
+	_check("and it says so: the coverage is not a prefix (indexed through %d)"
+		% renderer.get_indexed_through(), renderer.get_indexed_through() == 0)
+
+	# The same walk with somewhere to put the overflow.
+	renderer.clear_frame_cache()
+	renderer.frame_cache_spill_path = spill_path
+	_check("the spill path reads back (%s)" % renderer.frame_cache_spill_path,
+		renderer.frame_cache_spill_path == spill_path)
+	bar.seek_to(1)
+	for i in range(count - 1):
+		bar.step_by(1)
+	var spilled_total := renderer.get_cached_frame_count()
+	var spilled_resident := renderer.get_resident_frame_count()
+	_check("the same over-budget walk keeps every frame when it can spill (%d of %d)"
+		% [spilled_total, count], spilled_total == count)
+	_check("while memory stays under the budget it was given (%d of %d B over %d resident frames)"
+		% [renderer.get_frame_cache_bytes(), renderer.get_frame_cache_budget(),
+			spilled_resident],
+		renderer.get_frame_cache_bytes() <= squeezed and spilled_resident < spilled_total)
+	_check("the overflow really went to disk (%d chunk writes, %d bytes)"
+		% [renderer.get_spill_write_count(), renderer.get_frame_cache_disk_bytes()],
+		renderer.get_spill_write_count() > 0 and renderer.get_frame_cache_disk_bytes() > 0)
+	_check("and the temp file exists while the cache is using it",
+		FileAccess.file_exists(spill_path))
+	_check("coverage is now a PREFIX, which is what lets the transport stay forward-only (through %d of %d)"
+		% [renderer.get_indexed_through(), count],
+		renderer.get_indexed_through() == count)
+	var spill_runs := renderer.get_cached_runs()
+	var res_runs := renderer.get_resident_runs()
+	var res_covered := 0
+	for r in res_runs:
+		res_covered += r.y - r.x + 1
+	_check("the band paints it as one buffered run (%d run(s), %d..%d)"
+		% [spill_runs.size(), spill_runs[0].x, spill_runs[0].y],
+		spill_runs.size() == 1 and spill_runs[0].x == 1 and spill_runs[0].y == count)
+	_check("with the memory tier a strict subset inside it (%d of %d frames over %d run(s))"
+		% [res_covered, spilled_total, res_runs.size()],
+		res_covered == spilled_resident and res_covered < spilled_total)
+
+	# A frame that went to disk has to come BACK as the frame it was, not merely
+	# come back. Frame 1 is certainly spilled: the whole recording was walked
+	# forward and the memory window holds a fraction of it around the playhead.
+	_check("a frame the budget evicted is still cached (frame 1)",
+		renderer.has_cached_frame(1))
+	var reads_before: int = renderer.get_spill_read_count()
+	_check("and it draws back from disk", renderer.draw_cached_frame(1))
+	_check("which cost a real read rather than a memory hit (%d -> %d)"
+		% [reads_before, renderer.get_spill_read_count()],
+		renderer.get_spill_read_count() > reads_before)
+	var disk_xf: Array[Transform3D] = []
+	var disk_col: Array[Color] = []
+	for g in renderer.get_geometry_count():
+		var gi: Dictionary = renderer.get_geometry_info(g)
+		for i in int(gi["instances"]):
+			disk_xf.append(renderer.get_instance_transform(g, i))
+			disk_col.append(renderer.get_instance_color(g, i))
+	# THE SAME FRAME WITHOUT THE DISK, and cache against cache rather than cache
+	# against the live walk -- what is being measured here is the serialiser,
+	# not the quantiser F-R5 already has bounds for. A budget big enough to hold
+	# the whole recording keeps frame 1 in memory, and it must come back
+	# BIT-IDENTICAL, because the spill writes out the packed row the encoder
+	# already produced and reads the same bytes back.
+	renderer.frame_cache_spill_path = ""
+	renderer.frame_cache_budget = 96 << 20
+	renderer.clear_frame_cache()
+	bar.seek_to(1)
+	for i in range(count - 1):
+		bar.step_by(1)
+	_check("a budget that fits the recording keeps it all in memory (%d of %d)"
+		% [renderer.get_resident_frame_count(), count],
+		renderer.get_resident_frame_count() == count)
+	_check("and frame 1 draws from memory", renderer.draw_cached_frame(1))
+	var mem_ok := true
+	var mem_n := 0
+	var worst_spill := 0.0
+	for g in renderer.get_geometry_count():
+		var gi: Dictionary = renderer.get_geometry_info(g)
+		for i in int(gi["instances"]):
+			if mem_n >= disk_xf.size():
+				mem_ok = false
+				break
+			var t: Transform3D = renderer.get_instance_transform(g, i)
+			worst_spill = maxf(worst_spill, (t.origin - disk_xf[mem_n].origin).length())
+			for axis in 3:
+				worst_spill = maxf(worst_spill,
+					(t.basis[axis] - disk_xf[mem_n].basis[axis]).length())
+			if renderer.get_instance_color(g, i) != disk_col[mem_n]:
+				mem_ok = false
+			mem_n += 1
+	_check("the round trip through disk carried every instance (%d of %d)"
+		% [disk_xf.size(), mem_n], mem_ok and mem_n == disk_xf.size() and mem_n > 0)
+	_check("and reproduced it exactly, not approximately (worst component %.9f)"
+		% worst_spill, worst_spill == 0.0)
+
+	# The disk budget is a real ceiling, and reaching it stands the spill down
+	# softly rather than failing: the cache is a window again and says so.
+	renderer.clear_frame_cache()
+	renderer.frame_cache_budget = squeezed
+	renderer.frame_cache_disk_budget = 4096
+	renderer.frame_cache_spill_path = spill_path
+	bar.seek_to(1)
+	for i in range(count - 1):
+		bar.step_by(1)
+	_check("a full disk budget stands the spill down instead of failing (%d B on disk, %d of %d cached)"
+		% [renderer.get_frame_cache_disk_bytes(), renderer.get_cached_frame_count(), count],
+		renderer.get_frame_cache_disk_bytes() <= 4096
+			and renderer.get_cached_frame_count() < count)
+	_check("and the transport keeps working over it (%d)" % bar.get_frame(),
+		bar.get_frame() == count)
+	renderer.frame_cache_disk_budget = 2 << 30
+
+	# The temp file belongs to the node, not to the user: clearing the cache
+	# lets go of it and nothing is left under user:// afterwards.
+	renderer.frame_cache_spill_path = ""
+	_check("dropping the spill path deletes the temp file with it",
+		not FileAccess.file_exists(spill_path))
+	renderer.frame_cache_budget = 96 << 20
+
+	# --- F-050: a seek into un-simulated territory does not block ------------
+	#
+	# Past the indexed band a frame has never existed, and no cache can conjure
+	# one -- it has to be simulated. What must NOT happen is the six-second
+	# freeze that used to be: the playhead goes where the user put it, the
+	# picture stays on the newest frame there is, the index pass is told to
+	# hurry, and the bar keeps taking input the whole way.
+	bar.close_recording()
+	bar.auto_pregen = true
+	_check("the timeline reopens for the wait checks", bar.open_recording(path, host))
+	renderer = bar.get_renderer()
+	_check("a fresh timeline is not waiting for anything (%d)" % bar.get_wait_frame(),
+		bar.get_wait_frame() < 0 and bar.get_shown_frame() == bar.get_frame())
+	# Index a prefix by hand so the chase has something to walk forward from,
+	# then ask for a frame well past it.
+	for i in range(10):
+		bar.step_by(1)
+	var wait_target := count - 5
+	var t_seek := Time.get_ticks_usec()
+	bar.seek_to(wait_target)
+	var seek_us := Time.get_ticks_usec() - t_seek
+	_check("the seek call returns at once instead of simulating inside it (%.2f ms)"
+		% (float(seek_us) / 1000.0), seek_us < 100000)
+	_check("the playhead went where the user put it (%d)" % bar.get_frame(),
+		bar.get_frame() == wait_target)
+	_check("the bar says which frame it is waiting for (%d) and what it is showing (%d)"
+		% [bar.get_wait_frame(), bar.get_shown_frame()],
+		bar.get_wait_frame() == wait_target and bar.get_shown_frame() < wait_target)
+	# Step and play mean "from here", and while a wait is outstanding here is
+	# what is on screen. An explicit transport action drops the wait onto that
+	# frame rather than queueing behind it and appearing to do nothing.
+	var parked := bar.get_shown_frame()
+	bar._user_step(1)
+	_check("a step while waiting cancels the wait onto the frame on screen (%d, was parked at %d)"
+		% [bar.get_frame(), parked],
+		bar.get_wait_frame() < 0 and bar.get_frame() == parked + 1)
+	bar.seek_to(wait_target)
+	_check("and asking again starts the wait over (%d)" % bar.get_wait_frame(),
+		bar.get_wait_frame() == wait_target)
+	var wait_worst := 0
+	var wait_ticks := 0
+	while bar.get_wait_frame() >= 0 and wait_ticks < 900:
+		var t_tick := Time.get_ticks_usec()
+		await get_tree().process_frame
+		wait_worst = maxi(wait_worst, Time.get_ticks_usec() - t_tick)
+		wait_ticks += 1
+	_check("the wait resolves on its own (%d frames of slicing)" % wait_ticks,
+		bar.get_wait_frame() < 0 and bar.get_frame() == wait_target)
+	_check("and the picture is now the frame that was asked for (%d)"
+		% bar.get_shown_frame(), bar.get_shown_frame() == wait_target)
+	_check("the frames it walked past were kept, so it is paid once (indexed through %d)"
+		% bar.get_indexed_through(), bar.get_indexed_through() >= wait_target)
+	var t_again := Time.get_ticks_usec()
+	bar.seek_to(wait_target - 200 if wait_target > 200 else 1)
+	bar.seek_to(wait_target)
+	_check("so going back is an upload, not another wait (%.2f ms, waiting %d)"
+		% [float(Time.get_ticks_usec() - t_again) / 1000.0, bar.get_wait_frame()],
+		bar.get_wait_frame() < 0 and bar.was_last_frame_cached())
+	bar.close_recording()
+	bar.auto_pregen = false
+	_check("the timeline reopens after the wait checks", bar.open_recording(path, host))
+
+	bar.set_debug_style(true)
+	bar.close_recording()
+	_check("the timeline reopens carrying the debug state it was given",
+		bar.open_recording(path, host) and bar.get_renderer().debug_style)
+	bar.set_debug_style(false)
+
+	bar.close_recording()
+	_check("the second close leaves no replay nodes either (%d)" % host.get_child_count(),
+		host.get_child_count() == 0)
+	bar.free()
+	host.free()
+	DirAccess.remove_absolute(path)
+	_write_last_recording(prior_last)
+	_check("the timeline test left the shell's remembered path alone",
+		_read_last_recording() == prior_last)
+
+
+# --- F-042: the replay's colours are the scene's ----------------------------
+
+## A recording holds physics and no art, so every dynamic body in a replay used
+## to come back in the same state-palette colour while the live scene had each
+## one its own. The fix is a sidecar beside the recording, keyed on the one
+## identity that crosses a recording -- the body id -- and a per-body override
+## table on the renderer.
+##
+## Two bodies are coloured by a material and two by a node that DECLARES what it
+## drew (`get_replay_body_colors`, the Cube Pile / MultiMesh case, which cannot
+## be read back off the MultiMesh at all because the headless renderer stores
+## none of it). Both routes have to arrive in the replay, through the live draw
+## AND through the frame cache.
+func _test_replay_colors() -> void:
+	var path := "user://recordings/_selftest_colors.b3rec"
+	var prior_last := _read_last_recording()
+
+	var world := Box3DWorld.new()
+	world.name = "ColorRecWorld"
+	world.auto_step = false
+	world.worker_count = 1
+	add_child(world)
+
+	var want := {}
+	for i in range(2):
+		var b := Box3DBody.new()
+		b.shape_type = Box3DBody.SPHERE
+		b.sphere_radius = 0.3
+		b.position = Vector3(float(i) * 1.0 - 0.5, 2.0, 0.0)
+		var mi := MeshInstance3D.new()
+		mi.mesh = SphereMesh.new()
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(0.9, 0.2, 0.2) if i == 0 else Color(0.2, 0.2, 0.9)
+		mi.material_override = mat
+		b.add_child(mi)
+		world.add_child(b)
+		want[mat.albedo_color.to_html(true)] = true
+
+	# The declaring host: bodies with no visual at all, coloured by their parent.
+	var host_node := Node3D.new()
+	host_node.name = "Declared"
+	host_node.set_script(load("res://tests/replay_color_host.gd"))
+	world.add_child(host_node)
+	for i in range(2):
+		var b := Box3DBody.new()
+		b.shape_type = Box3DBody.SPHERE
+		b.sphere_radius = 0.3
+		b.position = Vector3(float(i) * 1.0 - 0.5, 4.0, 0.0)
+		host_node.add_child(b)
+	var declared: Array = [Color(0.1, 0.8, 0.8), Color(0.8, 0.8, 0.1)]
+	host_node.set("colors", declared)
+	for c in declared:
+		want[(c as Color).to_html(true)] = true
+
+	await get_tree().physics_frame
+	var rec := ShellRecorder.new()
+	_check("the colour test records a scene", rec.start(world, "Colors", 0))
+	for i in range(30):
+		world.step(1.0 / 60.0)
+	_check("and writes it", rec.stop(path) == path)
+	rec.flush_save()
+
+	# The .b3rec is upstream's format and the sidecar never writes a byte into
+	# it. This is the assertion that keeps that true.
+	var md5_before := FileAccess.get_md5(path)
+	var colors := ShellRecorder.load_colors(path)
+	ShellRecorder.write_colors(path, colors, "Colors")
+	_check("writing the sidecar leaves the .b3rec byte-identical",
+		not md5_before.is_empty() and FileAccess.get_md5(path) == md5_before)
+	_check("the sidecar is a file of its own",
+		FileAccess.file_exists(path + ShellRecorder.VISUAL_EXT))
+	_check("the sidecar holds one entry per body (%d)" % colors.size(), colors.size() == 4)
+	var got := {}
+	for k in colors:
+		got[(colors[k] as Color).to_html(true)] = true
+	_check("its colours are the scene's, material and declaration alike",
+		got.size() == 4 and _keys_match(got, want))
+	# The key is the live body's own id, which is what makes it findable again.
+	var first: Box3DBody = world.get_child(0) as Box3DBody
+	var key: String = Box3DRecording.get_body_key(first)
+	_check("a live body's key is index:generation and is in the sidecar",
+		key.contains(":") and colors.has(key))
+	world.free()
+
+	var host := Node3D.new()
+	host.name = "ColorReplayHost"
+	add_child(host)
+	var bar := ReplayTimeline.new()
+	bar.name = "ColorTimeline"
+	bar.auto_pregen = false
+	add_child(bar)
+
+	_check("the replay opens", bar.open_recording(path, host))
+	var r: Box3DReplayRenderer = bar.get_renderer()
+	_check("the whole table reached the timeline", bar.get_color_override_count() == 4)
+	_check("every drawn instance is overridden (%d of %d)"
+		% [r.get_override_instance_count(), r.get_instance_count()],
+		r.get_instance_count() == 4 and r.get_override_instance_count() == 4)
+	_check("the drawn colours are the scene's", _keys_match(_drawn_colors(r), want))
+
+	bar.step_by(4)
+	_check("a forward frame is still overridden", r.get_override_instance_count() == 4)
+	bar.step_by(-2)
+	_check("the backward frame came from the cache", bar.was_last_frame_cached())
+	_check("and the cached frame carries the override too",
+		r.get_override_instance_count() == 4 and _keys_match(_drawn_colors(r), want))
+
+	# Debug means debug: the state palette is what a debug view was asked for.
+	bar.set_debug_style(true)
+	bar.step_by(1)
+	_check("debug_style ignores the override table",
+		r.get_override_instance_count() == 0 and not _keys_match(_drawn_colors(r), want))
+	bar.set_debug_style(false)
+	bar.step_by(1)
+	_check("turning debug_style off restores the overrides",
+		r.get_override_instance_count() == 4 and _keys_match(_drawn_colors(r), want))
+
+	# The material table rides the per-slot custom-data channel, so unlike the
+	# colour table it must NOT discard the frame cache.
+	var kept := r.get_cached_frame_count()
+	r.body_material_overrides = { colors.keys()[0]: {"roughness": 0.2} }
+	_check("a material table keeps the frame cache (%d of %d)"
+		% [r.get_cached_frame_count(), kept],
+		r.get_cached_frame_count() == kept)
+	_check("and reads back (%d)" % r.body_material_overrides.size(),
+		r.body_material_overrides.size() == 1)
+	r.body_material_overrides = {}
+
+	# A bare renderer takes and returns the table, and empty is the default.
+	var probe := Box3DReplayRenderer.new()
+	_check("the renderer takes a material table",
+		probe.body_material_overrides.is_empty())
+	probe.body_material_overrides = {"3:0": {"roughness": 0.35, "metallic": 0.25,
+		"specular": 0.5}}
+	var back: Dictionary = probe.body_material_overrides
+	_check("and reads the entry back", back.size() == 1
+		and absf(float(back["3:0"]["metallic"]) - 0.25) < 1e-5)
+	probe.free()
+
+	# SPACE is the transport toggle, and only while a recording is open.
+	bar.set_direction(0)
+	await get_tree().process_frame
+	_press_space()
+	await get_tree().process_frame
+	_check("SPACE plays from paused", bar.get_direction() == 1)
+	_press_space()
+	await get_tree().process_frame
+	_check("SPACE pauses while playing", bar.get_direction() == 0)
+	bar.set_direction(-1)
+	_press_space()
+	await get_tree().process_frame
+	_check("SPACE pauses backward play too", bar.get_direction() == 0)
+
+	bar.close_recording()
+	_press_space()
+	await get_tree().process_frame
+	_check("SPACE does nothing with no recording open", bar.get_direction() == 0)
+
+	# The fallback: an old or foreign recording has no sidecar and must replay
+	# exactly as it always did.
+	DirAccess.remove_absolute(path + ShellRecorder.VISUAL_EXT)
+	_check("a sidecar-less recording still opens", bar.open_recording(path, host))
+	r = bar.get_renderer()
+	_check("and falls back to the recording's own palette",
+		bar.get_color_override_count() == 0 and r.get_override_instance_count() == 0
+		and not _keys_match(_drawn_colors(r), want))
+	bar.close_recording()
+
+	bar.free()
+	host.free()
+	DirAccess.remove_absolute(path)
+	_write_last_recording(prior_last)
+	_check("the colour test left the shell's remembered path alone",
+		_read_last_recording() == prior_last)
+
+
+func _keys_match(a: Dictionary, b: Dictionary) -> bool:
+	if a.size() != b.size():
+		return false
+	for k in a:
+		if not b.has(k):
+			return false
+	return true
+
+
+## Every instance colour currently in the renderer's buffers, as a set.
+func _drawn_colors(r: Box3DReplayRenderer) -> Dictionary:
+	var out := {}
+	for g in range(r.get_geometry_count()):
+		var info := r.get_geometry_info(g)
+		for i in range(int(info.get("instances", 0))):
+			out[(r.get_instance_color(g, i) as Color).to_html(true)] = true
+	return out
+
+
+func _press_space() -> void:
+	var ev := InputEventKey.new()
+	ev.keycode = KEY_SPACE
+	ev.physical_keycode = KEY_SPACE
+	ev.pressed = true
+	get_viewport().push_input(ev)
+
+
+# --- Sample fidelity: two regressions that shipped once each ----------------
+
+## Both of these were user-visible and both were one number (SPRINT_STATE,
+## sample-fixer). They are asserted here rather than in test_samples.gd because
+## that harness only asks whether a scene loads and keeps bodies.
+func _test_sample_fidelity() -> void:
+	# Spinning Stick used a Godot RNG seeded 20260805, which FROZE one of the
+	# ~1-in-3 draws that legitimately launch the stick off the ground, so the
+	# sample flew apart every single time it was opened. It now walks upstream's
+	# own XorShift32 from RAND_SEED = 12345 (shared/utils.h:9,29-38,56-71), and
+	# upstream's first draw carries |omega| = 70 rad/s against the old seed's
+	# 28.5 -- one number that separates the two generators, and every direction
+	# component is checked implicitly by the magnitude.
+	var stick_scene: Node = (load("res://samples/spinning_stick.tscn") as PackedScene).instantiate()
+	add_child(stick_scene)
+	# Freeze the world before ANY await: under load a single awaited physics
+	# frame can span several solver steps, and a stepped stick has already
+	# shed spin against the wall (observed 46.5 rad/s under a busy machine).
+	# The assertion is about the GENERATOR, so it must read the pristine draw.
+	(stick_scene.get_node("Box3DWorld") as Box3DWorld).auto_step = false
+	await get_tree().physics_frame
+	var stick = stick_scene.get_node("Box3DWorld/Sticks").get_child(0)
+	var omega: float = stick.get_angular_velocity().length()
+	_check("Spinning Stick draws upstream's first omega (%.1f rad/s)" % omega,
+		omega > 60.0)
+	stick_scene.queue_free()
+	await get_tree().physics_frame
+
+	# The Wrecking Ball's wall was authored with a 1 cm gap between courses, so
+	# the whole wall dropped 6.2 cm as the scene loaded -- visible as the wall
+	# settling before the ball had even started swinging. The gap is zeroed; the
+	# wall now stands still until something hits it.
+	var w: Node = (load("res://samples/wrecking.tscn") as PackedScene).instantiate()
+	add_child(w)
+	var top = w.get_node("Box3DWorld/Wall/Blk_18")
+	var y0: float = top.global_position.y
+	for i in range(10):
+		await get_tree().physics_frame
+	var drop: float = absf(top.global_position.y - y0)
+	_check("Wrecking Ball's wall starts at rest (moved %.4f m in 10 frames)" % drop,
+		drop < 0.01)
+	w.queue_free()
+	await get_tree().physics_frame
+
+
+# --- F-004 / F-013 / F-014: the developer-facing globals --------------------
+
+func _test_developer_globals() -> void:
+	# The editor gizmos register at MODULE_INITIALIZATION_LEVEL_EDITOR, a level
+	# Godot only reaches in a TOOLS_ENABLED build. The selftests run under the
+	# EDITOR binary even when they are just playing a scene headlessly, so the
+	# class IS present here -- asserting its absence would fail. What this pins
+	# is that the editor-level registration still happens at all.
+	_check("Box3DEditorPlugin registers at editor level",
+		ClassDB.class_exists("Box3DEditorPlugin"))
+
+	# b3GetVersion / b3IsDoublePrecision, formatted exactly as upstream's own
+	# sample app formats them (samples/main.cpp:558-560).
+	var version: String = Box3DWorld.get_box3d_version()
+	_check("get_box3d_version reports the vendored library (%s)" % version,
+		version == "0.1.0")
+	_check("is_double_precision is false in this float build",
+		not Box3DWorld.is_double_precision())
+
+	# b3World_DumpMemoryStats logs through b3Log with no return value, so the
+	# binding installs a capture handler and hands the breakdown back as a
+	# String. Upstream's allocator emits one line per block size class plus the
+	# total.
+	var world := Box3DWorld.new()
+	add_child(world)
+	await get_tree().physics_frame
+	var dump: String = world.dump_memory_stats()
+	var lines := dump.split("\n", false)
+	_check("dump_memory_stats returns upstream's breakdown (%d chars)" % dump.length(),
+		not dump.is_empty())
+	_check("the breakdown is upstream's 48 lines (%d)" % lines.size(),
+		lines.size() == 48)
+	_check("and the last line is the total (%s)" % lines[lines.size() - 1],
+		lines[lines.size() - 1].begins_with("total: "))
+	world.queue_free()
+	await get_tree().physics_frame
+
+	# No live world, nothing to dump: the call is safe and says nothing rather
+	# than reaching into a destroyed b3WorldId.
+	var absent := Box3DWorld.new()
+	_check("dump_memory_stats on a world that was never created returns nothing",
+		absent.dump_memory_stats() == "")
+	absent.free()
+
+
+# --- F-B1: reading a height field back off a live shape ---------------------
+
+## b3Shape_GetHeightField, bound as Box3DBody.get_height_field(). The samples
+## are the fixtures here on purpose: these numbers are what the SAMPLES draw,
+## so a silent change in the decode shows up as a changed terrain.
+func _test_height_field_readback() -> void:
+	var hf_scene: Node = (load("res://samples/height_field.tscn") as PackedScene).instantiate()
+	add_child(hf_scene)
+	await get_tree().physics_frame
+	var terrain = hf_scene.get_node("Box3DWorld/Terrain")
+	var hf: Dictionary = terrain.get_height_field()
+	var heights: PackedFloat32Array = hf.get("heights", PackedFloat32Array())
+	var materials: PackedByteArray = hf.get("materials", PackedByteArray())
+	_check("Height Field reads its grid back (%s)" % str(hf.get("size", Vector2i())),
+		hf.get("size", Vector2i()) == Vector2i(100, 100))
+	# Grid LINES for the heights, CELLS for the materials: 100 x 100 lines
+	# enclose 99 x 99 cells (src/height_field.c:19-40).
+	_check("one height per grid line (%d)" % heights.size(), heights.size() == 10000)
+	_check("one material per cell (%d)" % materials.size(), materials.size() == 9801)
+	_check("and the authored scale comes back (%s)" % str(hf.get("scale", Vector3())),
+		hf.get("scale", Vector3()) == Vector3(2, 1.5, 2))
+	hf_scene.queue_free()
+	await get_tree().physics_frame
+
+	# The Character sample's wave field is upstream's b3CreateWave with
+	# makeHoles = true, which marks every 16th CELL as B3_HEIGHT_FIELD_HOLE
+	# (0xFF, src/height_field.c:1417). A row is 49 cells and 49 % 16 = 1, so the
+	# holes walk one cell per row -- the diagonal chains in the terrain, 150 of
+	# 2401 cells, and they are real holes you can fall through.
+	var ch_scene: Node = (load("res://samples/character.tscn") as PackedScene).instantiate()
+	add_child(ch_scene)
+	await get_tree().physics_frame
+	var ch_terrain = ch_scene.get_node("Box3DWorld/Terrain")
+	var ch_hf: Dictionary = ch_terrain.get_height_field()
+	var ch_mats: PackedByteArray = ch_hf.get("materials", PackedByteArray())
+	_check("Character's wave field is 50 x 50 (%s)" % str(ch_hf.get("size", Vector2i())),
+		ch_hf.get("size", Vector2i()) == Vector2i(50, 50))
+	_check("and carries upstream's 150 hole cells (%d)" % ch_mats.count(0xFF),
+		ch_mats.count(0xFF) == 150)
+	ch_scene.queue_free()
+	await get_tree().physics_frame
+
+# --- F-041: the sample registry the picker is built from --------------------
+
+## main.gd's SAMPLES and the three statics over it. Read off the script rather
+## than off a booted shell: the menu, the touch picker, `--sample=` and this
+## harness all go through these, so pinning them pins the picker's contract
+## without instancing 69 scenes.
+func _test_sample_registry() -> void:
+	var shell: GDScript = load("res://main.gd")
+	var rows: Array = shell.sample_rows()
+
+	# Both directions matter, and the one that actually bit was disk -> menu:
+	# four ported scenes sat in samples/ for a whole cycle with no registry
+	# entry, unreachable from the browser, and `--sample=` answered a typo and a
+	# missing entry identically by opening the first sample.
+	var on_disk: Array = []
+	var dir := DirAccess.open("res://samples")
+	if dir != null:
+		for f in dir.get_files():
+			if f.ends_with(".remap"):
+				f = f.trim_suffix(".remap")
+			if f.ends_with(".tscn"):
+				on_disk.append("res://samples/" + f)
+	on_disk.sort()
+	var listed: Array = []
+	for row in rows:
+		listed.append(row["path"])
+	listed.sort()
+	_check("the sample registry lists every scene in samples/ (%d of %d)"
+		% [listed.size(), on_disk.size()],
+		on_disk.size() > 0 and listed == on_disk)
+
+	var categories: Dictionary = shell.SAMPLES
+	var empty_categories: Array = []
+	for category in categories:
+		if categories[category].is_empty():
+			empty_categories.append(category)
+	_check("every category holds at least one sample (%d categories)"
+		% categories.size(), empty_categories.is_empty())
+
+	# A duplicate name is not a cosmetic problem: find_sample takes the first
+	# match, so the second copy would be unreachable from the command line.
+	var seen: Dictionary = {}
+	var duplicates: Array = []
+	for row in rows:
+		if seen.has(row["name"]):
+			duplicates.append(row["name"])
+		seen[row["name"]] = true
+	_check("no sample name is used twice", duplicates.is_empty())
+
+	# Every sample reachable by its own name, and filed where the menu says.
+	var unreachable: Array = []
+	var misfiled: Array = []
+	for row in rows:
+		var found: Dictionary = shell.find_sample(row["name"])
+		if found.get("path", "") != row["path"]:
+			unreachable.append(row["name"])
+		if shell.category_of(row["name"]) != row["category"]:
+			misfiled.append(row["name"])
+	_check("every sample is reachable by name through --sample= (%d)" % rows.size(),
+		unreachable.is_empty())
+	_check("and every one is filed under the category the menu shows it in",
+		misfiled.is_empty())
+
+	# The lookup is case-insensitive, and it answers "no" rather than "the first
+	# sample" -- the caller keeps its own default, which is what makes a typo
+	# open the first sample instead of erroring.
+	var wave: Dictionary = shell.find_sample("wave pile")
+	_check("the --sample= lookup is case-insensitive",
+		wave.get("name", "") == "Wave Pile"
+		and wave.get("category", "") == "Determinism")
+	_check("a --sample= typo matches nothing at all",
+		shell.find_sample("Wave Pil").is_empty()
+		and shell.find_sample("").is_empty()
+		and shell.category_of("Wave Pil") == "")
+
+	# The browser build opens somewhere lighter than Cube Pile; a rename would
+	# silently put it back on the heaviest scene in the tree.
+	_check("the web build's first sample is in the registry (%s)"
+		% shell.WEB_FIRST_SAMPLE,
+		not shell.find_sample(shell.WEB_FIRST_SAMPLE).is_empty())
+
+	# The picker's tooltips and the sidebar blurb come from these two tables.
+	var undocumented: Array = []
+	for row in rows:
+		if not shell.DESCRIPTIONS.has(row["name"]) or not shell.USE_CASES.has(row["name"]):
+			undocumented.append(row["name"])
+	_check("every sample carries a description and a use case",
+		undocumented.is_empty())
+
+	# The category row that holds the current sample is marked and the others
+	# are padded to the same lead-in, so the mark can move without the popup
+	# reflowing. Both rows still name the category and count what is behind it.
+	var marked: String = shell.menu_category_label("Determinism", true)
+	var plain: String = shell.menu_category_label("Determinism", false)
+	_check("the current category's menu row is marked (%s)" % marked,
+		marked.begins_with("•") and not plain.contains("•")
+		and marked.contains("Determinism") and plain.contains("Determinism")
+		and marked.contains("(1)") and plain.contains("(1)")
+		and marked.length() == plain.length())
+
+
+# F-046: the capture walk must compute what the shader computes. The car is the
+# regression scene: its wheels and hill are painted ENTIRELY in vertex colours
+# over a default-white albedo_color, so any capture that reads albedo_color
+# alone reports white and this fails on the spot.
+func _test_replay_car_visuals() -> void:
+	var path := "user://recordings/_selftest_car.b3rec"
+	var prior_last := _read_last_recording()
+
+	var scene: Node = (load("res://samples/car.tscn") as PackedScene).instantiate()
+	add_child(scene)
+	var world: Box3DWorld = scene.get_node("Box3DWorld")
+	world.auto_step = false
+	await get_tree().physics_frame
+
+	var keys := {}
+	for n in ["Terrain", "Chassis", "FrontLeftWheel", "FrontRightWheel",
+			"RearLeftWheel", "RearRightWheel"]:
+		keys[n] = Box3DRecording.get_body_key(world.get_node(n))
+
+	var rec := ShellRecorder.new()
+	_check("the car records", rec.start(world, "Car", 0))
+	for i in range(20):
+		world.step(1.0 / 60.0)
+	_check("and writes its recording", rec.stop(path) == path)
+	rec.flush_save()
+	scene.free()
+
+	var colors := ShellRecorder.load_colors(path)
+	var whites := 0
+	for k in colors:
+		if colors[k] == Color.WHITE:
+			whites += 1
+	_check("all six car bodies are captured (%d)" % colors.size(), colors.size() == 6)
+	_check("and not one of them is white (%d white)" % whites, whites == 0)
+	# The specific numbers, not merely non-white: the linear-light average of
+	# the wheel checker and the terrain's height-and-slope gradient.
+	_check("the wheels capture their vertex-colour average (%s)"
+		% colors.get(keys["FrontLeftWheel"], Color.WHITE).to_html(false),
+		colors.has(keys["FrontLeftWheel"])
+		and colors[keys["FrontLeftWheel"]].to_html(false) == "928c7f")
+	_check("the terrain captures its gradient mean (%s)"
+		% colors.get(keys["Terrain"], Color.WHITE).to_html(false),
+		colors.has(keys["Terrain"])
+		and colors[keys["Terrain"]].to_html(false) == "505c32")
+
+	var mats := ShellRecorder.load_materials(path)
+	_check("every coloured body resolves a material response (%d of %d)"
+		% [mats.size(), colors.size()], mats.size() == colors.size())
+	_check("the terrain keeps its deliberate zero sheen",
+		mats.has(keys["Terrain"])
+		and absf(float(mats[keys["Terrain"]]["roughness"]) - 1.0) < 1e-5
+		and absf(float(mats[keys["Terrain"]]["specular"]) - 0.0) < 1e-5)
+	_check("the chassis keeps its car-paint metallic",
+		mats.has(keys["Chassis"])
+		and absf(float(mats[keys["Chassis"]]["metallic"]) - 0.25) < 1e-5)
+
+	# The modal response is hoisted into material_default and only exceptions
+	# are stored, which is what keeps Cube Pile's sidecar at one entry instead
+	# of 4097. The car's RAW materials map must stay smaller than its body
+	# count or the hoisting has regressed.
+	var raw: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string(path + ShellRecorder.VISUAL_EXT))
+	var raw_mats: Dictionary = (raw as Dictionary).get("materials", {})
+	_check("the sidecar hoists the modal material (%d exceptions for %d bodies)"
+		% [raw_mats.size(), colors.size()], raw_mats.size() < colors.size())
+
+	# v1 compatibility, the promise that old sidecars keep working: colours
+	# load, materials come back EMPTY rather than erroring.
+	var v1_path := "user://recordings/_selftest_v1.b3rec"
+	var v1 := FileAccess.open(v1_path + ShellRecorder.VISUAL_EXT, FileAccess.WRITE)
+	v1.store_string(JSON.stringify({"format": 1, "colors": {"7:1": "ff8800"}}))
+	v1.close()
+	var v1_colors := ShellRecorder.load_colors(v1_path)
+	_check("a v1 sidecar still loads its colours",
+		v1_colors.size() == 1 and v1_colors["7:1"].to_html(false) == "ff8800")
+	_check("and yields no material table",
+		ShellRecorder.load_materials(v1_path).is_empty())
+	var none := "user://recordings/_selftest_none.b3rec"
+	_check("no sidecar means empty, both tables",
+		ShellRecorder.load_colors(none).is_empty()
+		and ShellRecorder.load_materials(none).is_empty())
+
+	DirAccess.remove_absolute(path)
+	DirAccess.remove_absolute(path + ShellRecorder.VISUAL_EXT)
+	DirAccess.remove_absolute(v1_path + ShellRecorder.VISUAL_EXT)
+	_write_last_recording(prior_last)
+	_check("the car visual test left last_recording alone",
+		_read_last_recording() == prior_last)
+
+
+# BLAST-1: the calibration that makes bombs land on upstream-density scenes is
+# a pure function, so its contract is asserted directly. 32.5 is Cube Pile's
+# measured median (demo units, never touched), 0.032 is Gear Lift's (taken
+# exactly to the 6.0 floor), 0.0023 is Spinning Stick's (the 1000x cap binds
+# first).
+func _test_blast_calibration() -> void:
+	var fx := load("res://common/explosion_fx.gd")
+	_check("a scene already in demo units is never touched",
+		fx._calibration_scale(32.0, 9.0) == 1.0)
+	_check("an upstream-density scene is taken exactly to the floor",
+		is_equal_approx(fx._calibration_scale(0.032, 9.0) * 0.032, 6.0))
+	_check("the cap binds before the floor is reached",
+		fx._calibration_scale(0.0023, 9.0) == 1000.0)

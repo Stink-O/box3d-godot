@@ -1,0 +1,17 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://samples/hull_reduction.gd" id="1_hr"]
+
+[node name="HullReduction" type="Node3D"]
+script = ExtResource("1_hr")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -10, 0)
+
+[node name="Status" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 0)
+billboard = 1
+text = "128 points, sphere cloud"
+font_size = 40
+outline_size = 14
+modulate = Color(0.95, 0.85, 0.6, 1)

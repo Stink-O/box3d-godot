@@ -23,8 +23,43 @@ THETA = math.radians(78.0)   # pulled back toward -x
 BALL_X = ANCHOR[0] - ROPE * math.sin(THETA)
 BALL_Y = ANCHOR[1] - ROPE * math.cos(THETA)
 
-# Wall grid.
-WX0, WX1 = 2.9, 3.7          # two courses deep
+# Decorative crane: a mast standing on the floor and a jib whose tip is
+# directly over ANCHOR, so the rope visibly hangs off the end of the jib.
+#
+# The mast and the jib are MeshInstance3D, not bodies -- they have no collider
+# and cannot block anything, which is why they can stand where the ball swings
+# without being "in the way". They used to sit at z = 1.6 for exactly that
+# (mistaken) reason, and the cost was the whole scene reading as broken: the
+# ball hung from a rope whose top end was 1.4 m clear of the nearest piece of
+# crane, i.e. from nothing at all.
+#
+# The one direction the ball genuinely never occupies is z: it is
+# lock_linear_z, so it stays in the z = 0 plane and its sphere spans z = -1..1
+# forever. So the mast stands off in z and the jib runs back along z to the
+# anchor. NEGATIVE z, because the shell's default camera sits at (0, 8, 18)
+# looking down -z (main.tscn:28-29) and this sample authors no view of its own:
+# a mast at +z would stand between that camera and the entire swing.
+#
+# Running the jib along z rather than along x also keeps it out of the rope's
+# way. The rope pivots about ANCHOR in the x-y plane and reaches 78 deg from
+# vertical, so a jib laid along x would have the top link sweeping along its
+# underside; along z the link leaves the jib's 0.4 m x-band as soon as it
+# tilts. The 0.12 m the underside sits above ANCHOR covers the one remaining
+# case: a near-vertical rope, whose top link's cap reaches y = 9.058 (measured
+# over 600 steps) -- less than a link radius of daylight, so the rope still
+# reads as running into the jib rather than hanging below it.
+MAST_Z = -2.0
+MAST = (0.4, 9.6, 0.4)                          # x, y, z extents
+JIB_H = 0.4                                     # square section
+JIB_BOTTOM = ANCHOR[1] + 0.12
+JIB_Z0, JIB_Z1 = MAST_Z - MAST[2] / 2.0, 0.4    # overhangs the anchor
+
+# Wall grid. The vertical pitch is exactly BLK: a wall authored with a gap per
+# course starts in free fall and sinks by (ROWS - 1) x gap the moment the scene
+# loads -- at the 0.01 this used that was 6.2 cm of visible settle on the top
+# course. Boxes that exactly touch are at rest, and Box3D's speculative
+# contacts resolve the zero-distance pairs on the first step.
+WX0, WX1 = 2.9, 3.7          # two courses deep, flush
 BLK = 0.8
 COLS_Z = [-0.85, 0.0, 0.85]
 ROWS = 7
@@ -37,8 +72,9 @@ B = nodes.append
 S('[sub_resource type="BoxMesh" id="FloorMesh"]\nsize = Vector3(30, 1, 16)')
 S('[sub_resource type="StandardMaterial3D" id="FloorMat"]\n'
   'albedo_color = Color(0.2, 0.22, 0.26, 1)\nroughness = 0.55\nmetallic = 0.1')
-S('[sub_resource type="BoxMesh" id="PostMesh"]\nsize = Vector3(0.4, 9.6, 0.4)')
-S('[sub_resource type="BoxMesh" id="ArmMesh"]\nsize = Vector3(2, 0.4, 0.4)')
+S('[sub_resource type="BoxMesh" id="PostMesh"]\nsize = Vector3(%g, %g, %g)' % MAST)
+S('[sub_resource type="BoxMesh" id="ArmMesh"]\nsize = Vector3(%g, %g, %g)'
+  % (JIB_H, JIB_H, JIB_Z1 - JIB_Z0))
 S('[sub_resource type="StandardMaterial3D" id="SteelMat"]\n'
   'albedo_color = Color(0.35, 0.37, 0.42, 1)\nroughness = 0.5\nmetallic = 0.5')
 S('[sub_resource type="SphereMesh" id="BallMesh"]\nradius = %g\nheight = %g' % (BALL_R, 2 * BALL_R))
@@ -65,15 +101,19 @@ B('[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]'
 B('mesh = SubResource("FloorMesh")')
 B('material_override = SubResource("FloorMat")')
 B('')
-# Decorative crane post + arm — visuals only (no collision) and set behind the
-# swing plane (z>0), so they never block the ball, which is locked to z=0.
+# Decorative crane, visuals only (no collision). The mast stands on the floor
+# at z = MAST_Z, clear of the ball's z = -1..1 band and behind the default
+# view; the jib runs forward over the anchor so the rope leaves the crane
+# where a rope should.
 B('[node name="Post" type="MeshInstance3D" parent="."]')
-B('transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 4.8, 1.6)')
+B('transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, %g, %g, %g)'
+  % (ANCHOR[0], MAST[1] / 2.0, MAST_Z))
 B('mesh = SubResource("PostMesh")')
 B('material_override = SubResource("SteelMat")')
 B('')
 B('[node name="Arm" type="MeshInstance3D" parent="."]')
-B('transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, %g, 1.6)' % (ANCHOR[1] + 0.1))
+B('transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, %g, %g, %g)'
+  % (ANCHOR[0], JIB_BOTTOM + JIB_H / 2.0, (JIB_Z0 + JIB_Z1) / 2.0))
 B('mesh = SubResource("ArmMesh")')
 B('material_override = SubResource("SteelMat")')
 B('')
@@ -106,7 +146,7 @@ B('')
 n = 0
 for x in (WX0, WX1):
     for row in range(ROWS):
-        y = BLK / 2.0 + row * (BLK + 0.01)
+        y = BLK / 2.0 + row * BLK
         for z in COLS_Z:
             B('[node name="Blk_%d" type="Box3DBody" parent="Box3DWorld/Wall"]' % n)
             B('transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, %g, %.4g, %g)' % (x, y, z))

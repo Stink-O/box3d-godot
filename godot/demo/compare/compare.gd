@@ -195,8 +195,9 @@ func _load_native(path: String) -> void:
 	add_child(_stage)
 
 	var built := RigNative.build(rig, _stage)
-	# Per-world gravity has no native node equivalent and 30 of the samples
-	# set it (car uses -10, gyro_torque uses zero), so it goes on the space.
+	# Per-world gravity has no native node equivalent, and
+	# RigExtract.NON_DEFAULT_GRAVITY_SAMPLES of the samples set it (car uses
+	# -10, gyro_torque uses zero), so it goes on the space.
 	var space := get_viewport().find_world_3d().space
 	RigNative.apply_world_settings(rig, space)
 
