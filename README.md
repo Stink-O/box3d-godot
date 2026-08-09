@@ -63,7 +63,9 @@ upstream engine sources are unchanged; everything Godot-specific lives in
 - **Record and replay any sample, with a timeline.** Two buttons in the demo
   sidebar capture a whole session, including everything you do to it (fired
   balls, bombs, grab-drags). A draggable timeline scrubs the result in both
-  directions, plays it backwards, and single-steps either way. Reverse
+  directions, plays it backwards, and single-steps either way. The timeline is
+  very early and still needs iteration: expect rough edges in its UI and
+  behaviour, and expect it to change between releases. Reverse
   playback reads cached transforms instead of re-simulating, so scrubbing a
   16,000-body pyramid collapse costs milliseconds a frame; recordings larger
   than the memory budget spill to a temp file and stay scrubbable end to end.
