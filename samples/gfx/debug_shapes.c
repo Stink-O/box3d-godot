@@ -6,6 +6,7 @@
 #include "gfx/qsort.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -301,7 +302,7 @@ static MeshHandle BuildHull( const b3HullData* hull )
 	const b3Plane* planes = b3GetHullPlanes( hull );
 	if ( !points || !edges || !faces || !planes )
 	{
-		fprintf( stderr, "error: hull missing arrays (hash=0x%08x)\n", hull->hash );
+		fprintf( stderr, "error: hull missing arrays (hash=0x%016" PRIx64 ")\n", hull->hash );
 		return InvalidMeshHandle();
 	}
 
@@ -330,7 +331,7 @@ static MeshHandle BuildHull( const b3HullData* hull )
 			e = edges[e].next;
 			if ( loopLen > 256 )
 			{
-				fprintf( stderr, "error: hull face loop runaway (hash=0x%08x)\n", hull->hash );
+				fprintf( stderr, "error: hull face loop runaway (hash=0x%016" PRIx64 ")\n", hull->hash );
 				BufferFree( &buf );
 				return InvalidMeshHandle();
 			}
@@ -426,7 +427,7 @@ static MeshHandle BuildMeshData( const b3MeshData* meshData )
 	const uint8_t* flags = b3GetMeshFlags( meshData );
 	if ( !verts || !tris || meshData->triangleCount <= 0 )
 	{
-		fprintf( stderr, "error: mesh missing arrays or empty (hash=0x%08x)\n", meshData->hash );
+		fprintf( stderr, "error: mesh missing arrays or empty (hash=0x%016" PRIx64 ")\n", meshData->hash );
 		return InvalidMeshHandle();
 	}
 
@@ -559,7 +560,7 @@ static MeshHandle BuildHeightField( const b3HeightFieldData* hf )
 {
 	if ( hf->columnCount < 2 || hf->rowCount < 2 )
 	{
-		fprintf( stderr, "error: heightfield degenerate (hash=0x%08x)\n", hf->hash );
+		fprintf( stderr, "error: heightfield degenerate (hash=0x%016" PRIx64 ")\n", hf->hash );
 		return InvalidMeshHandle();
 	}
 
@@ -791,7 +792,7 @@ static MeshHandle BuildHeightField( const b3HeightFieldData* hf )
 
 MeshHandle FindOrAddHull( const b3HullData* hull )
 {
-	if ( !hull || hull->hash == 0u )
+	if ( !hull || hull->hash == 0 )
 	{
 		return InvalidMeshHandle();
 	}
@@ -808,7 +809,7 @@ MeshHandle FindOrAddHull( const b3HullData* hull )
 
 MeshHandle FindOrAddMesh( const b3MeshData* meshData )
 {
-	if ( !meshData || meshData->hash == 0u )
+	if ( !meshData || meshData->hash == 0 )
 	{
 		return InvalidMeshHandle();
 	}
@@ -825,7 +826,7 @@ MeshHandle FindOrAddMesh( const b3MeshData* meshData )
 
 MeshHandle FindOrAddHeightField( const b3HeightFieldData* heightField )
 {
-	if ( !heightField || heightField->hash == 0u )
+	if ( !heightField || heightField->hash == 0 )
 	{
 		return InvalidMeshHandle();
 	}

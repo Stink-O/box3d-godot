@@ -11,6 +11,7 @@
 #endif
 
 #include "core.h"
+#include "rapidhash.h"
 
 #include "box3d/constants.h"
 #include "box3d/math_functions.h"
@@ -115,7 +116,7 @@ void b3Log( const char* format, ... )
 
 b3Version b3GetVersion( void )
 {
-	return (b3Version){ 0, 1, 0 };
+	return (b3Version){ 0, 2, 0 };
 }
 
 bool b3IsDoublePrecision( void )
@@ -252,4 +253,15 @@ void b3StrCpy( char* dst, int size, const char* src )
 	{
 		memset( dst, 0, size );
 	}
+}
+
+uint64_t b3Hash64NonZero( const uint8_t* bytes, int n )
+{
+	if ( n <= 0 )
+	{
+		return 1;
+	}
+
+	uint64_t h = rapidhash( bytes, n );
+	return h == 0 ? 1 : h;
 }
