@@ -45,7 +45,7 @@ class Box3DWorld;
 // Neither is bound. Everything here moves bytes through PackedByteArray and
 // Godot's own FileAccess instead, which works identically in the editor, in an
 // exported desktop game, on Android and in the browser. That is also why the
-// player opens from bytes: b3RecPlayer_Create takes a raw buffer
+// player opens from bytes: b3CreatePlayer takes a raw buffer
 // (box3d.h:319-324), so no b3Recording ever has to be reconstructed to replay
 // one.
 //
@@ -58,7 +58,7 @@ class Box3DWorld;
 // loadable recording after the session is stopped: stopping is what appends the
 // geometry registry and backpatches the header's registry offset
 // (src/recording.c:1069-1108). Reading the bytes mid-session would therefore
-// hand out a file that b3RecPlayer_Create rejects, so get_data() and
+// hand out a file that b3CreatePlayer rejects, so get_data() and
 // save_to_file() REFUSE while a session is live and say so. Stop first.
 //
 // A world being destroyed stops its recording for you (b3DestroyWorld ->
@@ -142,7 +142,7 @@ public:
 // The read side: an incremental player over recorded bytes, driving its OWN
 // private world.
 //
-// THE PLAYER NEVER TOUCHES YOUR WORLD. b3RecPlayer_Create stands up a fresh
+// THE PLAYER NEVER TOUCHES YOUR WORLD. b3CreatePlayer stands up a fresh
 // b3CreateWorld of its own (src/recording_replay.c:2715-2725, called at :2820)
 // and every dispatched op is retargeted onto it — the recorded world id is
 // informational and the id-remapping helpers overwrite the world field of every
@@ -180,7 +180,7 @@ public:
 // b3RecPlayer_SetDebugShapeCallbacks IS wired, but only in C++, and only
 // through install_debug_shape_callbacks() below — Box3DReplayRenderer is its
 // one caller. Upstream requires it be called immediately after
-// b3RecPlayer_Create, because it destroys and rebuilds the replay world under
+// b3CreatePlayer, because it destroys and rebuilds the replay world under
 // the new callbacks and rewinds to frame 0 (box3d.h:406-413,
 // src/recording_replay.c:3635-3671). This class therefore REMEMBERS the
 // callback triple and re-applies it inside open(), right after Create, so a
@@ -192,7 +192,7 @@ class Box3DReplayPlayer : public RefCounted {
 private:
 	b3RecPlayer *player = nullptr;
 	int worker_count = 1;
-	// Remembered so open() can re-apply them right after b3RecPlayer_Create,
+	// Remembered so open() can re-apply them right after b3CreatePlayer,
 	// which is the ordering upstream requires (see the class comment).
 	b3CreateDebugShapeCallback *cb_create = nullptr;
 	b3DestroyDebugShapeCallback *cb_destroy = nullptr;
@@ -208,7 +208,7 @@ public:
 	Box3DReplayPlayer();
 	~Box3DReplayPlayer();
 
-	// Open a recording from bytes (b3RecPlayer_Create). Closes any previously
+	// Open a recording from bytes (b3CreatePlayer). Closes any previously
 	// open recording first. Returns false on a bad header, a version or
 	// pointer-width mismatch, or a corrupt stream; upstream prints the reason.
 	//
@@ -303,7 +303,7 @@ public:
 
 	// b3RecPlayer_SetDebugShapeCallbacks (box3d.h:406-417). Applied at once if
 	// a recording is open, and remembered so the next open() applies it
-	// immediately after b3RecPlayer_Create. Passing three nulls uninstalls.
+	// immediately after b3CreatePlayer. Passing three nulls uninstalls.
 	//
 	// THE CALLER OWNS THE SHAPE HANDLES IT RETURNS AND MUST FREE THEM ITSELF
 	// when it uninstalls: destroying the replay world does NOT run the destroy

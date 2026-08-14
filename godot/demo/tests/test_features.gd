@@ -5748,7 +5748,7 @@ func _test_developer_globals() -> void:
 	# sample app formats them (samples/main.cpp:558-560).
 	var version: String = Box3DWorld.get_box3d_version()
 	_check("get_box3d_version reports the vendored library (%s)" % version,
-		version == "0.1.0")
+		version == "0.2.0")
 	_check("is_double_precision is false in this float build",
 		not Box3DWorld.is_double_precision())
 

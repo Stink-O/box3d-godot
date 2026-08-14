@@ -117,12 +117,12 @@ private:
 		const void *data = nullptr; // the blob the surface was built from
 		Vector3 scale = Vector3(1, 1, 1);
 		int triangle_count = 0; // mesh triangles, hull half-edges, or field cells
-		// b3HullData::hash / b3HeightFieldData::hash (types.h:1985, :2295): a
+		// b3HullData::hash / b3HeightFieldData::hash (types.h:1981, :2291): a
 		// content hash of the whole blob. The allocator can hand a replacement
 		// hull the address the old one just freed, so the pointer alone is not
 		// enough to notice a live b3Shape_SetHull. Zero for meshes, which have
 		// no such setter reachable from this binding.
-		uint32_t hash = 0;
+		uint64_t hash = 0;
 		int kind = SHELL_MESH;
 		bool used = false;
 	};

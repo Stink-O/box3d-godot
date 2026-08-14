@@ -49,7 +49,7 @@ namespace godot {
 // demo's mobile FPS, and it is what Box3DWorld's own debug shells and
 // Box3DMultiMeshRenderer already use), and a GDScript per-shape loop is the
 // thing that measurement rejected. (3) The callbacks must be installed
-// immediately after b3RecPlayer_Create and the pointers they return are owned
+// immediately after b3CreatePlayer and the pointers they return are owned
 // by whoever installed them; keeping that ownership inside one C++ node is far
 // safer than handing script a lifetime it can only get wrong.
 //

@@ -137,7 +137,7 @@ bool Box3DReplayPlayer::open(const PackedByteArray &p_data, int p_worker_count) 
 	int count = p_worker_count < 1 ? 1 : p_worker_count;
 #ifdef BOX3D_NO_THREADS
 	// Same clamp as Box3DWorld::set_worker_count: a single-threaded wasm build
-	// has no pthreads, and b3RecPlayer_Create goes to b3CreateScheduler ->
+	// has no pthreads, and b3CreatePlayer goes to b3CreateScheduler ->
 	// pthread_create for any count above 1 — with exceptions disabled that
 	// refusal aborts the process, so clamp rather than trust the caller.
 	count = 1;
@@ -148,7 +148,7 @@ bool Box3DReplayPlayer::open(const PackedByteArray &p_data, int p_worker_count) 
 	// a rejected recording cannot silently rescale every other world in the
 	// process.
 	const float previous_scale = b3GetLengthUnitsPerMeter();
-	b3RecPlayer *p = b3RecPlayer_Create(p_data.ptr(), p_data.size(), count);
+	b3RecPlayer *p = b3CreatePlayer(p_data.ptr(), p_data.size(), count);
 	if (p == nullptr) {
 		if (b3GetLengthUnitsPerMeter() != previous_scale) {
 			b3SetLengthUnitsPerMeter(previous_scale);
@@ -207,7 +207,7 @@ bool Box3DReplayPlayer::open_file(const String &p_path, int p_worker_count) {
 void Box3DReplayPlayer::close() {
 	if (player != nullptr) {
 		// Restores the length scale that was in force before open().
-		b3RecPlayer_Destroy(player);
+		b3DestroyPlayer(player);
 		player = nullptr;
 	}
 }
