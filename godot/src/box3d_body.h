@@ -89,6 +89,11 @@ private:
 	// bookkeeping costs more than the solver. Scripts reading such a body's
 	// node position see its spawn pose.
 	bool sync_node_transform = true;
+	// Set by set_target_transform(), consumed by the next sync_to_physics():
+	// a scripted target owns that step, so the automatic node-transform push
+	// must stand down instead of recomputing the velocity from wherever the
+	// node still is and cancelling the scripted motion.
+	bool manual_target = false;
 	// The node's own scale, baked into the colliders at creation (Box3D bodies
 	// carry no scale of their own, so it lives in the geometry). Cached because
 	// sync_from_physics has to put it back on the node: the solver only reports
@@ -529,6 +534,10 @@ public:
 	void set_body_name(const String &p_name);
 	String get_body_name() const;
 	void teleport(const Transform3D &p_xform);
+	// b3Body_SetTargetTransform: sets the velocity that reaches p_target after
+	// p_time_step, so a kinematic body sweeps (and pushes) toward it instead
+	// of teleporting. The scripted counterpart of moving the node.
+	void set_target_transform(const Transform3D &p_target, double p_time_step, bool p_wake = true);
 
 	// Properties.
 	void set_body_type(int p_type);

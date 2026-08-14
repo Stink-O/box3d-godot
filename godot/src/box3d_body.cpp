@@ -1528,6 +1528,25 @@ void Box3DBody::sync_to_physics(double p_delta) {
 	if (!body_live() || body_type != KINEMATIC) {
 		return;
 	}
+	if (manual_target) {
+		// set_target_transform() already gave the solver this step's
+		// velocities; pushing the node transform now would recompute them
+		// from wherever the node still is and cancel the scripted motion.
+		// Pull the node along after the body instead, so when the scripted
+		// calls stop the node has tracked it and the body simply holds.
+		manual_target = false;
+		if (sync_node_transform) {
+			b3WorldTransform t = b3Body_GetTransform(body_id);
+			Basis basis(to_gd(t.q));
+			if (node_scaled) {
+				// The solver reports position and rotation only; the node
+				// scale is baked into the collider, so put it back.
+				basis = basis.scaled_local(node_scale);
+			}
+			set_global_transform(Transform3D(basis, to_gd_pos(t.p)));
+		}
+		return;
+	}
 	Transform3D xform = get_global_transform();
 	b3WorldTransform target;
 	target.p = to_b3_pos(xform.origin);
@@ -2173,6 +2192,25 @@ void Box3DBody::teleport(const Transform3D &p_xform) {
 		b3Body_SetLinearVelocity(body_id, to_b3(Vector3()));
 		b3Body_SetAngularVelocity(body_id, to_b3(Vector3()));
 		b3Body_SetAwake(body_id, true);
+	}
+}
+
+void Box3DBody::set_target_transform(const Transform3D &p_target, double p_time_step, bool p_wake) {
+	if (!body_live()) {
+		return;
+	}
+	b3WorldTransform target;
+	target.p = to_b3_pos(p_target.origin);
+	target.q = to_b3(p_target.basis.get_rotation_quaternion());
+	// Solves for the velocity that reaches the target after p_time_step, so
+	// the body sweeps toward it and pushes what it meets instead of
+	// teleporting. Upstream skips the call when the implied velocity is below
+	// the sleep threshold, and p_wake only wakes for significant movement.
+	b3Body_SetTargetTransform(body_id, target, (float)p_time_step, p_wake);
+	if (body_type == KINEMATIC) {
+		// The scripted target owns this step; sync_to_physics() consumes this
+		// so the automatic node push doesn't cancel the motion.
+		manual_target = true;
 	}
 }
 
@@ -2981,6 +3019,7 @@ void Box3DBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_body_name", "name"), &Box3DBody::set_body_name);
 	ClassDB::bind_method(D_METHOD("get_body_name"), &Box3DBody::get_body_name);
 	ClassDB::bind_method(D_METHOD("teleport", "transform"), &Box3DBody::teleport);
+	ClassDB::bind_method(D_METHOD("set_target_transform", "transform", "time_step", "wake"), &Box3DBody::set_target_transform, DEFVAL(true));
 
 	ClassDB::bind_method(D_METHOD("set_body_type", "type"), &Box3DBody::set_body_type);
 	ClassDB::bind_method(D_METHOD("get_body_type"), &Box3DBody::get_body_type);

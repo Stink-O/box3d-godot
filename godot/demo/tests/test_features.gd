@@ -30,6 +30,7 @@ func _ready() -> void:
 	await _test_motor()
 	await _test_worker_count()
 	await _test_teleport()
+	await _test_set_target_transform()
 	await _test_mesh_collider()
 	await _test_auto_visual()
 	await _test_solver_tuning()
@@ -791,6 +792,36 @@ func _test_teleport() -> void:
 	var slow_after: bool = body.get_linear_velocity().length() < 2.0
 	_check("teleport repositions the body and clears momentum",
 		fell and landed_at_target and slow_after)
+
+	world.free()
+
+
+func _test_set_target_transform() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+
+	var mover := Box3DBody.new()
+	mover.body_type = Box3DBody.KINEMATIC
+	mover.box_size = Vector3.ONE
+	mover.position = Vector3(0, 2, 0)
+	world.add_child(mover)
+	await get_tree().physics_frame
+
+	# A quarter-second horizon re-solved every frame eases toward the target —
+	# a fraction of the remaining distance per step, never a jump — and the
+	# node must follow the body, since the scripted target replaces the node
+	# push for those steps.
+	var target := Transform3D(Basis(), Vector3(4, 2, 0))
+	var midway := false
+	for i in range(120):
+		mover.set_target_transform(target, 0.25)
+		await get_tree().physics_frame
+		var x: float = mover.position.x
+		if x > 1.0 and x < 3.0:
+			midway = true
+	var arrived: bool = mover.position.distance_to(target.origin) < 0.2
+	_check("set_target_transform sweeps a kinematic body to its target",
+		midway and arrived)
 
 	world.free()
 

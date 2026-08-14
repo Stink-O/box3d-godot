@@ -399,6 +399,17 @@
 				Use this to change one material of a terrain at runtime (ice on a patch of ground, mud that thickens); assigning [member surface_materials] rebuilds the whole collider instead. Does nothing when the body has no shape yet or [param index] is past [method get_mesh_material_count].
 			</description>
 		</method>
+		<method name="set_target_transform">
+			<return type="void" />
+			<param index="0" name="transform" type="Transform3D" />
+			<param index="1" name="time_step" type="float" />
+			<param index="2" name="wake" type="bool" default="true" />
+			<description>
+				Sets the velocity that carries the body to [param transform] after [param time_step] seconds, so a kinematic body sweeps toward the target and pushes what it meets instead of jumping there ([method teleport] is the instant form). This is the same upstream call the binding makes when you move a kinematic body's node, exposed for driving a body from script with an explicit horizon: [code]time_step[/code] equal to the physics delta arrives in one step, a longer horizon eases toward the target a fraction per step.
+				A scripted target owns that physics step: the automatic node-transform push stands down, and the node is pulled along after the body instead (when [member sync_node_transform] is on) -- so drive a kinematic body either by moving the node or by calling this each physics frame, not both at once. When the calls stop, the node has tracked the body and it simply holds position.
+				The target is skipped when the implied velocity would be below the sleep threshold, and [param wake] wakes a sleeping body only if the movement is significant. On a dynamic body it just sets the velocities; on a static body it does nothing.
+			</description>
+		</method>
 		<method name="teleport">
 			<return type="void" />
 			<param index="0" name="transform" type="Transform3D" />
