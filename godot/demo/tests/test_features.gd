@@ -31,6 +31,7 @@ func _ready() -> void:
 	await _test_worker_count()
 	await _test_teleport()
 	await _test_set_target_transform()
+	await _test_spring_torque_cap()
 	await _test_mesh_collider()
 	await _test_auto_visual()
 	await _test_solver_tuning()
@@ -824,6 +825,84 @@ func _test_set_target_transform() -> void:
 		midway and arrived)
 
 	world.free()
+
+
+## A hanging arm on a world-anchored joint at y=5: 0.04 kg (density defaults
+## to 1), centre of mass 0.7 m below the pivot, so holding it horizontal takes
+## ~0.27 N.m of spring torque.
+## The pose spring targets horizontal; what the cap allows decides the angle.
+func _cap_arm_rig(ball: bool) -> Dictionary:
+	var world := Box3DWorld.new()
+	add_child(world)
+
+	var arm := Box3DBody.new()
+	arm.name = "Arm"
+	arm.box_size = Vector3(0.2, 1.0, 0.2)
+	arm.position = Vector3(0, 4.3, 0)
+	world.add_child(arm)
+
+	var joint: Box3DJoint = Box3DBallJoint.new() if ball else Box3DHingeJoint.new()
+	joint.position = Vector3(0, 5, 0)
+	world.add_child(joint)
+	joint.body_a = NodePath("../Arm")
+	joint.set("spring_enabled", true)
+	joint.set("spring_hertz", 10.0)
+	joint.set("spring_damping", 1.0)
+	if ball:
+		joint.set("target_rotation", Quaternion(Vector3(0, 0, 1), 0.5 * PI))
+	else:
+		joint.set("target_angle", 0.5 * PI)
+	return {"world": world, "joint": joint}
+
+
+func _cap_run(ball: bool, cap: float) -> float:
+	var rig := _cap_arm_rig(ball)
+	rig.joint.set("max_spring_torque", cap)
+	# Two frames: bodies created, then the deferred joint.
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	for i in range(180):
+		await get_tree().physics_frame
+	# The drive is about the joint's local Z either way: the hinge reads it
+	# directly, the ball reads it as twist.
+	var angle: float = absf(rig.joint.get_current_twist_angle() if ball else rig.joint.get_angle())
+	rig.world.free()
+	return angle
+
+
+func _test_spring_torque_cap() -> void:
+	# max_spring_torque = ForceCap: the capped seat must still drive when the
+	# cap is generous, and a starved cap must lose to gravity instead of the
+	# spring winning at any cost (the native spring is unclamped).
+	var native := await _cap_run(false, 0.0)
+	var strong := await _cap_run(false, 50.0)
+	var weak := await _cap_run(false, 0.02)
+	_check("hinge spring uncapped lifts the arm (%.2f rad)" % native, native > 1.0)
+	_check("hinge capped spring still drives under a generous cap (%.2f rad)" % strong, strong > 1.0)
+	_check("hinge capped spring is overpowered when starved (%.2f rad)" % weak, weak < 0.5)
+
+	var b_strong := await _cap_run(true, 50.0)
+	var b_weak := await _cap_run(true, 0.02)
+	_check("ball capped spring still drives under a generous cap (%.2f rad)" % b_strong, b_strong > 1.0)
+	_check("ball capped spring is overpowered when starved (%.2f rad)" % b_weak, b_weak < 0.5)
+
+	# Lifting the cap live must hand the spring back to the native unclamped
+	# seat (and the sagging proves the capped seat owned it before).
+	var rig := _cap_arm_rig(false)
+	var hinge: Box3DHingeJoint = rig.joint
+	hinge.max_spring_torque = 0.02
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	for i in range(120):
+		await get_tree().physics_frame
+	var sagged: float = absf(hinge.get_angle())
+	hinge.max_spring_torque = 0.0
+	for i in range(180):
+		await get_tree().physics_frame
+	var lifted: float = absf(hinge.get_angle())
+	_check("lifting the cap live restores the native spring (%.2f -> %.2f rad)" % [sagged, lifted],
+		sagged < 0.5 and lifted > 1.0)
+	rig.world.free()
 
 
 func _mesh_inst(mesh: Mesh) -> MeshInstance3D:

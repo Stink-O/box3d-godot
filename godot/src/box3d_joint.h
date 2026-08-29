@@ -81,6 +81,32 @@ protected:
 	// own def.base; today that is drawScale alone.
 	void apply_base_def(b3JointDef &p_base) const;
 
+	// ForceCap seat. Box3D's spherical and revolute pose springs accumulate
+	// their impulse unclamped — the motor joint's angular spring is the one
+	// solver spring with a torque ceiling (motor_joint.c clamps the
+	// accumulated impulse to h * maxSpringTorque every substep). So when a
+	// pose spring carries a max_spring_torque cap (Box3DBallJoint /
+	// Box3DHingeJoint), the spring is re-seated onto this hidden companion
+	// b3MotorJoint between the same two bodies instead of patching upstream
+	// source. The motor spring drives frame B onto frame A, so the target is
+	// encoded by rotating the companion's local frame A by the target
+	// rotation: the fixed point lands exactly where the native spring's
+	// target sits, via the same b3DeltaQuatToRotation law. Disabling destroys
+	// the companion outright — a zeroed motor joint still constrains (it kept
+	// pumping energy into a limp ragdoll when this was tried), deletion is
+	// the only genuine release.
+	b3JointId cap_joint_id = b3_nullJointId;
+	bool cap_live() const;
+	void create_cap_joint(double p_hertz, double p_damping, double p_max_torque, const Quaternion &p_target);
+	void update_cap_spring(double p_hertz, double p_damping, double p_max_torque);
+	void update_cap_target(const Quaternion &p_target);
+	void destroy_cap_joint();
+	// Subclass hook run at the end of create_joint(), once the joint is live
+	// and the base settings are applied. The capped-spring types re-seat
+	// their spring here so a rebuild lands in the same state a live toggle
+	// produces.
+	virtual void on_joint_created() {}
+
 	// Subclasses fill in their specific joint def and create it.
 	virtual b3JointId create_specific(b3WorldId p_world, b3BodyId p_a, b3BodyId p_b,
 			const Transform3D &p_xf_a, const Transform3D &p_xf_b, const Transform3D &p_joint) {
@@ -163,6 +189,12 @@ class Box3DHingeJoint : public Box3DJoint {
 	// Radians. The angle the spring drives toward, measured like the readout
 	// below: body B relative to body A about the hinge axis.
 	double target_angle = 0.0;
+	// N·m ceiling on the pose spring's torque; 0 (the default) is the native
+	// unclamped spring. A positive value re-seats the spring onto the base
+	// class's companion motor joint (the one solver spring with a clamp) —
+	// see cap_joint_id. The spring's own off-hinge-axis components are inert:
+	// the hinge constrains those axes rigidly, so their error is always zero.
+	double max_spring_torque = 0.0;
 
 protected:
 	static void _bind_methods();
@@ -170,6 +202,11 @@ protected:
 			const Transform3D &p_xf_a, const Transform3D &p_xf_b, const Transform3D &p_joint) override;
 	JointType authored_type() const override { return JOINT_REVOLUTE; }
 	void collect_type_warnings(PackedStringArray &p_warnings) const override;
+	void on_joint_created() override { apply_spring_state(); }
+	// Seats the pose spring: native (uncapped) or the companion motor joint
+	// (capped). Every spring-affecting setter routes through here so the two
+	// seats can never be half-applied.
+	void apply_spring_state();
 
 public:
 	void set_limit_enabled(bool p_v);
@@ -192,6 +229,8 @@ public:
 	double get_spring_damping() const;
 	void set_target_angle(double p_v);
 	double get_target_angle() const;
+	void set_max_spring_torque(double p_v);
+	double get_max_spring_torque() const;
 	// Live readouts from the simulation (0 when the joint isn't created yet).
 	double get_angle() const;        // radians
 	double get_motor_torque() const; // newton-meters
@@ -327,6 +366,11 @@ class Box3DBallJoint : public Box3DJoint {
 	bool motor_enabled = false;
 	Vector3 motor_velocity;       // radians / second
 	double max_motor_torque = 0.0;
+	// N·m ceiling on the pose spring's torque; 0 (the default) is the native
+	// unclamped spring. A positive value re-seats the spring onto the base
+	// class's companion motor joint (the one solver spring with a clamp) —
+	// see cap_joint_id.
+	double max_spring_torque = 0.0;
 
 protected:
 	static void _bind_methods();
@@ -334,6 +378,11 @@ protected:
 			const Transform3D &p_xf_a, const Transform3D &p_xf_b, const Transform3D &p_joint) override;
 	JointType authored_type() const override { return JOINT_SPHERICAL; }
 	void collect_type_warnings(PackedStringArray &p_warnings) const override;
+	void on_joint_created() override { apply_spring_state(); }
+	// Seats the pose spring: native (uncapped) or the companion motor joint
+	// (capped). Every spring-affecting setter routes through here so the two
+	// seats can never be half-applied.
+	void apply_spring_state();
 	// Re-runs create_specific's motor decision on the live joint: the explicit
 	// motor wins, and when it is off a positive friction_torque installs the
 	// zero-velocity motor that stands in for dry friction. One place, so the
@@ -367,6 +416,8 @@ public:
 	Vector3 get_motor_velocity() const;
 	void set_max_motor_torque(double p_v);
 	double get_max_motor_torque() const;
+	void set_max_spring_torque(double p_v);
+	double get_max_spring_torque() const;
 	// Live readouts from the simulation (0 when the joint isn't created yet).
 	// "current" disambiguates these from the cone_angle / twist limits above,
 	// which is what upstream's GetConeLimit / GetConeAngle pair means.

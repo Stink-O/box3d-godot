@@ -33,6 +33,9 @@
 		<member name="max_motor_torque" type="float" setter="set_max_motor_torque" getter="get_max_motor_torque" default="0.0">
 			Torque budget the motor may spend to reach [member motor_speed], in newton-metres. At 0 the motor is on but powerless -- this is the usual reason a motor 'does nothing'.
 		</member>
+		<member name="max_spring_torque" type="float" setter="set_max_spring_torque" getter="get_max_spring_torque" default="0.0">
+			Torque ceiling for the pose spring, in newton-metres; 0 (the default) leaves the spring unclamped. A muscle can only pull so hard: with a cap, a spring stiff enough to hold a pose can still be overpowered by a load or an impact instead of winning at any cost. Box3D's own revolute spring has no clamp, so a positive value re-seats the spring onto a hidden companion motor joint between the same two bodies -- the one solver spring with a torque ceiling (its accumulated impulse is clamped to the cap times the sub-step, the same law as [member Box3DMotorJoint.max_spring_torque]). The companion springs toward the full target rotation about the hinge axis; its off-axis components are inert because the hinge constrains those axes rigidly. Behaviour notes: [member spring_hertz], [member spring_damping] and [member target_angle] keep their meaning in either seat, the cap needs [member spring_enabled] on and [member spring_hertz] above 0 to run (the scene dock warns), the companion shows up in the debug draw as a motor joint at the same anchor, and [method Box3DJoint.get_constraint_torque] on this node stops including the spring's share while the cap owns it.
+		</member>
 		<member name="motor_enabled" type="bool" setter="set_motor_enabled" getter="get_motor_enabled" default="false">
 			Drives the hinge toward [member motor_speed], within [member max_motor_torque].
 		</member>

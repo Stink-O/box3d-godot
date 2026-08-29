@@ -194,6 +194,11 @@ void Box3DJoint::create_joint() {
 	// rather than through each def keeps the per-type create_specific bodies
 	// focused; the values are plain stored parameters either way.
 	apply_base_settings();
+
+	// Type-specific post-creation state that lives outside the def — the
+	// capped pose spring's companion joint is authored here so a rebuild
+	// passes through the same code path as a live property change.
+	on_joint_created();
 }
 
 void Box3DJoint::apply_base_settings() {
@@ -219,6 +224,7 @@ void Box3DJoint::apply_base_def(b3JointDef &p_base) const {
 }
 
 void Box3DJoint::destroy_joint() {
+	destroy_cap_joint();
 	if (joint_live()) {
 		b3DestroyJoint(joint_id, true);
 	}
@@ -227,6 +233,79 @@ void Box3DJoint::destroy_joint() {
 		b3DestroyBody(anchor_id);
 	}
 	anchor_id = b3_nullBodyId;
+}
+
+// --- ForceCap companion (see the header's cap_joint_id note) ---------------
+
+bool Box3DJoint::cap_live() const {
+	if (world != nullptr) {
+		world->join_async_step();
+	}
+	return b3Joint_IsValid(cap_joint_id);
+}
+
+void Box3DJoint::create_cap_joint(double p_hertz, double p_damping, double p_max_torque, const Quaternion &p_target) {
+	destroy_cap_joint();
+	// motor_joint.c runs the angular spring only while BOTH angularHertz and
+	// maxSpringTorque are above 0, so a companion outside that range would be
+	// a constraint that does nothing but still sits in the solver.
+	if (!joint_live() || p_hertz <= 0.0 || p_max_torque <= 0.0) {
+		return;
+	}
+	b3MotorJointDef def = b3DefaultMotorJointDef();
+	def.base.bodyIdA = b3Joint_GetBodyA(joint_id);
+	def.base.bodyIdB = b3Joint_GetBodyB(joint_id);
+	// Rotating frame A by the target puts the motor spring's fixed point
+	// (frame B onto frame A) exactly where the native spring's target sits.
+	def.base.localFrameA = to_b3_transform(get_local_frame_a() * Transform3D(Basis(p_target), Vector3()));
+	def.base.localFrameB = to_b3_transform(get_local_frame_b());
+	def.base.collideConnected = collide_connected;
+	// Everything else keeps the def's zeros: no linear spring, no velocity
+	// drives — a pure clamped angular spring riding on the main joint's
+	// constraints. userData stays null so joint events never double-report
+	// through this node, and the force/torque thresholds stay at box3d's
+	// FLT_MAX "never report".
+	def.angularHertz = (float)p_hertz;
+	def.angularDampingRatio = (float)p_damping;
+	def.maxSpringTorque = (float)p_max_torque;
+	cap_joint_id = b3CreateMotorJoint(b3Joint_GetWorld(joint_id), &def);
+}
+
+void Box3DJoint::update_cap_spring(double p_hertz, double p_damping, double p_max_torque) {
+	// A companion can exist only with hertz and torque above 0 (see
+	// create_cap_joint); dropping either to 0 live must destroy it, because a
+	// zeroed motor joint still constrains — the callers' apply_spring_state
+	// handles that by re-creating, so here a dead range just deletes.
+	if (p_hertz <= 0.0 || p_max_torque <= 0.0) {
+		destroy_cap_joint();
+		return;
+	}
+	if (!cap_live()) {
+		return;
+	}
+	b3MotorJoint_SetAngularHertz(cap_joint_id, (float)p_hertz);
+	b3MotorJoint_SetAngularDampingRatio(cap_joint_id, (float)p_damping);
+	b3MotorJoint_SetMaxSpringTorque(cap_joint_id, (float)p_max_torque);
+}
+
+void Box3DJoint::update_cap_target(const Quaternion &p_target) {
+	if (!cap_live()) {
+		return;
+	}
+	b3Joint_SetLocalFrameA(cap_joint_id, to_b3_transform(get_local_frame_a() * Transform3D(Basis(p_target), Vector3())));
+	// A new drive target on a sleeping body would otherwise be ignored, same
+	// as every other drive setter here (box3d_joint.h wake_bodies note).
+	b3Joint_WakeBodies(cap_joint_id);
+}
+
+void Box3DJoint::destroy_cap_joint() {
+	if (world != nullptr) {
+		world->join_async_step();
+	}
+	if (b3Joint_IsValid(cap_joint_id)) {
+		b3DestroyJoint(cap_joint_id, true);
+	}
+	cap_joint_id = b3_nullJointId;
 }
 
 void Box3DJoint::rebuild_if_alive() {
@@ -471,11 +550,41 @@ b3JointId Box3DHingeJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3Bo
 	def.maxMotorTorque = (float)max_motor_torque;
 	// Angular spring toward the spawn pose (frames coincide at creation, so the
 	// rest angle is 0 = the authored pose). Ragdolls use this to hold a stance.
-	def.enableSpring = spring_enabled;
+	// With a torque cap authored the native (unclamped) spring stays off — the
+	// on_joint_created() hook seats the spring on the companion motor joint
+	// instead. hertz/damping/target are still written so lifting the cap live
+	// only has to flip enableSpring back on.
+	def.enableSpring = spring_enabled && max_spring_torque <= 0.0;
 	def.hertz = (float)spring_hertz;
 	def.dampingRatio = (float)spring_damping;
 	def.targetAngle = (float)target_angle;
 	return b3CreateRevoluteJoint(p_world, &def);
+}
+
+// The hinge's spring target as a rotation: about the joint frame's local Z,
+// the same axis the readout and the limits use.
+static Quaternion hinge_target_quat(double p_target_angle) {
+	return Quaternion(Vector3(0, 0, 1), p_target_angle);
+}
+
+void Box3DHingeJoint::apply_spring_state() {
+	if (!joint_live()) {
+		return;
+	}
+	const bool capped = spring_enabled && max_spring_torque > 0.0;
+	b3RevoluteJoint_EnableSpring(joint_id, spring_enabled && !capped);
+	if (!capped) {
+		destroy_cap_joint();
+		b3RevoluteJoint_SetSpringHertz(joint_id, (float)spring_hertz);
+		b3RevoluteJoint_SetSpringDampingRatio(joint_id, (float)spring_damping);
+		b3RevoluteJoint_SetTargetAngle(joint_id, (float)target_angle);
+		return;
+	}
+	if (cap_live()) {
+		update_cap_spring(spring_hertz, spring_damping, max_spring_torque);
+	} else {
+		create_cap_joint(spring_hertz, spring_damping, max_spring_torque, hinge_target_quat(target_angle));
+	}
 }
 
 void Box3DHingeJoint::collect_type_warnings(PackedStringArray &p_warnings) const {
@@ -493,6 +602,14 @@ void Box3DHingeJoint::collect_type_warnings(PackedStringArray &p_warnings) const
 		p_warnings.push_back(
 				"Lower Limit is above Upper Limit, so there is no angle the hinge is "
 				"allowed to rest at and the solver fights itself.\nSwap the two values.");
+	}
+	// The capped seat is a motor-joint spring, and motor_joint.c runs it only
+	// while both its hertz and its budget are above 0 — so a cap with no
+	// hertz is a spring that silently never runs.
+	if (spring_enabled && max_spring_torque > 0.0 && spring_hertz <= 0.0) {
+		p_warnings.push_back(
+				"Max Spring Torque is set but Spring Hertz is 0, so the capped spring "
+				"never runs (Box3D needs both above 0).\nRaise Spring Hertz.");
 	}
 }
 
@@ -555,25 +672,19 @@ double Box3DHingeJoint::get_max_motor_torque() const { return max_motor_torque; 
 
 void Box3DHingeJoint::set_spring_enabled(bool p_v) {
 	spring_enabled = p_v;
-	if (joint_live()) {
-		b3RevoluteJoint_EnableSpring(joint_id, p_v);
-	}
+	apply_spring_state();
 }
 bool Box3DHingeJoint::get_spring_enabled() const { return spring_enabled; }
 
 void Box3DHingeJoint::set_spring_hertz(double p_v) {
 	spring_hertz = MAX(p_v, 0.0);
-	if (joint_live()) {
-		b3RevoluteJoint_SetSpringHertz(joint_id, (float)spring_hertz);
-	}
+	apply_spring_state();
 }
 double Box3DHingeJoint::get_spring_hertz() const { return spring_hertz; }
 
 void Box3DHingeJoint::set_spring_damping(double p_v) {
 	spring_damping = MAX(p_v, 0.0);
-	if (joint_live()) {
-		b3RevoluteJoint_SetSpringDampingRatio(joint_id, (float)spring_damping);
-	}
+	apply_spring_state();
 }
 double Box3DHingeJoint::get_spring_damping() const { return spring_damping; }
 
@@ -581,13 +692,26 @@ void Box3DHingeJoint::set_target_angle(double p_v) {
 	bool changed = p_v != target_angle;
 	target_angle = p_v;
 	if (joint_live()) {
+		// The native target is written even while the cap owns the spring, so
+		// lifting the cap live resumes from the current target.
 		b3RevoluteJoint_SetTargetAngle(joint_id, (float)p_v);
 		if (changed) {
-			wake_bodies();
+			if (cap_live()) {
+				update_cap_target(hinge_target_quat(target_angle)); // wakes
+			} else {
+				wake_bodies();
+			}
 		}
 	}
 }
 double Box3DHingeJoint::get_target_angle() const { return target_angle; }
+
+void Box3DHingeJoint::set_max_spring_torque(double p_v) {
+	max_spring_torque = MAX(p_v, 0.0);
+	apply_spring_state();
+	refresh_warnings();
+}
+double Box3DHingeJoint::get_max_spring_torque() const { return max_spring_torque; }
 
 double Box3DHingeJoint::get_angle() const {
 	return joint_live() ? b3RevoluteJoint_GetAngle(joint_id) : 0.0;
@@ -618,6 +742,8 @@ void Box3DHingeJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_spring_damping"), &Box3DHingeJoint::get_spring_damping);
 	ClassDB::bind_method(D_METHOD("set_target_angle", "radians"), &Box3DHingeJoint::set_target_angle);
 	ClassDB::bind_method(D_METHOD("get_target_angle"), &Box3DHingeJoint::get_target_angle);
+	ClassDB::bind_method(D_METHOD("set_max_spring_torque", "torque"), &Box3DHingeJoint::set_max_spring_torque);
+	ClassDB::bind_method(D_METHOD("get_max_spring_torque"), &Box3DHingeJoint::get_max_spring_torque);
 	ClassDB::bind_method(D_METHOD("get_angle"), &Box3DHingeJoint::get_angle);
 	ClassDB::bind_method(D_METHOD("get_motor_torque"), &Box3DHingeJoint::get_motor_torque);
 
@@ -638,6 +764,9 @@ void Box3DHingeJoint::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "spring_hertz", PROPERTY_HINT_RANGE, "0,30,0.1,or_greater,suffix:Hz"), "set_spring_hertz", "get_spring_hertz");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "spring_damping", PROPERTY_HINT_RANGE, "0,4,0.05,or_greater"), "set_spring_damping", "get_spring_damping");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "target_angle", PROPERTY_HINT_RANGE, "-180,180,0.1,radians_as_degrees"), "set_target_angle", "get_target_angle");
+	// 0 = the native unclamped spring; > 0 re-seats the spring with a solver-
+	// level torque ceiling (a muscle can only pull so hard).
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_spring_torque", PROPERTY_HINT_RANGE, torque_range("0,10000,1,or_greater")), "set_max_spring_torque", "get_max_spring_torque");
 }
 
 // ---------------------------------------------------------------------------
@@ -1066,7 +1195,11 @@ b3JointId Box3DBallJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3Bod
 	def.lowerTwistAngle = (float)twist_lower;
 	def.upperTwistAngle = (float)twist_upper;
 	// Angular spring toward the spawn pose (frames coincide at creation).
-	def.enableSpring = spring_enabled;
+	// With a torque cap authored the native (unclamped) spring stays off — the
+	// on_joint_created() hook seats the spring on the companion motor joint
+	// instead. hertz/damping/target are still written so lifting the cap live
+	// only has to flip enableSpring back on.
+	def.enableSpring = spring_enabled && max_spring_torque <= 0.0;
 	def.hertz = (float)spring_hertz;
 	def.dampingRatio = (float)spring_damping;
 	def.targetRotation = to_b3(target_rotation);
@@ -1109,6 +1242,14 @@ void Box3DBallJoint::collect_type_warnings(PackedStringArray &p_warnings) const 
 		p_warnings.push_back(
 				"Twist Lower is above Twist Upper, so there is no twist angle the "
 				"joint is allowed to rest at.\nSwap the two values.");
+	}
+	// The capped seat is a motor-joint spring, and motor_joint.c runs it only
+	// while both its hertz and its budget are above 0 — so a cap with no
+	// hertz is a spring that silently never runs.
+	if (spring_enabled && max_spring_torque > 0.0 && spring_hertz <= 0.0) {
+		p_warnings.push_back(
+				"Max Spring Torque is set but Spring Hertz is 0, so the capped spring "
+				"never runs (Box3D needs both above 0).\nRaise Spring Hertz.");
 	}
 }
 
@@ -1157,29 +1298,50 @@ void Box3DBallJoint::set_twist_upper(double p_v) {
 }
 double Box3DBallJoint::get_twist_upper() const { return twist_upper; }
 
+void Box3DBallJoint::apply_spring_state() {
+	if (!joint_live()) {
+		return;
+	}
+	const bool capped = spring_enabled && max_spring_torque > 0.0;
+	b3SphericalJoint_EnableSpring(joint_id, spring_enabled && !capped);
+	if (!capped) {
+		destroy_cap_joint();
+		b3SphericalJoint_SetSpringHertz(joint_id, (float)spring_hertz);
+		b3SphericalJoint_SetSpringDampingRatio(joint_id, (float)spring_damping);
+		b3SphericalJoint_SetTargetRotation(joint_id, to_b3(target_rotation));
+		return;
+	}
+	if (cap_live()) {
+		update_cap_spring(spring_hertz, spring_damping, max_spring_torque);
+	} else {
+		create_cap_joint(spring_hertz, spring_damping, max_spring_torque, target_rotation);
+	}
+}
+
 void Box3DBallJoint::set_spring_enabled(bool p_v) {
 	spring_enabled = p_v;
-	if (joint_live()) {
-		b3SphericalJoint_EnableSpring(joint_id, p_v);
-	}
+	apply_spring_state();
 }
 bool Box3DBallJoint::get_spring_enabled() const { return spring_enabled; }
 
 void Box3DBallJoint::set_spring_hertz(double p_v) {
 	spring_hertz = MAX(p_v, 0.0);
-	if (joint_live()) {
-		b3SphericalJoint_SetSpringHertz(joint_id, (float)spring_hertz);
-	}
+	apply_spring_state();
 }
 double Box3DBallJoint::get_spring_hertz() const { return spring_hertz; }
 
 void Box3DBallJoint::set_spring_damping(double p_v) {
 	spring_damping = MAX(p_v, 0.0);
-	if (joint_live()) {
-		b3SphericalJoint_SetSpringDampingRatio(joint_id, (float)spring_damping);
-	}
+	apply_spring_state();
 }
 double Box3DBallJoint::get_spring_damping() const { return spring_damping; }
+
+void Box3DBallJoint::set_max_spring_torque(double p_v) {
+	max_spring_torque = MAX(p_v, 0.0);
+	apply_spring_state();
+	refresh_warnings();
+}
+double Box3DBallJoint::get_max_spring_torque() const { return max_spring_torque; }
 
 // The three inputs to the motor decision (motor_enabled, motor_velocity /
 // max_motor_torque, friction_torque) all route through here rather than pushing
@@ -1216,9 +1378,15 @@ void Box3DBallJoint::set_target_rotation(const Quaternion &p_v) {
 	bool changed = p_v != target_rotation;
 	target_rotation = p_v;
 	if (joint_live()) {
+		// The native target is written even while the cap owns the spring, so
+		// lifting the cap live resumes from the current target.
 		b3SphericalJoint_SetTargetRotation(joint_id, to_b3(p_v));
 		if (changed) {
-			wake_bodies();
+			if (cap_live()) {
+				update_cap_target(target_rotation); // wakes
+			} else {
+				wake_bodies();
+			}
 		}
 	}
 }
@@ -1290,6 +1458,8 @@ void Box3DBallJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_motor_velocity"), &Box3DBallJoint::get_motor_velocity);
 	ClassDB::bind_method(D_METHOD("set_max_motor_torque", "torque"), &Box3DBallJoint::set_max_motor_torque);
 	ClassDB::bind_method(D_METHOD("get_max_motor_torque"), &Box3DBallJoint::get_max_motor_torque);
+	ClassDB::bind_method(D_METHOD("set_max_spring_torque", "torque"), &Box3DBallJoint::set_max_spring_torque);
+	ClassDB::bind_method(D_METHOD("get_max_spring_torque"), &Box3DBallJoint::get_max_spring_torque);
 	ClassDB::bind_method(D_METHOD("get_current_cone_angle"), &Box3DBallJoint::get_current_cone_angle);
 	ClassDB::bind_method(D_METHOD("get_current_twist_angle"), &Box3DBallJoint::get_current_twist_angle);
 	ClassDB::bind_method(D_METHOD("get_motor_torque"), &Box3DBallJoint::get_motor_torque);
@@ -1313,6 +1483,9 @@ void Box3DBallJoint::_bind_methods() {
 	// The spring's target, hence its place in this group rather than beside the
 	// motor's velocity target.
 	ADD_PROPERTY(PropertyInfo(Variant::QUATERNION, "target_rotation"), "set_target_rotation", "get_target_rotation");
+	// 0 = the native unclamped spring; > 0 re-seats the spring with a solver-
+	// level torque ceiling (a muscle can only pull so hard).
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_spring_torque", PROPERTY_HINT_RANGE, torque_range("0,1000,0.1,or_greater")), "set_max_spring_torque", "get_max_spring_torque");
 	ADD_GROUP("Motor", "motor_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "motor_enabled"), "set_motor_enabled", "get_motor_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "motor_velocity", PROPERTY_HINT_NONE, "suffix:rad/s"), "set_motor_velocity", "get_motor_velocity");
