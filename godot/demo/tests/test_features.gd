@@ -5865,7 +5865,9 @@ func _test_developer_globals() -> void:
 	# b3World_DumpMemoryStats logs through b3Log with no return value, so the
 	# binding installs a capture handler and hands the breakdown back as a
 	# String. Upstream's allocator emits one line per block size class plus the
-	# total.
+	# total. 46 lines since the broad-phase rewrite (upstream f555ee4,
+	# "Optimize Broad-Phase"): it dropped the movedProxies and moveArray
+	# lines from b3World_DumpMemoryStats (src/physics_world.c). Was 48.
 	var world := Box3DWorld.new()
 	add_child(world)
 	await get_tree().physics_frame
@@ -5873,8 +5875,8 @@ func _test_developer_globals() -> void:
 	var lines := dump.split("\n", false)
 	_check("dump_memory_stats returns upstream's breakdown (%d chars)" % dump.length(),
 		not dump.is_empty())
-	_check("the breakdown is upstream's 48 lines (%d)" % lines.size(),
-		lines.size() == 48)
+	_check("the breakdown is upstream's 46 lines (%d)" % lines.size(),
+		lines.size() == 46)
 	_check("and the last line is the total (%s)" % lines[lines.size() - 1],
 		lines[lines.size() - 1].begins_with("total: "))
 	world.queue_free()
