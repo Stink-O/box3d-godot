@@ -49,8 +49,9 @@ upstream engine sources are unchanged; everything Godot-specific lives in
 - **One zip to install.** Every
   [release](https://github.com/Stink-O/box3d-godot/releases) ships one
   `addons/box3d/` zip with prebuilt libraries for Windows, Linux, Android and
-  web; unzip it next to your `project.godot` and restart Godot. Building it
-  yourself is one `scons` command, no prebuilt engine binary required.
+  web; unzip it next to your `project.godot` and restart Godot. A second zip
+  is the whole demo project, ready to open in Godot. Building it yourself is
+  one `scons` command, no prebuilt engine binary required.
 - **A 70-sample browser demo**: stacks, a ragdoll, a drivable car, joints,
   queries, determinism showcases and toys, organised by category, with a
   physics-engine selector that reruns any sample on Godot Physics or Jolt for
@@ -144,8 +145,16 @@ extension is a small prebuilt library that you download and drop into a folder.
 Building it yourself is optional and covered in
 [Building](godot/README.md#building).
 
-The short version: install [Godot 4.7](https://godotengine.org/download), get
-this repository, download the addon zip from
+> [!TIP]
+> **Just want to run the demo?** Install [Godot 4.7](https://godotengine.org/download),
+> download `box3d-demo-project.zip` from the
+> [latest release](https://github.com/Stink-O/box3d-godot/releases/latest),
+> unzip it, open `box3d-demo/project.godot` in Godot and press play. That zip
+> is the whole demo with the extension already inside, so steps 2 to 4 below
+> are only for people who want the repository too.
+
+The short version with the repository: install Godot 4.7, get this
+repository, download the addon zip from
 [Releases](https://github.com/Stink-O/box3d-godot/releases) and unzip it into
 `godot/demo/`, open `godot/demo/project.godot`, press play. The long version:
 
