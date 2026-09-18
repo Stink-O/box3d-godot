@@ -5842,6 +5842,28 @@ func _test_sample_fidelity() -> void:
 	w.queue_free()
 	await get_tree().physics_frame
 
+	# Wind Drop is a plate in still air: with the air on it must fall visibly
+	# slower than the same plate with the air off. Both copies live in the same
+	# tree and see the same physics frames, so the comparison holds however
+	# many solver steps an awaited frame spans under load.
+	var drop_scene: PackedScene = load("res://samples/wind_drop.tscn")
+	var with_air: Node = drop_scene.instantiate()
+	var no_air: Node = drop_scene.instantiate()
+	add_child(with_air)
+	add_child(no_air)
+	no_air.set_toggled(false)
+	for i in range(60):
+		await get_tree().physics_frame
+	var air_y: float = with_air.get_node("Box3DWorld/Plate").global_position.y
+	var stone_y: float = no_air.get_node("Box3DWorld/Plate").global_position.y
+	_check("Wind Drop's plate has left the spawn height (%.2f m)" % air_y,
+		air_y < 9.9)
+	_check("and drag holds it higher than the same plate in no air (%.2f m vs %.2f m)"
+		% [air_y, stone_y], air_y > stone_y + 0.5)
+	with_air.queue_free()
+	no_air.queue_free()
+	await get_tree().physics_frame
+
 
 # --- F-004 / F-013 / F-014: the developer-facing globals --------------------
 

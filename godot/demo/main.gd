@@ -19,6 +19,7 @@ const SAMPLES := {
 		"Restitution": "res://samples/restitution.tscn",
 		"Conveyor Belt": "res://samples/conveyor_belt.tscn",
 		"Wind": "res://samples/wind.tscn",
+		"Wind Drop": "res://samples/wind_drop.tscn",
 		"Live Geometry": "res://samples/live_geometry.tscn",
 	},
 	"Geometry": {
@@ -136,6 +137,7 @@ const DESCRIPTIONS := {
 	"Restitution": "A row of balls with restitution rising from 0 to 1, dropped from the same height. Each one bounces back to a different fraction of the drop.",
 	"Conveyor Belt": "The ramp never moves. Its surface has a tangent velocity, so it carries crates uphill the way a real belt does, and the crates stop dead when they leave it.",
 	"Wind": "A jointed ribbon in a steady 6 m/s wind. This is real aerodynamic drag and lift on each plate's cross section, not a push, which is why the ribbon streams and flutters. Turn the wind off with the toggle and it falls limp.",
+	"Wind Drop": "One thin plate dropped from ten metres into still air. There is no drag setting in Box3D; the plate floats down and glides because the same aerodynamic force as Wind is computed from its own velocity, so a face-on fall meets far more air than an edge-on one. Switch the air off and it drops like a stone.",
 	"Box Hull": "The same box built two ways at once: eight corners transformed by hand and handed to the hull builder, against the one call that does it for you. Their largest disagreement is measured rather than eyeballed, and it is zero for a rotation with a uniform scale.",
 	"Hull Reduction": "One cloud of 128 points hulled again and again under a rising vertex budget, one body per budget in a row. Left to right the collider goes from a tetrahedron to a faceted ball, and every one of them is a real collider, so the coarse ones rock on their flat faces while the fine ones roll.",
 	"Wave Pile": "A hundred convex bodies, spheres and capsules and boxes and rocks, dropped onto a wave field and left to fall asleep. The world records itself as it runs and the recording is then replayed at one, two, four and eight workers with every step's state hash checked, so the verdict is a live cross-thread determinism test.",
@@ -212,6 +214,7 @@ const USE_CASES := {
 	"Restitution": "Bouncy balls, grenades and anything that should rebound",
 	"Conveyor Belt": "Conveyors, treadmills and moving walkways",
 	"Wind": "Flags, banners and cloth strips that answer to the weather",
+	"Wind Drop": "Falling leaves, paper, feathers and anything that should flutter down rather than drop",
 	"Box Hull": "Knowing when the cheap scaled-box shortcut is safe for a transformed prop",
 	"Hull Reduction": "Choosing the vertex budget for a collider baked from an art mesh",
 	"Wave Pile": "Proving a build reproduces the same run whatever the thread count",
