@@ -329,6 +329,11 @@ and joint.
 Inspired by the [`box3d-unity`](https://github.com/timskap/box3d-unity) binding,
 which does the same for Unity.
 
+> [!IMPORTANT]
+> **Want to run the demo in Godot?** Download **`box3d-demo-project.zip`** from the [latest release](https://github.com/Stink-O/box3d-godot/releases/latest), unzip it, open `box3d-demo/project.godot` in Godot 4.7 and press play. Nothing else to install.
+>
+> **Want Box3D in your own project?** Download **`box3d-addon-v<version>.zip`** from the same release and unzip it next to your `project.godot`, then restart Godot.
+
 ---
 
 <sub>The rest of this file is the upstream Box3D README.</sub>
