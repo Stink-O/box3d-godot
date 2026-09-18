@@ -23,6 +23,6 @@ The library the editor loads is the `template_debug` one; exported games use
 
 - Full node and property reference: https://github.com/Stink-O/box3d-godot/blob/main/godot/README.md
 - Playable demo of every sample: https://stinkysunstep.itch.io/box3d-godot
-- The same demo as a Godot project you can open: `box3d-demo-project.zip` on
+- The same demo as a Godot project you can open: `0-box3d-demo-project.zip` on
   the release this zip came from, https://github.com/Stink-O/box3d-godot/releases
 - Issues and source: https://github.com/Stink-O/box3d-godot

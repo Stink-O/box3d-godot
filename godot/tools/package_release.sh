@@ -2,7 +2,7 @@
 # Assemble the release assets into dist/ from binaries already built by
 # build_all.sh. Three assets, the shape every GDExtension project ships:
 #
-#   dist/box3d-demo-project.zip         the whole demo project with the addon
+#   dist/0-box3d-demo-project.zip         the whole demo project with the addon
 #                                       inside; unzip, open box3d-demo/project.godot
 #   dist/box3d-addon-v<ver>.zip   addons/box3d/ (manifest, LICENSE,
 #                                       README, every platform binary, icons);
@@ -55,8 +55,8 @@ unzip -l "$DIST/box3d-addon-v$VER.zip" | tail -1
 STAGE="$(mktemp -d)"; mkdir -p "$STAGE/box3d-demo"
 git archive HEAD demo | tar -x -C "$STAGE/box3d-demo" --strip-components=1 -f -
 mkdir -p "$STAGE/box3d-demo/addons/box3d/bin"; cp "$ADDON"/bin/* "$STAGE/box3d-demo/addons/box3d/bin/"
-rm -f "$DIST/box3d-demo-project.zip"
-( cd "$STAGE" && zip -qr "$DIST/box3d-demo-project.zip" box3d-demo ); rm -rf "$STAGE"
+rm -f "$DIST/0-box3d-demo-project.zip"
+( cd "$STAGE" && zip -qr "$DIST/0-box3d-demo-project.zip" box3d-demo ); rm -rf "$STAGE"
 
 # 5. Demo exports. --import first (a new class_name otherwise bakes a broken
 # script), then restore project.godot, which --import rewrites and strips.
@@ -76,5 +76,5 @@ rm -f "$DIST/box3d-demo-web-threaded.zip"
 echo; echo "== dist/"; ls -la "$DIST"
 echo
 echo "Next: verify the web export in a browser twice (CLAUDE.md), then"
-echo "  gh release create v$VER --draft -R Stink-O/box3d-godot dist/box3d-demo-project.zip dist/box3d-addon-v$VER.zip dist/box3d-demo-android.apk dist/box3d-demo-web-threaded.zip"
+echo "  gh release create v$VER --draft -R Stink-O/box3d-godot dist/0-box3d-demo-project.zip dist/box3d-addon-v$VER.zip dist/box3d-demo-android.apk dist/box3d-demo-web-threaded.zip"
 echo "  butler push webfast stinkysunstep/box3d-godot:html --userversion $VER"

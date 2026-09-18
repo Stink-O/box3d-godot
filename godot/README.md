@@ -203,7 +203,7 @@ func _ready() -> void:
 ## Demo
 
 [`demo/`](demo) is a **sample browser** (like Box3D's own samples app). It
-ships ready to run as `box3d-demo-project.zip` on every
+ships ready to run as `0-box3d-demo-project.zip` on every
 [release](https://github.com/Stink-O/box3d-godot/releases): unzip, open
 `box3d-demo/project.godot` in Godot 4.7, press play, no clone or build needed.
 In the repository:
@@ -358,7 +358,7 @@ shell and verifies the menu + ball shooting.
 ## Building
 
 No build output is tracked. To just run the demo, download
-`box3d-demo-project.zip` from
+`0-box3d-demo-project.zip` from
 [Releases](https://github.com/Stink-O/box3d-godot/releases), which is this
 `demo/` folder with the libraries already inside. To run it from a clone,
 download the addon zip from the same release and unzip it into `demo/` (it

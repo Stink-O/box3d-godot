@@ -127,7 +127,7 @@ Android and iOS all run that threaded build there. The same build is
 downloadable from [Releases](https://github.com/Stink-O/box3d-godot/releases)
 as `box3d-demo-web-threaded.zip` if you want to host your own; it needs a host
 that sends cross-origin isolation headers (COOP/COEP), which plain static
-hosting does not. To run the same demo natively, `box3d-demo-project.zip` on
+hosting does not. To run the same demo natively, `0-box3d-demo-project.zip` on
 the same release is the whole project ready to open in Godot.
 
 **It is a preview, not the real thing.** Running the demo in Godot is the
@@ -148,7 +148,7 @@ Building it yourself is optional and covered in
 
 > [!TIP]
 > **Just want to run the demo?** Install [Godot 4.7](https://godotengine.org/download),
-> download `box3d-demo-project.zip` from the
+> download `0-box3d-demo-project.zip` from the
 > [latest release](https://github.com/Stink-O/box3d-godot/releases/latest),
 > unzip it, then open `box3d-demo/project.godot` in Godot (or press **Scan** in the
 > project manager and point it at the unzipped folder) and press play. That zip
@@ -331,7 +331,7 @@ Inspired by the [`box3d-unity`](https://github.com/timskap/box3d-unity) binding,
 which does the same for Unity.
 
 > [!IMPORTANT]
-> **Want to run the demo in Godot?** Download **`box3d-demo-project.zip`** from the [latest release](https://github.com/Stink-O/box3d-godot/releases/latest), unzip it, then either open `box3d-demo/project.godot` in Godot 4.7, or press **Scan** in the Godot project manager and point it at the unzipped folder. Press play. Nothing else to install.
+> **Want to run the demo in Godot?** Download **`0-box3d-demo-project.zip`** from the [latest release](https://github.com/Stink-O/box3d-godot/releases/latest), unzip it, then either open `box3d-demo/project.godot` in Godot 4.7, or press **Scan** in the Godot project manager and point it at the unzipped folder. Press play. Nothing else to install.
 >
 > **Want Box3D in your own project?** Download **`box3d-addon-v<version>.zip`** from the same release and unzip it next to your `project.godot`, then restart Godot.
 
