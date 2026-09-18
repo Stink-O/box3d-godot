@@ -51,7 +51,7 @@ upstream engine sources are unchanged; everything Godot-specific lives in
   `addons/box3d/` zip with prebuilt libraries for Windows, Linux, Android and
   web; unzip it next to your `project.godot` and restart Godot. Building it
   yourself is one `scons` command, no prebuilt engine binary required.
-- **A 71-sample browser demo**: stacks, a ragdoll, a drivable car, joints,
+- **A 70-sample browser demo**: stacks, a ragdoll, a drivable car, joints,
   queries, determinism showcases and toys, organised by category, with a
   physics-engine selector that reruns any sample on Godot Physics or Jolt for
   side-by-side comparison.

@@ -28,7 +28,7 @@ boot_splash/image="res://branding/boot_splash.png"
 ; product surface, tests green, shared helpers teal, binaries/manifest gray,
 ; branding pink, the physics-engine comparison rig orange, tools yellow.
 folder_colors={
-"res://bin/": "gray",
+"res://addons/": "gray",
 "res://branding/": "pink",
 "res://common/": "teal",
 "res://compare/": "orange",

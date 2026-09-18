@@ -26,7 +26,7 @@ which does the same thing for Unity via P/Invoke.
 | `Box3DBody` | `Node3D` | A rigid body simulated by the nearest `Box3DWorld` ancestor. |
 | `Box3DCharacterBody` | `Node3D` | A kinematic capsule controller with `move_and_slide`. See [Character controller](#character-controller). |
 | `Box3DCollisionShape` | `Node3D` | An extra shape for a compound `Box3DBody` (add as a child). |
-| `Box3DHingeJoint`, `Box3DSliderJoint`, `Box3DDistanceJoint`, `Box3DBallJoint`, `Box3DFixedJoint`, `Box3DMotorJoint`, `Box3DWheelJoint`, `Box3DParallelJoint` | `Node3D` | Constraints connecting two bodies. See [Joints](#joints). |
+| `Box3DHingeJoint`, `Box3DSliderJoint`, `Box3DDistanceJoint`, `Box3DBallJoint`, `Box3DFixedJoint`, `Box3DMotorJoint`, `Box3DWheelJoint`, `Box3DParallelJoint`, `Box3DFilterJoint` | `Node3D` | Constraints connecting two bodies. See [Joints](#joints). |
 
 A `Box3DBody` finds the closest `Box3DWorld` above it in the tree, so you just
 nest bodies (with a `MeshInstance3D` child for visuals) under a world.
@@ -113,7 +113,10 @@ default, so existing scenes are unaffected.
 Methods: `apply_central_force(v)`, `apply_central_impulse(v)`,
 `apply_torque(v)`, `set/get_linear_velocity`, `set/get_angular_velocity`,
 `get_mass()`, `teleport(transform)` (instantly reposition a body and clear its
-momentum — for respawns/resets; don't teleport into overlapping geometry).
+momentum — for respawns/resets; don't teleport into overlapping geometry),
+`set_target_transform(transform, time_step, wake = true)` (give a kinematic
+body the velocity that reaches `transform` in `time_step` seconds, so it sweeps
+there and pushes what it meets instead of jumping).
 
 Signals: `body_entered(Box3DBody)` / `body_exited(Box3DBody)` (require
 `contact_monitor = true`); on a sensor (`is_sensor = true`),
@@ -141,14 +144,15 @@ alignment on local Z.
 
 | Node | What it does | Key properties |
 | --- | --- | --- |
-| `Box3DHingeJoint` | Rotates about the node's local Z (revolute). | `limit_enabled`, `lower/upper_limit`, `motor_enabled`, `motor_speed`, `max_motor_torque`, `spring_*` (spring toward the spawn angle) |
+| `Box3DHingeJoint` | Rotates about the node's local Z (revolute). | `limit_enabled`, `lower/upper_limit`, `motor_enabled`, `motor_speed`, `max_motor_torque`, `spring_*` (spring toward the spawn angle), `max_spring_torque` (torque cap on that spring, 0 = unclamped) |
 | `Box3DSliderJoint` | Slides along the node's local X (prismatic). | same shape as hinge, plus `max_motor_force` |
 | `Box3DDistanceJoint` | Holds two bodies a set distance apart (rope / rod / spring). | `length` (-1 = auto), `spring_enabled`, `spring_hertz`, `spring_damping`, `limit_enabled`, `min/max_length` |
-| `Box3DBallJoint` | Pins a point, free rotation (spherical). | `cone_limit_enabled`, `cone_angle`, `twist_limit_enabled`, `twist_lower/upper`, `spring_*` (spring toward the spawn pose), `friction_torque` (dry joint friction) |
+| `Box3DBallJoint` | Pins a point, free rotation (spherical). | `cone_limit_enabled`, `cone_angle`, `twist_limit_enabled`, `twist_lower/upper`, `spring_*` (spring toward the spawn pose), `max_spring_torque` (torque cap on that spring, 0 = unclamped), `friction_torque` (dry joint friction) |
 | `Box3DFixedJoint` | Rigidly welds two bodies. | `linear_hertz`, `angular_hertz` (0 = rigid) |
 | `Box3DMotorJoint` | Drives the relative linear/angular velocity (a servo). | `linear_velocity`, `max_force`, `angular_velocity`, `max_torque` |
 | `Box3DWheelJoint` | A vehicle wheel: `body_b` (the wheel) rides a suspension spring along the node's local Y and spins about its local Z (the axle), with an optional spin motor and spring steering. | `suspension_*` (spring + travel limits), `spin_motor_*`, `steering_*` (target angle, spring, limits), `get_spin_speed()`, `get_steering_angle()` |
 | `Box3DParallelJoint` | A spring keeping the two bodies' joint-frame Z axes parallel — point the node's Z up (and leave `body_b` empty) to hold a body upright while it yaws freely. | `spring_hertz`, `spring_damping`, `max_torque` (0 = unlimited) |
+| `Box3DFilterJoint` | Stops `body_a` and `body_b` colliding with each other, and nothing else: no constraint, the case layers and masks cannot express. Both bodies are required. | `body_a`, `body_b` |
 
 All share `body_a`, `body_b`, and `collide_connected`. Drive targets — motor
 speeds, the wheel joint's spin/steering targets and tuning, distance length —

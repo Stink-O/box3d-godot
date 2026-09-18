@@ -47,7 +47,7 @@
 			<return type="String" />
 			<description>
 				The version of Box3D this binary wraps, as [code]"major.minor.revision"[/code] -- the same three numbers upstream puts in its window title and its Help &gt; About box.
-				The prebuilt [code].so[/code] / [code].dll[/code] / [code].wasm[/code] ship as release assets and can drift from the sources you are reading, so this turns "which build is this?" from a filename guess into something a bug report can state. Pair it with [method is_double_precision].
+				The prebuilt [code].so[/code] / [code].dll[/code] / [code].wasm[/code] ship inside the release addon zip and can drift from the sources you are reading, so this turns "which build is this?" from a filename guess into something a bug report can state. Pair it with [method is_double_precision].
 				Static: it describes the library, not a world, so it can be read before any [Box3DWorld] exists.
 			</description>
 		</method>

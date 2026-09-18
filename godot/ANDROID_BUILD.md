@@ -394,12 +394,17 @@ package/unique_name="org.box3d.godot.samples"
 ```sh
 cd godot/demo
 export ANDROID_HOME=$HOME/Android/Sdk
-godot --headless --path . --export-debug "Android" bin/box3d_demo.apk
+mkdir -p ../../dist
+godot --headless --path . --export-debug "Android" ../../dist/box3d-demo-android.apk
 ```
 
 `--export-debug` selects the `template_debug` libraries; `--export-release`
-selects `template_release`. The APK is **not** committed (`.gitignore`) — it is
-~60 MB and fully regenerable.
+selects `template_release`. `dist/` at the repo root is the gitignored release
+output folder (the "Android" preset's own `export_path` and
+`tools/package_release.sh` both write there); since 0.4.3 there is no
+`demo/bin/`, and the addon's `addons/box3d/bin/` must hold nothing but the
+libraries the manifest lists. The APK is **not** committed (`.gitignore`): it
+is ~67 MB and fully regenerable.
 
 ### `project.godot` needed one change
 
@@ -423,7 +428,7 @@ related project setting touched by this port, and it is not a degradation.
 ### Verify the APK actually contains the libraries
 
 ```sh
-unzip -l bin/box3d_demo.apk | grep '\.so$'
+unzip -l ../../dist/box3d-demo-android.apk | grep '\.so$'
 ```
 
 ```
@@ -625,7 +630,7 @@ Three notes for whoever runs this next:
 
 - **Every count in this document is the suite as it stood during the Android
   campaign** (42 assertions, 29-30 sample scenes). The harness has grown a
-  long way since: as of 0.4.1 it is **442 `[test]` lines and 65 `[samples]`
+  long way since: as of 0.4.3 it is **719 `[test]` lines and 71 `[samples]`
   lines**, and it only ever ratchets upward. Compare a fresh run against the
   *current* Linux baseline, not against the numbers quoted below. The Android
   results below are records of what was executed then, and are left as
@@ -653,8 +658,8 @@ physics binding independently of whether anything renders correctly:
 ```sh
 # temporarily: run/main_scene="res://tests/test_features.tscn"
 #              command_line/extra_args="--rendering-method gl_compatibility"
-godot --headless --path . --export-debug "Android" bin/box3d_test.apk
-adb install -r bin/box3d_test.apk
+godot --headless --path . --export-debug "Android" ../../dist/box3d_test.apk
+adb install -r ../../dist/box3d_test.apk
 adb logcat -c
 adb shell am start -n org.box3d.godot.samples/com.godot.game.GodotAppLauncher
 adb logcat -v brief -s godot:V
@@ -919,7 +924,7 @@ Read this section before repeating any claim from this document.
   desktop-oriented settings (8192 shadow maps, MSAA, 256 KB shader buffer)
   *look* right on a phone remains genuinely **unknown**, and the only way to
   find out is to run it on a device you can physically look at:
-  `adb install godot/demo/addons/box3d/bin/box3d_demo.apk`. Note the SSAO/SSIL warnings on
+  `adb install dist/box3d-demo-android.apk`. Note the SSAO/SSIL warnings on
   Forward Mobile are cosmetic and expected — those effects are Forward+ only.
 
   The physics is provably unaffected either way (31 assertions, same device,
@@ -966,7 +971,7 @@ Be aware these are the honest weak points, in order:
    be observed. The app is alive underneath (scene loads, buffers produced, 31
    assertions pass). The heavy-settings theory was tested and **disproved** —
    `.mobile` overrides for shadow map / MSAA / shader buffer changed the output
-   not at all. Run `adb install godot/demo/addons/box3d/bin/box3d_demo.apk` on a phone you
+   not at all. Run `adb install dist/box3d-demo-android.apk` on a phone you
    can look at; that is the only way to answer it.
 
 Remaining work is optional rather than load-bearing: a second GPU vendor
@@ -1043,7 +1048,7 @@ For a **visual** check, point the runner at the demo APK instead; Test Lab
 records video and screenshots:
 
 ```sh
-APK=godot/demo/addons/box3d/bin/box3d_demo.apk ./godot/tools/testlab_arm64.sh
+APK=dist/box3d-demo-android.apk ./godot/tools/testlab_arm64.sh
 ```
 
 Rebuild the APK with:
@@ -1051,6 +1056,6 @@ Rebuild the APK with:
 ```sh
 cd godot/demo
 sed -i 's|run/main_scene="res://main.tscn"|run/main_scene="res://tests/test_features.tscn"|' project.godot
-godot --headless --path . --export-debug "Android" bin/box3d_testlab.apk
+godot --headless --path . --export-debug "Android" ../../dist/box3d_testlab.apk
 git checkout project.godot        # <- do not forget
 ```

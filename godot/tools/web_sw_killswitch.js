@@ -14,7 +14,7 @@
 // unregisters itself, and reloads any open tabs so they load clean from the
 // network. First-time visitors never fetch it at all.
 //
-// Deployed by .github/workflows/godot-web-pages.yml, not by the Godot export
+// Deployed by godot/tools/package_release.sh (copied into the web export), not by the Godot export
 // (the export no longer emits a service worker). Harmless to keep deploying
 // forever; it only ever runs in browsers that hold the stale registration.
 self.addEventListener('install', () => {
