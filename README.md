@@ -150,7 +150,8 @@ Building it yourself is optional and covered in
 > **Just want to run the demo?** Install [Godot 4.7](https://godotengine.org/download),
 > download `box3d-demo-project.zip` from the
 > [latest release](https://github.com/Stink-O/box3d-godot/releases/latest),
-> unzip it, open `box3d-demo/project.godot` in Godot and press play. That zip
+> unzip it, then open `box3d-demo/project.godot` in Godot (or press **Scan** in the
+> project manager and point it at the unzipped folder) and press play. That zip
 > is the whole demo with the extension already inside, so steps 2 to 4 below
 > are only for people who want the repository too.
 
@@ -330,7 +331,7 @@ Inspired by the [`box3d-unity`](https://github.com/timskap/box3d-unity) binding,
 which does the same for Unity.
 
 > [!IMPORTANT]
-> **Want to run the demo in Godot?** Download **`box3d-demo-project.zip`** from the [latest release](https://github.com/Stink-O/box3d-godot/releases/latest), unzip it, open `box3d-demo/project.godot` in Godot 4.7 and press play. Nothing else to install.
+> **Want to run the demo in Godot?** Download **`box3d-demo-project.zip`** from the [latest release](https://github.com/Stink-O/box3d-godot/releases/latest), unzip it, then either open `box3d-demo/project.godot` in Godot 4.7, or press **Scan** in the Godot project manager and point it at the unzipped folder. Press play. Nothing else to install.
 >
 > **Want Box3D in your own project?** Download **`box3d-addon-v<version>.zip`** from the same release and unzip it next to your `project.godot`, then restart Godot.
 
