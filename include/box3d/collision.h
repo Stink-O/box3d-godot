@@ -48,8 +48,8 @@ B3_API b3TreeStats b3DynamicTree_Query( const b3DynamicTree* tree, b3AABB aabb, 
 /// point.
 /// @param tree the dynamic tree to query
 /// @param point the query point
-/// @param maskBits nodes are skipped if the bit-wise AND with the node category bits is zero
-/// @param requireAllBits nodes are skipped if the bit-wise AND with the node category bits does not equal the maskBits
+/// @param maskBits proxies are skipped if the bit-wise AND with the proxy category bits is zero
+/// @param requireAllBits proxies are skipped if the bit-wise AND with the proxy category bits does not equal the maskBits
 /// @param callback a user provided instance of b3TreeQueryClosestCallbackFcn
 /// @param context a user context object that is provided to the callback
 /// @param minDistanceSqr the initial and final minimum squared distance. Provide a small initial to restrict the search and
@@ -68,8 +68,8 @@ B3_API b3TreeStats b3DynamicTree_QueryClosest( const b3DynamicTree* tree, b3Vec3
 ///	However, this filtering may be approximate, so the user should still apply filtering to results.
 /// @param tree the dynamic tree to ray cast
 /// @param input the ray cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1)
-/// @param maskBits bit mask test: `bool accept = (maskBits & node->categoryBits) != 0;`
-/// @param requireAllBits modifies bit mask test: `bool accept = (maskBits & node->categoryBits) == maskBits;`
+/// @param maskBits bit mask test: `bool accept = (maskBits & proxy->categoryBits) != 0;`
+/// @param requireAllBits modifies bit mask test: `bool accept = (maskBits & proxy->categoryBits) == maskBits;`
 /// @param callback a callback function that is called for each proxy that is hit by the ray
 /// @param context user context that is passed to the callback
 ///	@return performance data
@@ -103,8 +103,8 @@ B3_API int b3DynamicTree_GetByteCount( const b3DynamicTree* tree );
 /// Validate this tree. For testing.
 B3_API void b3DynamicTree_Validate( const b3DynamicTree* tree );
 
-/// Validate this tree has no enlarged AABBs. For testing.
-B3_API void b3DynamicTree_ValidateNoEnlarged( const b3DynamicTree* tree );
+/// Validate this tree has no moved nodes. For testing.
+B3_API void b3DynamicTree_ValidateNoMoved( const b3DynamicTree* tree );
 
 /// Save this tree to a file for debugging
 B3_API void b3DynamicTree_Save( const b3DynamicTree* tree, const char* fileName );
@@ -115,13 +115,13 @@ B3_API b3DynamicTree b3DynamicTree_Load( const char* fileName, float scale );
 /// Get proxy user data
 B3_INLINE uint64_t b3DynamicTree_GetUserData( const b3DynamicTree* tree, int proxyId )
 {
-	return tree->nodes[proxyId].userData;
+	return tree->proxies[proxyId].userData;
 }
 
 /// Get the AABB of a proxy
 B3_INLINE b3AABB b3DynamicTree_GetAABB( const b3DynamicTree* tree, int proxyId )
 {
-	return tree->nodes[proxyId].aabb;
+	return tree->nodes[tree->proxies[proxyId].node].aabb;
 }
 
 /**@}*/ // tree
@@ -221,7 +221,8 @@ B3_API b3HullData* b3CreateCone( float height, float radius1, float radius2, int
 /// Create a rock shaped hull.
 B3_API b3HullData* b3CreateRock( float radius );
 
-/// Create a generic convex hull.
+/// Create a generic convex hull. This can fail if B3_MAX_HULL_VERTICES, B3_MAX_HULL_FACES,
+/// or B3_MAX_HULL_EDGES is exceeded.
 B3_API b3HullData* b3CreateHull( const b3Vec3* points, int pointCount, int maxVertexCount );
 
 /// Deep clone a hull.
@@ -646,6 +647,21 @@ B3_API void b3CollideTriangleAndHull( b3LocalManifold* manifold, int capacity, b
 /// Collide a triangle and sphere. Normal points from triangle to sphere.
 B3_API void b3CollideTriangleAndSphere( b3LocalManifold* manifold, int capacity, const b3Vec3* triangleA,
 										const b3Sphere* sphereB );
+
+/// This is used for computing 2D hulls in service of contact manifold simplification.
+/// Placed here for testing. Internal.
+typedef struct b3Point2D
+{
+	b3Vec2 p;		   // 2D point
+	float separation;  // separation of the associated contact point
+	int originalIndex; // original index of the associated contact point
+} b3Point2D;
+
+/// Compute a 2D hull. Used internally for contact manifold simplification. Here for testing.
+B3_API int b3Hull2D( b3Point2D* pts, int count, b3Point2D* hull );
+
+/// Simplify a 2D hull. Used internally for contact manifold simplification. Here for testing.
+B3_API int b3SimplifyHull2D( b3Point2D* hull, int count, int target );
 
 /**@}*/ // collision
 

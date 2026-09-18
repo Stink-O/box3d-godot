@@ -276,14 +276,12 @@ B3_INLINE float b3DistanceSquared( b3Vec3 a, b3Vec3 b )
 B3_FORCE_INLINE b3Vec3 b3Normalize( b3Vec3 a )
 {
 	float lengthSquared = a.x * a.x + a.y * a.y + a.z * a.z;
-
 	if ( lengthSquared > 1000.0f * FLT_MIN )
 	{
 		float s = 1.0f / sqrtf( lengthSquared );
 		b3Vec3 u = { s * a.x, s * a.y, s * a.z };
 		return u;
 	}
-
 	return B3_LITERAL( b3Vec3 ){ 0.0f, 0.0f, 0.0f };
 }
 
@@ -291,15 +289,17 @@ B3_FORCE_INLINE b3Vec3 b3Normalize( b3Vec3 a )
 /// if the input is very small.
 B3_INLINE b3Vec3 b3GetLengthAndNormalize( float* length, b3Vec3 a )
 {
-	*length = b3Length( a );
-	if ( *length < FLT_EPSILON )
+	float lengthSquared = a.x * a.x + a.y * a.y + a.z * a.z;
+	if ( lengthSquared > 1000.0f * FLT_MIN )
 	{
-		return b3Vec3_zero;
+		*length = sqrtf( lengthSquared );
+		float s = 1.0f / *length;
+		b3Vec3 u = { s * a.x, s * a.y, s * a.z };
+		return u;
 	}
 
-	float invLength = 1.0f / *length;
-	b3Vec3 n = { invLength * a.x, invLength * a.y, invLength * a.z };
-	return n;
+	*length = 0.0f;
+	return B3_LITERAL( b3Vec3 ){ 0.0f, 0.0f, 0.0f };
 }
 
 /// Get a unit vector that is perpendicular to the supplied vector.
@@ -756,9 +756,10 @@ B3_INLINE b3WorldTransform b3MakeWorldTransform( b3Transform t )
 	return w;
 }
 
-/// Translate a local AABB by a world origin, rounding outward so the float box always contains
-/// the double box. Far from the origin a plain conversion could clip a shape out of its own box.
-/// In float mode the origin is float and the rounding is a no-op.
+/// Translate a local AABB by a world position, rounding outward so the single precision box 
+/// encloses the double precision box. Far from the origin a plain conversion could clip a
+/// shape out of its own box.
+/// In single precision mode the the rounding is a no-op.
 B3_INLINE b3AABB b3OffsetAABB( b3AABB localBox, b3Pos origin )
 {
 	b3AABB out;

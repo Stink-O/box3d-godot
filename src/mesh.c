@@ -244,12 +244,12 @@ static bool b3IsConsistent( const b3MeshData* mesh )
 			const b3MeshNode* child2 = b3GetRightChild( node );
 			b3AABB bounds2 = b3GetNodeAABB( child2 );
 
-			if ( !b3AABB_Contains( nodeBounds, bounds1 ) )
+			if ( b3AABB_Contains( nodeBounds, bounds1 ) == false )
 			{
 				return false;
 			}
 
-			if ( !b3AABB_Contains( nodeBounds, bounds2 ) )
+			if ( b3AABB_Contains( nodeBounds, bounds2 ) == false )
 			{
 				return false;
 			}
@@ -329,6 +329,11 @@ bool b3IsValidMesh( const b3MeshData* meshData )
 
 #endif
 
+static inline b3Vec3 b3GetStridedVertex( const b3Vec3* vertices, int index, size_t stride )
+{
+	return *(const b3Vec3*)( (const uint8_t*)vertices + index * stride );
+}
+
 // Node for a vertex linked list
 typedef struct b3VertexNode
 {
@@ -350,15 +355,17 @@ typedef struct b3SpatialHash
 	b3Array( b3VertexNode ) nodes;
 	const b3Vec3* vertices;
 	int vertexCount;
+	size_t stride;
 	b3VertexMap vertexMap;
 	float cellSize;
 	float tolerance;
 } b3SpatialHash;
 
-static void b3SpatialHash_Create( b3SpatialHash* h, const b3Vec3* vertices, int vertexCount, float tolerance )
+static void b3CreateSpatialHash( b3SpatialHash* h, const b3Vec3* vertices, int vertexCount, size_t stride, float tolerance )
 {
 	h->vertices = vertices;
 	h->vertexCount = vertexCount;
+	h->stride = stride;
 	h->tolerance = tolerance;
 	h->cellSize = 2.0f * tolerance;
 	b3Array_CreateN( h->nodes, vertexCount );
@@ -369,7 +376,7 @@ static void b3SpatialHash_Create( b3SpatialHash* h, const b3Vec3* vertices, int 
 	B3_ASSERT( h->cellSize > 0.0f );
 }
 
-static void b3SpatialHash_Destroy( b3SpatialHash* h )
+static void b3DestroySpatialHash( b3SpatialHash* h )
 {
 	b3VertexMap_cleanup( &h->vertexMap );
 	b3Array_Destroy( h->nodes );
@@ -380,7 +387,8 @@ static void b3SpatialHash_Destroy( b3SpatialHash* h )
 static int32_t b3SpatialHash_FindDuplicate( b3SpatialHash* h, int32_t currentIndex )
 {
 	B3_ASSERT( currentIndex < h->vertexCount );
-	b3Vec3 vertex = h->vertices[currentIndex];
+	size_t stride = h->stride;
+	b3Vec3 vertex = b3GetStridedVertex( h->vertices, currentIndex, stride );
 	float cellSize = h->cellSize;
 	float tolerance = h->tolerance;
 
@@ -420,7 +428,7 @@ static int32_t b3SpatialHash_FindDuplicate( b3SpatialHash* h, int32_t currentInd
 						B3_ASSERT( existingIndex < currentIndex );
 						B3_ASSERT( existingIndex < h->vertexCount );
 
-						b3Vec3 other = h->vertices[existingIndex];
+						b3Vec3 other = b3GetStridedVertex( h->vertices, existingIndex, stride );
 
 						// IsEqual inlined: check if vertices are within tolerance
 						if ( fabsf( vertex.x - other.x ) <= tolerance && fabsf( vertex.y - other.y ) <= tolerance &&
@@ -481,16 +489,18 @@ typedef struct b3WeldData
 
 	int vertexCount;
 	int indexCount;
+	size_t stride;
 } b3WeldData;
 
 static int b3WeldVertices( b3WeldData* data, float tolerance )
 {
 	int vertexCount = data->vertexCount;
 	int uniqueCount = 0;
+	size_t stride = data->stride;
 
 	// Create spatial hash and find duplicates
 	b3SpatialHash spatialHash;
-	b3SpatialHash_Create( &spatialHash, data->srcVertices, vertexCount, tolerance );
+	b3CreateSpatialHash( &spatialHash, data->srcVertices, vertexCount, stride, tolerance );
 	b3Array( int ) vertexMapping = { 0 };
 	b3Array_Resize( vertexMapping, vertexCount );
 
@@ -502,7 +512,7 @@ static int b3WeldVertices( b3WeldData* data, float tolerance )
 		{
 			// New unique vertex
 			vertexMapping.data[i] = uniqueCount;
-			data->dstVertices[uniqueCount] = data->srcVertices[i];
+			data->dstVertices[uniqueCount] = b3GetStridedVertex( data->srcVertices, i, stride );
 			uniqueCount += 1;
 		}
 		else
@@ -517,11 +527,11 @@ static int b3WeldVertices( b3WeldData* data, float tolerance )
 	for ( int i = 0; i < indexCount; ++i )
 	{
 		int srcIndex = data->srcIndices[i];
-		B3_ASSERT( srcIndex < vertexCount );
+		B3_ASSERT( 0 <= srcIndex && srcIndex < vertexCount );
 		data->dstIndices[i] = vertexMapping.data[srcIndex];
 	}
 
-	b3SpatialHash_Destroy( &spatialHash );
+	b3DestroySpatialHash( &spatialHash );
 	b3Array_Destroy( vertexMapping );
 
 	return uniqueCount;
@@ -1555,9 +1565,36 @@ b3MeshData* b3CreatePlatformMesh( b3Vec3 center, float height, float topWidth, f
 	return b3CreateMesh( &def, NULL, 0 );
 }
 
+static void b3CopyVerticesWithStride( b3Vec3* dst, const b3Vec3* src, int count, size_t stride )
+{
+	if ( stride == sizeof( b3Vec3 ) )
+	{
+		memcpy( dst, src, count * sizeof( b3Vec3 ) );
+		return;
+	}
+
+	for ( int i = 0; i < count; ++i )
+	{
+		dst[i] = *(const b3Vec3*)( (const uint8_t*)src + i * stride );
+	}
+}
+
+// Stride larger than this likely indicates stride is uninitialized memory.
+#define B3_MAX_STRIDE 4096
+
 // todo this should fail if the mesh has a height greater than B3_MESH_STACK_SIZE
 b3MeshData* b3CreateMesh( const b3MeshDef* def, int* degenerateTriangleIndices, int degenerateCapacity )
 {
+	if ( def->stride != 0 && ( def->stride < sizeof( b3Vec3 ) || B3_MAX_STRIDE < def->stride ) )
+	{
+		return NULL;
+	}
+
+	if ( ( def->stride & 3 ) != 0 )
+	{
+		return NULL;
+	}
+
 	if ( def->vertexCount < 3 || def->vertices == NULL || def->triangleCount <= 0 || def->indices == NULL )
 	{
 		return NULL;
@@ -1570,6 +1607,7 @@ b3MeshData* b3CreateMesh( const b3MeshDef* def, int* degenerateTriangleIndices, 
 	}
 
 	int vertexCount = def->vertexCount;
+	size_t stride = def->stride == 0 ? sizeof( b3Vec3 ) : def->stride;
 
 	b3AABB meshBounds = B3_BOUNDS3_EMPTY;
 
@@ -1584,6 +1622,7 @@ b3MeshData* b3CreateMesh( const b3MeshDef* def, int* degenerateTriangleIndices, 
 	{
 		b3Array_Resize( vertices, vertexCount );
 		b3Array_Resize( indices, 3 * triangleCount );
+
 		b3WeldData data = {
 			.srcVertices = def->vertices,
 			.srcIndices = def->indices,
@@ -1591,14 +1630,17 @@ b3MeshData* b3CreateMesh( const b3MeshDef* def, int* degenerateTriangleIndices, 
 			.dstIndices = indices.data,
 			.vertexCount = vertexCount,
 			.indexCount = 3 * triangleCount,
+			.stride = stride,
 		};
+
 		vertices.count = b3WeldVertices( &data, def->weldTolerance );
 		vertexCount = vertices.count;
 		B3_ASSERT( vertexCount <= def->vertexCount );
 	}
 	else
 	{
-		b3Array_Append( vertices, def->vertices, vertexCount );
+		vertices.count = vertexCount;
+		b3CopyVerticesWithStride( vertices.data, def->vertices, vertexCount, stride );
 		b3Array_Append( indices, def->indices, 3 * triangleCount );
 	}
 
@@ -1608,12 +1650,17 @@ b3MeshData* b3CreateMesh( const b3MeshDef* def, int* degenerateTriangleIndices, 
 	float minArea = 0.01f * B3_LINEAR_SLOP * B3_LINEAR_SLOP;
 	float surfaceArea = 0.0f;
 	int materialCount = 1;
+	bool clockWise = def->clockWiseWinding;
 
 	for ( int index = 0; index < triangleCount; ++index )
 	{
 		int index1 = indices.data[3 * index + 0];
 		int index2 = indices.data[3 * index + 1];
 		int index3 = indices.data[3 * index + 2];
+
+		B3_ASSERT( 0 <= index1 && index1 < vertexCount );
+		B3_ASSERT( 0 <= index2 && index2 < vertexCount );
+		B3_ASSERT( 0 <= index3 && index3 < vertexCount );
 
 		b3Vec3 vertex1 = vertices.data[index1];
 		b3Vec3 vertex2 = vertices.data[index2];
@@ -1628,11 +1675,12 @@ b3MeshData* b3CreateMesh( const b3MeshDef* def, int* degenerateTriangleIndices, 
 
 			if ( index1 != index2 && index1 != index3 && index2 != index3 )
 			{
-				degenerateCount += 1;
 				if ( degenerateTriangleIndices != NULL && degenerateCount < degenerateCapacity )
 				{
-					degenerateTriangleIndices[degenerateCount - 1] = index;
+					degenerateTriangleIndices[degenerateCount] = index;
 				}
+
+				degenerateCount += 1;
 			}
 
 			continue;
@@ -1641,8 +1689,8 @@ b3MeshData* b3CreateMesh( const b3MeshDef* def, int* degenerateTriangleIndices, 
 		surfaceArea += area;
 
 		b3AABB box = {
-			b3Min( vertex1, b3Min( vertex2, vertex3 ) ),
-			b3Max( vertex1, b3Max( vertex2, vertex3 ) ),
+			.lowerBound = b3Min( vertex1, b3Min( vertex2, vertex3 ) ),
+			.upperBound = b3Max( vertex1, b3Max( vertex2, vertex3 ) ),
 		};
 
 		b3Vec3 center = b3AABB_Center( box );
@@ -1668,6 +1716,8 @@ b3MeshData* b3CreateMesh( const b3MeshDef* def, int* degenerateTriangleIndices, 
 	if ( b3IsSaneAABB( meshBounds ) == false )
 	{
 		b3Array_Destroy( primitives );
+		b3Array_Destroy( indices );
+		b3Array_Destroy( vertices );
 		return NULL;
 	}
 
@@ -1724,9 +1774,18 @@ b3MeshData* b3CreateMesh( const b3MeshDef* def, int* degenerateTriangleIndices, 
 	for ( int index = 0; index < triangleCount; ++index )
 	{
 		b3Primitive primitive = primitives.data[index];
-		triangles[index].index1 = indices.data[3 * primitive.triangleIndex + 0];
-		triangles[index].index2 = indices.data[3 * primitive.triangleIndex + 1];
-		triangles[index].index3 = indices.data[3 * primitive.triangleIndex + 2];
+
+		int i1 = 3 * primitive.triangleIndex + 0;
+		int i2 = 3 * primitive.triangleIndex + 1;
+		int i3 = 3 * primitive.triangleIndex + 2;
+		if ( clockWise )
+		{
+			B3_SWAP( i2, i3 );
+		}
+
+		triangles[index].index1 = indices.data[i1];
+		triangles[index].index2 = indices.data[i2];
+		triangles[index].index3 = indices.data[i3];
 		flags[index] = 0;
 
 		// Copy material indices if they exist. Otherwise the material indices are all zeroes.
@@ -1745,6 +1804,9 @@ b3MeshData* b3CreateMesh( const b3MeshDef* def, int* degenerateTriangleIndices, 
 	{
 		b3Array_Destroy( tempNodes );
 		b3Array_Destroy( primitives );
+		b3Array_Destroy( indices );
+		b3Array_Destroy( vertices );
+		b3Free( mesh, byteCount );
 		return NULL;
 	}
 
@@ -1762,7 +1824,7 @@ b3MeshData* b3CreateMesh( const b3MeshDef* def, int* degenerateTriangleIndices, 
 	b3Array_Destroy( vertices );
 
 	mesh->hash = 0;
-	mesh->hash = b3Hash64NonZero((uint8_t*)mesh, mesh->byteCount );
+	mesh->hash = b3Hash64NonZero( (uint8_t*)mesh, mesh->byteCount );
 
 	return mesh;
 }
@@ -1896,7 +1958,7 @@ b3CastOutput b3RayCastMesh( const b3Mesh* mesh, const b3RayCastInput* input )
 
 	b3V32 scale = b3LoadV( &meshScale.x );
 	b3V32 invScale = b3DivV( b3_oneV, scale );
-	bool clockwise = meshScale.x * meshScale.y * meshScale.z < 0.0f;
+	bool ccw = meshScale.x * meshScale.y * meshScale.z > 0.0f;
 
 	// Use the inverse scaled ray for traversal of the BVH
 	b3V32 invScaledRayStart = b3MulV( invScale, rayStart );
@@ -1936,15 +1998,15 @@ b3CastOutput b3RayCastMesh( const b3Mesh* mesh, const b3RayCastInput* input )
 					b3Vec3 vertex2, vertex3;
 
 					// The CPU should predict this branch
-					if ( clockwise )
-					{
-						vertex2 = b3Mul( meshScale, vertices[triangle.index3] );
-						vertex3 = b3Mul( meshScale, vertices[triangle.index2] );
-					}
-					else
+					if ( ccw )
 					{
 						vertex2 = b3Mul( meshScale, vertices[triangle.index2] );
 						vertex3 = b3Mul( meshScale, vertices[triangle.index3] );
+					}
+					else
+					{
+						vertex2 = b3Mul( meshScale, vertices[triangle.index3] );
+						vertex3 = b3Mul( meshScale, vertices[triangle.index2] );
 					}
 
 					// Collide ray with triangle in scaled space
@@ -2030,7 +2092,7 @@ b3CastOutput b3ShapeCastMesh( const b3Mesh* mesh, const b3ShapeCastInput* input 
 	b3V32 scale = b3LoadV( &meshScale.x );
 	b3V32 invScale = b3DivV( b3_oneV, scale );
 	b3V32 absInvScale = b3AbsV( invScale );
-	bool clockwise = meshScale.x * meshScale.y * meshScale.z < 0.0f;
+	bool ccw = meshScale.x * meshScale.y * meshScale.z > 0.0f;
 
 	// Use the inverse scaled shape cast for traversal of the BVH
 	b3V32 invScaledRayStart = b3MulV( invScale, rayStart );
@@ -2067,20 +2129,20 @@ b3CastOutput b3ShapeCastMesh( const b3Mesh* mesh, const b3ShapeCastInput* input 
 					int triangleIndex = triangleOffset + index;
 					b3MeshTriangle triangle = triangles[triangleIndex];
 
-					// Collide ray with triangle in scaled space
+					// Collide shape with triangle in scaled space
 					b3Vec3 vertex1 = b3Mul( meshScale, vertices[triangle.index1] );
 					b3Vec3 vertex2, vertex3;
 
 					// The CPU should predict this branch
-					if ( clockwise )
-					{
-						vertex2 = b3Mul( meshScale, vertices[triangle.index3] );
-						vertex3 = b3Mul( meshScale, vertices[triangle.index2] );
-					}
-					else
+					if ( ccw )
 					{
 						vertex2 = b3Mul( meshScale, vertices[triangle.index2] );
 						vertex3 = b3Mul( meshScale, vertices[triangle.index3] );
+					}
+					else
+					{
+						vertex2 = b3Mul( meshScale, vertices[triangle.index3] );
+						vertex3 = b3Mul( meshScale, vertices[triangle.index2] );
 					}
 
 					b3V32 v1 = b3LoadV( &vertex1.x );
@@ -2090,43 +2152,54 @@ b3CastOutput b3ShapeCastMesh( const b3Mesh* mesh, const b3ShapeCastInput* input 
 					b3V32 triangleMin = b3SubV( b3MinV( v1, b3MinV( v2, v3 ) ), shapeExtent );
 					b3V32 triangleMax = b3AddV( b3MaxV( v1, b3MaxV( v2, v3 ) ), shapeExtent );
 
-					// Test triangle-ray overlap in scaled space
-					if ( b3TestBoundsOverlap( triangleMin, triangleMax, rayMin, rayMax ) )
+					// Test extended triangle vs ray bounds overlap in scaled space. Skip edge tests.
+					bool overlap = b3TestBoundsOverlap( triangleMin, triangleMax, rayMin, rayMax );
+					if (overlap == false)
 					{
-						// Collide shape with triangle in scaled space
-						b3Vec3 origin = vertex1;
-						b3Vec3 triangleVertices[] = { b3Vec3_zero, b3Sub( vertex2, origin ), b3Sub( vertex3, origin ) };
-						b3Transform shiftedOrigin = { b3Neg( origin ), b3Quat_identity };
+						continue;
+					}
 
-						b3ShapeCastPairInput pairInput;
-						pairInput.proxyA = (b3ShapeProxy){ triangleVertices, 3, 0.0f };
-						pairInput.proxyB = input->proxy;
-						pairInput.transform = shiftedOrigin;
-						pairInput.maxFraction = bestOutput.fraction;
-						pairInput.translationB = input->translation;
-						pairInput.canEncroach = input->canEncroach;
+					// This test is in scaled space. vertices and center are scaled.
+					float signedVolume = b3SignedVolume( vertex1, vertex2, vertex3, center );
+					if ( signedVolume < 0.0f )
+					{
+						// Backside
+						continue;
+					}
 
-						b3CastOutput pairOutput = b3ShapeCast( &pairInput );
+					// Collide shape with triangle in scaled space.
+					b3Vec3 origin = vertex1;
+					b3Vec3 triangleVertices[] = { b3Vec3_zero, b3Sub( vertex2, origin ), b3Sub( vertex3, origin ) };
+					b3Transform shiftedOrigin = { b3Neg( origin ), b3Quat_identity };
 
-						if ( pairOutput.hit )
-						{
-							pairOutput.point = b3Add( pairOutput.point, origin );
+					b3ShapeCastPairInput pairInput;
+					pairInput.proxyA = (b3ShapeProxy){ triangleVertices, 3, 0.0f };
+					pairInput.proxyB = input->proxy;
+					pairInput.transform = shiftedOrigin;
+					pairInput.maxFraction = bestOutput.fraction;
+					pairInput.translationB = input->translation;
+					pairInput.canEncroach = input->canEncroach;
 
-							bestOutput = pairOutput;
-							bestOutput.triangleIndex = triangleIndex;
-							bestOutput.materialIndex = materialIndices[triangleIndex];
+					b3CastOutput pairOutput = b3ShapeCast( &pairInput );
 
-							// Update ray bounds in scaled space
-							lambda = b3SplatV( pairOutput.fraction );
-							rayEnd = b3AddV( rayStart, b3MulV( lambda, rayDelta ) );
-							rayMin = b3MinV( rayStart, rayEnd );
-							rayMax = b3MaxV( rayStart, rayEnd );
+					if ( pairOutput.hit )
+					{
+						pairOutput.point = b3Add( pairOutput.point, origin );
 
-							// Ray bounds in unscaled space
-							invScaledRayEnd = b3AddV( invScaledRayStart, b3MulV( lambda, invScaledRayDelta ) );
-							invScaledRayMin = b3MinV( invScaledRayStart, invScaledRayEnd );
-							invScaledRayMax = b3MaxV( invScaledRayStart, invScaledRayEnd );
-						}
+						bestOutput = pairOutput;
+						bestOutput.triangleIndex = triangleIndex;
+						bestOutput.materialIndex = materialIndices[triangleIndex];
+
+						// Update ray bounds in scaled space
+						lambda = b3SplatV( pairOutput.fraction );
+						rayEnd = b3AddV( rayStart, b3MulV( lambda, rayDelta ) );
+						rayMin = b3MinV( rayStart, rayEnd );
+						rayMax = b3MaxV( rayStart, rayEnd );
+
+						// Ray bounds in unscaled space
+						invScaledRayEnd = b3AddV( invScaledRayStart, b3MulV( lambda, invScaledRayDelta ) );
+						invScaledRayMin = b3MinV( invScaledRayStart, invScaledRayEnd );
+						invScaledRayMax = b3MaxV( invScaledRayStart, invScaledRayEnd );
 					}
 				}
 			}
@@ -2219,7 +2292,7 @@ int b3CollideMoverAndMesh( b3PlaneResult* planes, int capacity, const b3Mesh* sh
 
 	b3SimplexCache cache = { 0 };
 	float radius = mover->radius;
-
+	b3Vec3 center = b3Lerp( mover->center1, mover->center2, 0.5f );
 	b3V32 center1 = b3LoadV( &mover->center1.x );
 	b3V32 center2 = b3LoadV( &mover->center2.x );
 	b3V32 r = b3SplatV( radius );
@@ -2228,6 +2301,7 @@ int b3CollideMoverAndMesh( b3PlaneResult* planes, int capacity, const b3Mesh* sh
 
 	// Scale may have reflection so min/max may become invalid when unscaled
 	b3Vec3 meshScale = shape->scale;
+	bool ccw = meshScale.x * meshScale.y * meshScale.z > 0.0f;
 	b3V32 scale = b3LoadV( &meshScale.x );
 	b3V32 invScale = b3DivV( b3_oneV, scale );
 	b3V32 temp1 = b3MulV( invScale, boundsMin );
@@ -2242,6 +2316,7 @@ int b3CollideMoverAndMesh( b3PlaneResult* planes, int capacity, const b3Mesh* sh
 	const b3MeshNode* node = b3GetRoot( shape->data );
 	const b3MeshTriangle* triangles = b3GetMeshTriangles( shape->data );
 	const b3Vec3* vertices = b3GetMeshVertices( shape->data );
+	const uint8_t* materialIndices = b3GetMeshMaterialIndices( shape->data );
 
 	int planeCount = 0;
 	while ( planeCount < capacity )
@@ -2264,6 +2339,12 @@ int b3CollideMoverAndMesh( b3PlaneResult* planes, int capacity, const b3Mesh* sh
 					b3Vec3 vertex1 = vertices[triangle.index1];
 					b3Vec3 vertex2 = vertices[triangle.index2];
 					b3Vec3 vertex3 = vertices[triangle.index3];
+
+					if ( ccw == false )
+					{
+						B3_SWAP( vertex2, vertex3 );
+					}
+
 					b3V32 v1 = b3LoadV( &vertex1.x );
 					b3V32 v2 = b3LoadV( &vertex2.x );
 					b3V32 v3 = b3LoadV( &vertex3.x );
@@ -2271,10 +2352,19 @@ int b3CollideMoverAndMesh( b3PlaneResult* planes, int capacity, const b3Mesh* sh
 					// Test triangle bounds overlap in unscaled space
 					if ( b3TestBoundsTriangleOverlap( invScaledBoundsCenter, invScaledBoundsExtent, v1, v2, v3 ) )
 					{
-						// Compute shape distance in scaled space. Winding order doesn't matter.
-						// todo implement one-sided collision?
+						// Compute shape distance in scaled space.
 						b3Vec3 triangleVertices[] = { b3Mul( meshScale, vertex1 ), b3Mul( meshScale, vertex2 ),
 													  b3Mul( meshScale, vertex3 ) };
+
+						// Vertices and center are in scaled space.
+						float signedVolume =
+							b3SignedVolume( triangleVertices[0], triangleVertices[1], triangleVertices[2], center );
+						if ( signedVolume < 0.0f )
+						{
+							// Backside
+							continue;
+						}
+
 						distanceInput.proxyA = (b3ShapeProxy){ triangleVertices, 3, 0.0f };
 
 						// reset the cache
@@ -2285,12 +2375,13 @@ int b3CollideMoverAndMesh( b3PlaneResult* planes, int capacity, const b3Mesh* sh
 
 						if ( distanceOutput.distance == 0.0f )
 						{
-							// todo SAT
+							// deep overlap
 						}
 						else if ( distanceOutput.distance <= mover->radius )
 						{
 							b3Plane plane = { distanceOutput.normal, mover->radius - distanceOutput.distance };
-							planes[planeCount] = (b3PlaneResult){ plane, distanceOutput.pointA };
+							planes[planeCount] =
+								(b3PlaneResult){ plane, distanceOutput.pointA, triangleIndex, 0, materialIndices[triangleIndex] };
 							planeCount += 1;
 
 							if ( planeCount == capacity )
@@ -2325,7 +2416,7 @@ int b3CollideMoverAndMesh( b3PlaneResult* planes, int capacity, const b3Mesh* sh
 void b3QueryMesh( const b3Mesh* mesh, b3AABB bounds, b3MeshQueryFcn* fcn, void* context )
 {
 	b3Vec3 meshScale = mesh->scale;
-	bool clockwise = meshScale.x * meshScale.y * meshScale.z > 0.0f;
+	bool ccw = meshScale.x * meshScale.y * meshScale.z > 0.0f;
 
 	// Scale may have reflection so min/max may become invalid when unscaled
 	b3V32 scale = b3LoadV( &meshScale.x );
@@ -2370,13 +2461,13 @@ void b3QueryMesh( const b3Mesh* mesh, b3AABB bounds, b3MeshQueryFcn* fcn, void* 
 					b3V32 v2 = b3LoadV( &vertex2.x );
 					b3V32 v3 = b3LoadV( &vertex3.x );
 
-					// Perform triangle overlap test in unscaled space. Winding order doesn't matter.
+					// Perform triangle overlap test in unscaled space.
 					// todo it is possible that some margins are getting scaled
 					if ( b3TestBoundsTriangleOverlap( invScaledBoundsCenter, invScaledBoundsExtent, v1, v2, v3 ) )
 					{
 						b3Vec3 a = b3Mul( meshScale, vertex1 );
 						b3Vec3 b, c;
-						if ( clockwise )
+						if ( ccw )
 						{
 							b = b3Mul( meshScale, vertex2 );
 							c = b3Mul( meshScale, vertex3 );

@@ -62,3 +62,6 @@ godot/demo/.godot/
 # compare/README.md). Removed automatically after each run; ignored so a stray
 # one can never be committed and alter the demo's physics backend.
 godot/demo/override.cfg
+
+# upstream sync 2026-09-18
+*.zip

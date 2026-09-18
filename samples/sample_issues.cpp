@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Erin Catto
+// SPDX-FileCopyrightText: 2026 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #include "gfx/draw.h"
@@ -1302,3 +1302,211 @@ public:
 
 static int sampleSlideTwistOffCenterShape =
 	RegisterSample( "Issues", "Slide Twist Off Center Shape", SlideTwistOffCenterShape::Create );
+
+// Very large dynamic bodies have overflow when computing the inertia tensor.
+class HugeBox : public Sample
+{
+public:
+	explicit HugeBox( SampleContext* context )
+		: Sample( context )
+	{
+		if ( context->restart == false )
+		{
+			m_camera->SetView( 0.0f, 25.0f, 10.0f, b3Pos_zero );
+		}
+
+		AddGroundBox( 400.0f );
+
+		{
+			float a = 100.0f;
+
+			b3BoxHull cube = b3MakeCubeHull( a );
+			b3BodyDef bodyDef = b3DefaultBodyDef();
+			bodyDef.name = "cube";
+			bodyDef.type = b3_dynamicBody;
+			bodyDef.position = { 0.0f, a, 0.0f };
+			bodyDef.rotation = b3MakeQuatFromAxisAngle( { 0.0f, 0.0f, 1.0f }, 0.2f );
+			m_bodyId = b3CreateBody( m_worldId, &bodyDef );
+
+			b3ShapeDef shapeDef = b3DefaultShapeDef();
+			b3CreateHullShape( m_bodyId, &shapeDef, &cube.base );
+		}
+	}
+
+	static Sample* Create( SampleContext* context )
+	{
+		return new HugeBox( context );
+	}
+
+	b3BodyId m_bodyId;
+};
+
+static int sampleHugeBox = RegisterSample( "Issues", "Huge Box", HugeBox::Create );
+
+// This demonstrates this cap on mesh complexity. B3_MAX_MESH_CONTACT_TRIANGLES
+// It generates this warning:
+// Box3D: WARNING: complex mesh detected, triangle buffer capacity of 256 reached
+class HeightfieldIssue : public Sample
+{
+public:
+	explicit HeightfieldIssue( SampleContext* context )
+		: Sample( context )
+	{
+		if ( context->restart == false )
+		{
+			m_camera->SetView( -90.0f, 5.0f, 50.0f, { 50.0f, 10.0f, 50.0f } );
+		}
+
+		b3ShapeDef shapeDef = b3DefaultShapeDef();
+		b3BodyDef bodyDef = b3DefaultBodyDef();
+
+		m_heightField = b3CreateGrid( 100, 100, { 1, 1, 1 }, false );
+		b3BodyId groundId = b3CreateBody( m_worldId, &bodyDef );
+		b3CreateHeightFieldShape( groundId, &shapeDef, m_heightField );
+
+		b3HullData* hull = b3CreateCylinder( 20, 5, -10, 24 );
+		bodyDef.type = b3_dynamicBody;
+		bodyDef.position = { 50, 20, 50 };
+		bodyDef.rotation = b3MakeQuatFromAxisAngle( b3Vec3_axisX, B3_PI / 4 );
+		b3BodyId bodyId = b3CreateBody( m_worldId, &bodyDef );
+		b3CreateHullShape( bodyId, &shapeDef, hull );
+		b3DestroyHull( hull );
+	}
+
+	~HeightfieldIssue() override
+	{
+		b3DestroyHeightField( m_heightField );
+	}
+
+	static Sample* Create( SampleContext* context )
+	{
+		return new HeightfieldIssue( context );
+	}
+
+	b3HeightFieldData* m_heightField;
+};
+static int sampleIssueIndex = RegisterSample( "Issues", "Heightfield", HeightfieldIssue::Create );
+
+// Issue #135: the quasi static push out idiom, zero the velocity then step, drives a deeply
+// overlapping body out through a thin static wall instead of back into the room. The solver
+// resolves along the shallow exit, so once the mover center crosses the wall mid plane every
+// step compounds the error outward. Interior is -x, exterior is +x. The wire box marks where
+// a mover resting flush against the interior face belongs.
+// This is NOT a bug. This is just how the separating axis works. I'm keeping this sample
+// in case there is further discussion.
+class ThinWallPushOut : public Sample
+{
+public:
+	static constexpr float m_wallHalfThickness = 0.1f;
+	static constexpr float m_wallHalfHeight = 1.5f;
+	static constexpr float m_moverHalfExtent = 0.5f;
+	static constexpr float m_tolerance = 0.01f;
+
+	explicit ThinWallPushOut( SampleContext* context )
+		: Sample( context )
+	{
+		if ( context->restart == false )
+		{
+			m_camera->SetView( 20.0f, 15.0f, 6.0f, { 0.0f, m_wallHalfHeight, 0.0f } );
+		}
+
+		// Furniture is dragged into place, never dropped
+		b3World_SetGravity( m_worldId, b3Vec3_zero );
+
+		AddGroundBox( 20.0f );
+
+		b3ShapeDef shapeDef = b3DefaultShapeDef();
+		b3BodyDef bodyDef = b3DefaultBodyDef();
+
+		bodyDef.name = "wall";
+		bodyDef.position = { 0.0f, m_wallHalfHeight, 0.0f };
+		b3BodyId wallId = b3CreateBody( m_worldId, &bodyDef );
+
+		b3BoxHull wall = b3MakeBoxHull( m_wallHalfThickness, m_wallHalfHeight, 2.0f );
+		b3CreateHullShape( wallId, &shapeDef, &wall.base );
+
+		bodyDef.name = "mover";
+		bodyDef.type = b3_dynamicBody;
+		bodyDef.position = { m_startX, m_wallHalfHeight, 0.0f };
+
+		// Velocity is zeroed every step, so without this the mover falls asleep on the first one
+		bodyDef.enableSleep = false;
+
+		// A room planner slides items on the floor plane and yaws them to face a wall
+		bodyDef.motionLocks = { false, true, false, true, false, true };
+		m_moverId = b3CreateBody( m_worldId, &bodyDef );
+
+		b3BoxHull mover = b3MakeBoxHull( m_moverHalfExtent, m_moverHalfExtent, m_moverHalfExtent );
+		shapeDef.baseMaterial.friction = 0.0f;
+		b3CreateHullShape( m_moverId, &shapeDef, &mover.base );
+	}
+
+	void PlaceMover()
+	{
+		b3Body_SetTransform( m_moverId, { m_startX, m_wallHalfHeight, 0.0f }, b3Quat_identity );
+		b3Body_SetLinearVelocity( m_moverId, b3Vec3_zero );
+		b3Body_SetAngularVelocity( m_moverId, b3Vec3_zero );
+	}
+
+	bool DrawControls() override
+	{
+		ImGui::PushItemWidth( 6.0f * ImGui::GetFontSize() );
+
+		// Anywhere past the wall mid plane tunnels out, even while the near face is far deeper
+		bool changed = ImGui::SliderFloat( "Start X", &m_startX, -0.6f, 0.6f, "%.2f" );
+		changed = changed || ImGui::Button( "Reset Mover" );
+
+		if ( changed )
+		{
+			PlaceMover();
+		}
+
+		ImGui::PopItemWidth();
+		return true;
+	}
+
+	void Step() override
+	{
+		// The reported idiom. Zeroing the velocity leaves the penetration correction as the
+		// only thing that can move the body.
+		b3Body_SetLinearVelocity( m_moverId, b3Vec3_zero );
+		b3Body_SetAngularVelocity( m_moverId, b3Vec3_zero );
+
+		Sample::Step();
+
+		float interiorRestX = -m_wallHalfThickness - m_moverHalfExtent;
+		float exteriorRestX = m_wallHalfThickness + m_moverHalfExtent;
+
+		b3Vec3 lower = { interiorRestX - m_moverHalfExtent, m_wallHalfHeight - m_moverHalfExtent, -m_moverHalfExtent };
+		b3Vec3 upper = { interiorRestX + m_moverHalfExtent, m_wallHalfHeight + m_moverHalfExtent, m_moverHalfExtent };
+		DrawAabb( lower, upper, MakeColor( b3_colorLime ) );
+
+		float x = (float)b3Body_GetPosition( m_moverId ).x;
+		DrawTextLine( "start x         = %.3f m", m_startX );
+		DrawTextLine( "current x       = %.3f m", x );
+		DrawTextLine( "interior rest x = %.3f m", interiorRestX );
+
+		if ( b3AbsFloat( x - exteriorRestX ) < m_tolerance )
+		{
+			DrawTextLine( "FAIL: mover pushed out of the room" );
+		}
+		else if ( b3AbsFloat( x - interiorRestX ) < m_tolerance )
+		{
+			DrawTextLine( "PASS: mover pushed back into the room" );
+		}
+		else
+		{
+			DrawTextLine( "relaxing ..." );
+		}
+	}
+
+	static Sample* Create( SampleContext* context )
+	{
+		return new ThinWallPushOut( context );
+	}
+
+	b3BodyId m_moverId = {};
+	float m_startX = 0.2f;
+};
+
+static int sampleThinWallPushOut = RegisterSample( "Issues", "Thin Wall Push Out", ThinWallPushOut::Create );

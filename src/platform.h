@@ -8,17 +8,24 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// Software prefetch hint. T0 brings the line into all cache levels.
-// On x86 MSVC exposes _mm_prefetch, ARM MSVC uses __prefetch instead.
-// clang/gcc provide __builtin_prefetch on every target.
-#if defined( B3_COMPILER_MSVC )
+#if defined( _MSC_VER ) && ( defined( _M_ARM ) || defined( _M_ARM64 ) || defined( _M_ARM64EC ) )
 #include <intrin.h>
-#if defined( B3_CPU_X86_X64 )
+#elif defined( _MSC_VER )
+#include <intrin0.h>
+// _MM_HINT_T0 lives here. Prefetch is a platform intrinsic, not part of the SIMD kernel
+// selection, so it has to survive a BOX3D_DISABLE_SIMD build.
+#if defined( _M_X64 ) || defined( _M_IX86 )
+#include <xmmintrin.h>
+#endif
+#endif
+
+#if defined( _MSC_VER )
+#if defined( _M_X64 ) || defined( __x86_64__ ) || defined( _M_IX86 ) || defined( __i386__ )
 #define b3Prefetch( addr ) _mm_prefetch( (const char*)( addr ), _MM_HINT_T0 )
 #else
 #define b3Prefetch( addr ) __prefetch( (const void*)( addr ) )
 #endif
-#elif defined( B3_COMPILER_CLANG ) || defined( B3_COMPILER_GCC )
+#elif defined( __GNUC__ ) || defined( __clang__ )
 #define b3Prefetch( addr ) __builtin_prefetch( (const void*)( addr ), 0, 3 )
 #else
 #define b3Prefetch( addr ) ( (void)( addr ) )
@@ -98,6 +105,29 @@ static inline uint32_t b3AtomicLoadU32( b3AtomicU32* a )
 	return value;
 #elif defined( __GNUC__ ) || defined( __clang__ )
 	return __atomic_load_n( &a->value, __ATOMIC_SEQ_CST );
+#else
+#error "Unsupported platform"
+#endif
+}
+
+// Relaxed load on a plain word. Lets a racing reader peek before paying for a read modify write.
+static inline uint32_t b3AtomicLoadU32Raw( uint32_t* a )
+{
+#if defined( _MSC_VER ) && !defined( __clang__ )
+	return (uint32_t)__iso_volatile_load32( (volatile __int32*)a );
+#elif defined( __GNUC__ ) || defined( __clang__ )
+	return __atomic_load_n( a, __ATOMIC_RELAXED );
+#else
+#error "Unsupported platform"
+#endif
+}
+
+static inline uint32_t b3AtomicFetchOrU32( uint32_t* a, uint32_t mask )
+{
+#if defined( _MSC_VER )
+	return (uint32_t)_InterlockedOr( (long*)a, (long)mask );
+#elif defined( __GNUC__ ) || defined( __clang__ )
+	return __atomic_fetch_or( a, mask, __ATOMIC_SEQ_CST );
 #else
 #error "Unsupported platform"
 #endif

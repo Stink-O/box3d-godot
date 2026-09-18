@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 #include "benchmarks.h"
+#include "dynamic_tree.h"
 #include "overflow_color.h"
+#include "physics_world.h"
 #include "test_macros.h"
 
 #include "box3d/box3d.h"
@@ -970,6 +972,122 @@ static int EnableContactRecyclingTest( void )
 	return 0;
 }
 
+static int CountMovedNodes( const b3DynamicTree* tree )
+{
+	int count = 0;
+	for ( int i = 0; i < tree->nodeEnd; ++i )
+	{
+		const b3TreeNode* node = tree->nodes + i;
+		if ( b3IsEmptyNode( node ) == false && b3IsNodeMoved( node ) )
+		{
+			count += 1;
+		}
+	}
+
+	return count;
+}
+
+// A proxy can be enlarged in one step and destroyed before the next, emptying the move buffer.
+// The trees must still be rebuilt or the enlarged nodes survive into the next step. Issue #149.
+static int TestEnlargedProxyDestroyed( void )
+{
+	b3WorldDef worldDef = b3DefaultWorldDef();
+	worldDef.gravity = b3Vec3_zero;
+	b3WorldId worldId = b3CreateWorld( &worldDef );
+
+	b3World* world = b3GetWorldFromId( worldId );
+	const b3DynamicTree* tree = world->broadPhase.trees + b3_dynamicBody;
+
+	b3BodyDef bodyDef = b3DefaultBodyDef();
+	bodyDef.type = b3_dynamicBody;
+
+	b3ShapeDef shapeDef = b3DefaultShapeDef();
+	b3Sphere sphere = { b3Vec3_zero, 0.25f };
+
+	// Resting bodies keep the tree deep enough that the mover has an ancestor that outlives it
+	for ( int i = 0; i < 8; ++i )
+	{
+		bodyDef.position = (b3Pos){ 2.0f * i, 0.0f, 0.0f };
+		b3BodyId restingId = b3CreateBody( worldId, &bodyDef );
+		b3CreateSphereShape( restingId, &shapeDef, &sphere );
+	}
+
+	// This body outruns its AABB margin every step
+	bodyDef.position = (b3Pos){ 7.0f, 1.0f, 0.0f };
+	bodyDef.linearVelocity = (b3Vec3){ 6.0f, 0.0f, 0.0f };
+	b3BodyId moverId = b3CreateBody( worldId, &bodyDef );
+	b3CreateSphereShape( moverId, &shapeDef, &sphere );
+
+	float timeStep = 1.0f / 60.0f;
+	b3World_Step( worldId, timeStep, 4 );
+
+	ENSURE( CountMovedNodes( tree ) > 0 );
+
+	b3DestroyBody( moverId );
+
+	// Removing the leaf re-derives the marks along its path, so the tree is already consistent
+	// here and nothing is left marked to drive a rebuild. What the destroy can still leave
+	// stale is the DFS order the sweep refit needs, so the step has to rebuild regardless.
+	b3DynamicTree_Validate( tree );
+	ENSURE( CountMovedNodes( tree ) == 0 );
+
+	b3World_Step( worldId, timeStep, 4 );
+
+	ENSURE( CountMovedNodes( tree ) == 0 );
+	ENSURE( tree->dfsOrdered );
+
+	b3DestroyWorld( worldId );
+	return 0;
+}
+
+// b3DestroyBody tears shapes down inline instead of going through the shape destroy path, so it
+// needs its own compound census decrement. A leaked count pins the broad-phase on the slow
+// per-candidate compound path for the life of the world and rides along into snapshots.
+static int TestCompoundShapeCount( void )
+{
+	b3WorldDef worldDef = b3DefaultWorldDef();
+	b3WorldId worldId = b3CreateWorld( &worldDef );
+
+	b3World* world = b3GetWorldFromId( worldId );
+	ENSURE( world->compoundShapeCount == 0 );
+
+	b3BoxHull box = b3MakeBoxHull( 1.0f, 1.0f, 1.0f );
+
+	b3CompoundHullDef hull;
+	hull.hull = &box.base;
+	hull.transform = (b3Transform){ b3Vec3_zero, b3Quat_identity };
+	hull.material = b3DefaultSurfaceMaterial();
+
+	b3CompoundDef compoundDef = { 0 };
+	compoundDef.hulls = &hull;
+	compoundDef.hullCount = 1;
+	b3CompoundData* compound = b3CreateCompound( &compoundDef );
+	ENSURE( compound != NULL );
+
+	b3BodyDef bodyDef = b3DefaultBodyDef();
+	bodyDef.type = b3_staticBody;
+	b3ShapeDef shapeDef = b3DefaultShapeDef();
+
+	// Shape destroyed on its own
+	b3BodyId bodyId = b3CreateBody( worldId, &bodyDef );
+	b3ShapeId shapeId = b3CreateBakedCompoundShape( bodyId, &shapeDef, compound );
+	ENSURE( world->compoundShapeCount == 1 );
+	b3DestroyShape( shapeId, true );
+	ENSURE( world->compoundShapeCount == 0 );
+	b3DestroyBody( bodyId );
+
+	// Shape carried away by its body
+	bodyId = b3CreateBody( worldId, &bodyDef );
+	b3CreateBakedCompoundShape( bodyId, &shapeDef, compound );
+	ENSURE( world->compoundShapeCount == 1 );
+	b3DestroyBody( bodyId );
+	ENSURE( world->compoundShapeCount == 0 );
+
+	b3DestroyWorld( worldId );
+	b3DestroyCompound( compound );
+	return 0;
+}
+
 // Identical hull data is shared through a reference counted world database.
 static int TestHullDatabase( void )
 {
@@ -1180,6 +1298,8 @@ int WorldTest( void )
 	RUN_SUBTEST( EnableContactRecyclingTest );
 	RUN_SUBTEST( TestSetWorkerCount );
 	RUN_SUBTEST( TestHullDatabase );
+	RUN_SUBTEST( TestEnlargedProxyDestroyed );
+	RUN_SUBTEST( TestCompoundShapeCount );
 
 	return 0;
 }

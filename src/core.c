@@ -36,6 +36,8 @@
 
 #include <stdio.h>
 
+_Static_assert( B3_MAX_MANIFOLD_POINTS >= 4, "B3_MAX_MANIFOLD_POINTS must be at least 4" );
+
 // This allows the user to change the length units at runtime
 static float b3_lengthUnitsPerMeter = 1.0f;
 
@@ -126,6 +128,11 @@ bool b3IsDoublePrecision( void )
 #else
 	return false;
 #endif
+}
+
+int b3GetMaxManifoldPoints( void )
+{
+	return B3_MAX_MANIFOLD_POINTS;
 }
 
 static b3AllocFcn* b3_allocFcn = NULL;
@@ -223,12 +230,19 @@ void* b3GrowAlloc( void* oldMem, int oldSize, int newSize )
 	return newMem;
 }
 
+void* b3GrowAllocZeroed( void* oldMem, int oldSize, int newSize )
+{
+	void* newMem = b3GrowAlloc( oldMem, oldSize, newSize );
+	memset( (char*)newMem + oldSize, 0, (size_t)( newSize - oldSize ) );
+	return newMem;
+}
+
 int b3GetByteCount( void )
 {
 	return b3AtomicLoadInt( &b3_byteCount );
 }
 
-void* b3AllocZeroed( size_t size )
+void* b3AllocZero( size_t size )
 {
 	void* mem = b3Alloc( size );
 	memset( mem, 0, size );

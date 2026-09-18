@@ -589,8 +589,14 @@ static void b3SolveContinuous( b3World* world, int bodySimIndex, b3TaskContext* 
 				b3Vec3 aabbMargin = { marginScalar, marginScalar, marginScalar };
 				shape->fatAABB = (b3AABB){ b3Sub( aabb.lowerBound, aabbMargin ), b3Add( aabb.upperBound, aabbMargin ) };
 
-				shape->flags |= b3_enlargedAABB;
 				fastBodySim->flags |= b3_enlargeBounds;
+
+				// Regular bodies mark the hierarchy as moved using atomic operations.
+				// Bullets are handled separately at a later stage.
+				if ( isBullet == false )
+				{
+					b3BroadPhase_MarkProxyMoved( &world->broadPhase, shape->proxyKey, shape->fatAABB );
+				}
 			}
 
 			shapeId = shape->nextShapeId;
@@ -621,8 +627,12 @@ static void b3SolveContinuous( b3World* world, int bodySimIndex, b3TaskContext* 
 					.upperBound = b3Add( shape->aabb.upperBound, aabbMargin ),
 				};
 
-				shape->flags |= b3_enlargedAABB;
 				fastBodySim->flags |= b3_enlargeBounds;
+
+				if ( isBullet == false )
+				{
+					b3BroadPhase_MarkProxyMoved( &world->broadPhase, shape->proxyKey, shape->fatAABB );
+				}
 			}
 
 			shapeId = shape->nextShapeId;
@@ -680,7 +690,6 @@ static void b3FinalizeBodiesTask( int startIndex, int endIndex, int workerIndex,
 	b3BodyMoveEvent* moveEvents = world->bodyMoveEvents.data;
 
 	b3TaskContext* taskContext = world->taskContexts.data + workerIndex;
-	b3BitSet* enlargedSimBitSet = &taskContext->enlargedSimBitSet;
 	b3BitSet* awakeIslandBitSet = &taskContext->awakeIslandBitSet;
 
 	const float speculativeScalar = B3_SPECULATIVE_DISTANCE;
@@ -756,11 +765,11 @@ static void b3FinalizeBodiesTask( int startIndex, int endIndex, int workerIndex,
 			// Body is not sleepy
 			body->sleepTime = 0.0f;
 
-			const float safetyFactor = 0.5f;
+			float safetyFactor = body->safetyFactor;
 			float maxMotion = b3MaxFloat( maxDeltaPosition, maxVelocity * timeStep );
 			if ( body->type == b3_dynamicBody && enableContinuous && maxMotion > safetyFactor * sim->minExtent )
 			{
-				// This flag is only retained for debug draw
+				// This flag is used for debug draw and contact recycling.
 				sim->flags |= b3_isFast;
 
 				// Store in fast array for the continuous collision stage
@@ -817,42 +826,31 @@ static void b3FinalizeBodiesTask( int startIndex, int endIndex, int workerIndex,
 		}
 
 		// Update shapes AABBs
-		b3WorldTransform transform = sim->transform;
-		bool isFast = ( sim->flags & b3_isFast ) != 0;
-		int shapeId = body->headShapeId;
-		while ( shapeId != B3_NULL_INDEX )
+		// For fast non-bullet bodies the AABB has already been updated in b3SolveContinuous
+		// For fast bullet bodies the AABB will be updated at a later stage
+		if ( ( sim->flags & b3_isFast ) == 0 )
 		{
-			b3Shape* shape = b3Array_Get( world->shapes, shapeId );
-
-			if ( isFast )
+			b3WorldTransform transform = sim->transform;
+			int shapeId = body->headShapeId;
+			while ( shapeId != B3_NULL_INDEX )
 			{
-				// For fast non-bullet bodies the AABB has already been updated in b3SolveContinuous
-				// For fast bullet bodies the AABB will be updated at a later stage
+				b3Shape* shape = b3Array_Get( world->shapes, shapeId );
 
-				// Add to enlarged shapes regardless of AABB changes.
-				// Bit-set to keep the move array sorted
-				b3SetBit( enlargedSimBitSet, simIndex );
-			}
-			else
-			{
 				b3AABB aabb = b3ComputeFatShapeAABB( shape, transform, speculativeScalar );
 				shape->aabb = aabb;
-
-				B3_ASSERT( ( shape->flags & b3_enlargedAABB ) == 0 );
 
 				if ( b3AABB_Contains( shape->fatAABB, aabb ) == false )
 				{
 					float marginScalar = shape->aabbMargin;
 					b3Vec3 aabbMargin = { marginScalar, marginScalar, marginScalar };
 					shape->fatAABB = (b3AABB){ b3Sub( aabb.lowerBound, aabbMargin ), b3Add( aabb.upperBound, aabbMargin ) };
-					shape->flags |= b3_enlargedAABB;
 
-					// Bit-set to keep the move array sorted
-					b3SetBit( enlargedSimBitSet, simIndex );
+					// Mark the hierarchy as moved using atomic operations.
+					b3BroadPhase_MarkProxyMoved( &world->broadPhase, shape->proxyKey, shape->fatAABB );
 				}
-			}
 
-			shapeId = shape->nextShapeId;
+				shapeId = shape->nextShapeId;
+			}
 		}
 	}
 
@@ -1444,7 +1442,6 @@ void b3Solve( b3World* world, b3StepContext* stepContext )
 	int awakeBodyCount = awakeSet->bodySims.count;
 	if ( awakeBodyCount == 0 )
 	{
-		b3ValidateNoEnlarged( &world->broadPhase );
 		return;
 	}
 
@@ -1871,17 +1868,27 @@ void b3Solve( b3World* world, b3StepContext* stepContext )
 		b3TracyCZoneNC( update_transforms, "Update Transforms", b3_colorMediumSeaGreen, true );
 		uint64_t transformTicks = b3GetTicks();
 
-		// Prepare contact, enlarged body, and island bit sets used in body finalization.
+		// Prepare the island bit set used in body finalization.
 		int awakeIslandCount = awakeSet->islandSims.count;
 		for ( int i = 0; i < world->workerCount; ++i )
 		{
 			b3TaskContext* taskContext = world->taskContexts.data + i;
 			b3Array_Clear( taskContext->sensorHits );
-			b3SetBitCountAndClear( &taskContext->enlargedSimBitSet, awakeBodyCount );
 			b3SetBitCountAndClear( &taskContext->awakeIslandBitSet, awakeIslandCount );
 			taskContext->splitIslandId = B3_NULL_INDEX;
 			taskContext->splitSleepTime = 0.0f;
 		}
+
+		// Finish the user tree task that was queued earlier in the time step. This must be complete before touching the
+		// broad-phase.
+		if ( world->userTreeTask != NULL )
+		{
+			world->finishTaskFcn( world->userTreeTask, world->userTaskContext );
+			world->userTreeTask = NULL;
+			world->activeTaskCount -= 1;
+		}
+
+		b3ValidateNoMoved( &world->broadPhase );
 
 		// Finalize bodies. Must happen after the constraint solver and after island splitting.
 		b3ParallelFor( world, &b3FinalizeBodiesTask, awakeBodyCount, 16, stepContext, "ccd" );
@@ -2074,90 +2081,8 @@ void b3Solve( b3World* world, b3StepContext* stepContext )
 		b3TracyCZoneNC( refit_bvh, "Refit BVH", b3_colorFireBrick, true );
 		uint64_t refitTicks = b3GetTicks();
 
-		// Finish the user tree task that was queued earlier in the time step. This must be complete before touching the
-		// broad-phase.
-		if ( world->userTreeTask != NULL )
-		{
-			world->finishTaskFcn( world->userTreeTask, world->userTaskContext );
-			world->userTreeTask = NULL;
-			world->activeTaskCount -= 1;
-		}
-
-		b3ValidateNoEnlarged( &world->broadPhase );
-
-		// Gather bits for all sim bodies that have enlarged AABBs
-		b3BitSet* enlargedBodyBitSet = &world->taskContexts.data[0].enlargedSimBitSet;
-		for ( int i = 1; i < world->workerCount; ++i )
-		{
-			b3InPlaceUnion( enlargedBodyBitSet, &world->taskContexts.data[i].enlargedSimBitSet );
-		}
-
-		// Enlarge broad-phase proxies and build move array
-		// Apply shape AABB changes to broad-phase. This also create the move array which must be
-		// in deterministic order. I'm tracking sim bodies because the number of shape ids can be huge.
-		// This has to happen before bullets are processed.
-		{
-			b3BroadPhase* broadPhase = &world->broadPhase;
-			uint32_t wordCount = enlargedBodyBitSet->blockCount;
-			uint64_t* bits = enlargedBodyBitSet->bits;
-
-			// Fast array access is important here
-			b3Body* bodyArray = world->bodies.data;
-			b3BodySim* bodySimArray = awakeSet->bodySims.data;
-			b3Shape* shapeArray = world->shapes.data;
-
-			for ( uint32_t k = 0; k < wordCount; ++k )
-			{
-				uint64_t word = bits[k];
-				while ( word != 0 )
-				{
-					uint32_t ctz = b3CTZ64( word );
-					uint32_t bodySimIndex = 64 * k + ctz;
-
-					b3BodySim* bodySim = bodySimArray + bodySimIndex;
-
-					b3Body* body = bodyArray + bodySim->bodyId;
-
-					int shapeId = body->headShapeId;
-					if ( ( bodySim->flags & ( b3_isBullet | b3_isFast ) ) == ( b3_isBullet | b3_isFast ) )
-					{
-						// Fast bullet bodies don't have their final AABB yet
-						while ( shapeId != B3_NULL_INDEX )
-						{
-							b3Shape* shape = shapeArray + shapeId;
-
-							// Shape is fast. It's aabb will be enlarged in continuous collision.
-							// Update the move array here for determinism because bullets are processed
-							// below in non-deterministic order.
-							b3BufferMove( broadPhase, shape->proxyKey );
-
-							shapeId = shape->nextShapeId;
-						}
-					}
-					else
-					{
-						while ( shapeId != B3_NULL_INDEX )
-						{
-							b3Shape* shape = shapeArray + shapeId;
-
-							// The AABB may not have been enlarged, despite the body being flagged as enlarged.
-							// For example, a body with multiple shapes may have not have all shapes enlarged.
-							// A fast body may have been flagged as enlarged despite having no shapes enlarged.
-							if ( shape->flags & b3_enlargedAABB )
-							{
-								b3BroadPhase_EnlargeProxy( broadPhase, shape->proxyKey, shape->fatAABB );
-								shape->flags &= ~b3_enlargedAABB;
-							}
-
-							shapeId = shape->nextShapeId;
-						}
-					}
-
-					// Clear the smallest set bit
-					word = word & ( word - 1 );
-				}
-			}
-		}
+		b3DynamicTree_Refit( world->broadPhase.trees + b3_kinematicBody );
+		b3DynamicTree_Refit( world->broadPhase.trees + b3_dynamicBody );
 
 		b3ValidateBroadPhase( &world->broadPhase );
 
@@ -2208,23 +2133,17 @@ void b3Solve( b3World* world, b3StepContext* stepContext )
 			while ( shapeId != B3_NULL_INDEX )
 			{
 				b3Shape* shape = shapeArray + shapeId;
-				if ( ( shape->flags & b3_enlargedAABB ) == 0 )
-				{
-					shapeId = shape->nextShapeId;
-					continue;
-				}
-
-				// clear flag
-				shape->flags &= ~b3_enlargedAABB;
 
 				int proxyKey = shape->proxyKey;
 				int proxyId = B3_PROXY_ID( proxyKey );
-				B3_ASSERT( B3_PROXY_TYPE( proxyKey ) == b3_dynamicBody );
+				B3_VALIDATE( B3_PROXY_TYPE( proxyKey ) == b3_dynamicBody );
 
-				// all fast bullet shapes should already be in the move buffer
-				B3_ASSERT( b3GetBit( &broadPhase->movedProxies[b3_dynamicBody], proxyId ) );
+				b3AABB treeAABB = b3DynamicTree_GetAABB( dynamicTree, proxyId );
 
-				b3DynamicTree_EnlargeProxy( dynamicTree, proxyId, shape->fatAABB );
+				if ( b3AABB_Contains( treeAABB, shape->fatAABB ) == false )
+				{
+					b3DynamicTree_EnlargeProxy( dynamicTree, proxyId, shape->fatAABB );
+				}
 
 				shapeId = shape->nextShapeId;
 			}

@@ -11,8 +11,6 @@
 
 #include <stdio.h>
 
-// This guards against excessive memory usage and complex collision
-#define B3_MAX_MESH_CONTACT_TRIANGLES 256
 #define B3_MAX_POINTS_PER_TRIANGLE 32
 
 #if B3_ENABLE_VALIDATION
@@ -273,6 +271,8 @@ static inline bool b3AddVertex( b3FoundVertices* vertices, int vertex )
 	return true;
 }
 
+#if B3_MAX_MANIFOLD_POINTS == 4
+
 // Returns true if (score, separation) should replace (bestScore, bestSeparation).
 static inline bool b3IsBetterCullCandidate( float score, float separation, float bestScore, float bestSeparation, float scoreTol,
 											float separationTol )
@@ -289,13 +289,6 @@ static inline bool b3IsBetterCullCandidate( float score, float separation, float
 	// Break the tie using separation
 	return separation < bestSeparation - separationTol;
 }
-
-typedef struct b3Point2D
-{
-	b3Vec2 p;
-	float separation;
-	int originalIndex;
-} b3Point2D;
 
 static int b3CullPoints( b3Point2D* points, int count )
 {
@@ -477,6 +470,8 @@ static int b3CullPoints( b3Point2D* points, int count )
 	return 4;
 }
 
+#endif
+
 static int b3ReduceCluster( b3LocalManifoldPoint* points, int count1, b3Vec3 normal, b3Arena arena )
 {
 	int targetCount = 1;
@@ -498,13 +493,20 @@ static int b3ReduceCluster( b3LocalManifoldPoint* points, int count1, b3Vec3 nor
 		pts[i].originalIndex = i;
 	}
 
+#if B3_MAX_MANIFOLD_POINTS == 4
+	b3Point2D* hull = pts;
 	int count2 = b3CullPoints( pts, count1 );
+#else
+	b3Point2D* hull = b3Bump( &arena, 2 * count1 * sizeof( b3Point2D ) );
+	int hullCount = b3Hull2D( pts, count1, hull );
+	int count2 = b3SimplifyHull2D( hull, hullCount, B3_MAX_MANIFOLD_POINTS );
+#endif
 	B3_ASSERT( count2 <= B3_MAX_MANIFOLD_POINTS );
 
 	b3LocalManifoldPoint finalPoints[B3_MAX_MANIFOLD_POINTS];
 	for ( int i = 0; i < count2; ++i )
 	{
-		int index = pts[i].originalIndex;
+		int index = hull[i].originalIndex;
 		B3_ASSERT( 0 <= index && index < count1 );
 		finalPoints[i] = points[index];
 	}

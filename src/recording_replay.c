@@ -288,6 +288,9 @@ b3PlaneResult b3RecR_PLANERESULT( b3RecReader* rdr )
 	v.plane.normal = b3RecR_VEC3( rdr );
 	v.plane.offset = b3RecR_F32( rdr );
 	v.point = b3RecR_VEC3( rdr );
+	v.triangleIndex = b3RecR_I32( rdr );
+	v.childIndex = b3RecR_I32( rdr );
+	v.materialIndex = b3RecR_I32( rdr );
 	return v;
 }
 
@@ -425,6 +428,7 @@ b3BodyDef b3RecR_BODYDEF( b3RecReader* rdr )
 	def.angularDamping = b3RecR_F32( rdr );
 	def.gravityScale = b3RecR_F32( rdr );
 	def.sleepThreshold = b3RecR_F32( rdr );
+	def.safetyFactor = b3RecR_F32( rdr );
 	def.name = b3RecR_STR( rdr );
 	(void)b3RecR_U64( rdr ); // userData placeholder
 	def.motionLocks = b3RecR_LOCKS( rdr );
@@ -934,6 +938,11 @@ static void b3RecDispatch_BodyEnableSleep( const b3RecArgs_BodyEnableSleep* a, b
 static void b3RecDispatch_BodySetSleepThreshold( const b3RecArgs_BodySetSleepThreshold* a, b3RecReader* rdr )
 {
 	b3Body_SetSleepThreshold( b3RecMakeBodyId( rdr, a->body ), a->threshold );
+}
+
+static void b3RecDispatch_BodySetSafetyFactor( const b3RecArgs_BodySetSafetyFactor* a, b3RecReader* rdr )
+{
+	b3Body_SetSafetyFactor( b3RecMakeBodyId( rdr, a->body ), a->value );
 }
 
 static void b3RecDispatch_BodyDisable( const b3RecArgs_BodyDisable* a, b3RecReader* rdr )
@@ -1801,7 +1810,8 @@ static bool b3RecReplayPlaneTrampoline( b3ShapeId id, const b3PlaneResult* plane
 		const b3RecRecordedHit* h = &rc->hits[rc->cursor + i];
 		if ( b3RecVec3Differs( h->plane.plane.normal, planes[i].plane.normal ) ||
 			 b3RecF32Differs( h->plane.plane.offset, planes[i].plane.offset ) ||
-			 b3RecVec3Differs( h->plane.point, planes[i].point ) )
+			 b3RecVec3Differs( h->plane.point, planes[i].point ) || h->plane.triangleIndex != planes[i].triangleIndex ||
+			 h->plane.childIndex != planes[i].childIndex || h->plane.materialIndex != planes[i].materialIndex )
 		{
 			rc->rdr->diverged = true;
 		}

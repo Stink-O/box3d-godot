@@ -76,6 +76,9 @@ typedef struct b3TaskContext
 	// Collect per thread sensor continuous hit events.
 	b3Array( b3SensorHit ) sensorHits;
 
+	// Broad-phase pairs.
+	b3Array( uint64_t ) pairKeys;
+
 	// These bits align with the b3ConstraintGraph::contactBlocks and signal a change in contact status
 	b3BitSet contactStateBitSet;
 
@@ -87,10 +90,6 @@ typedef struct b3TaskContext
 
 	// Fast-path flag: true when this worker set at least one bit in hitEventBitSet this step.
 	bool hasHitEvents;
-
-	// Used to track bodies with shapes that have enlarged AABBs. This avoids having a bit array
-	// that is very large when there are many static shapes.
-	b3BitSet enlargedSimBitSet;
 
 	// Used to put islands to sleep
 	b3BitSet awakeIslandBitSet;
@@ -176,6 +175,10 @@ typedef struct b3World
 
 	// These are sparse arrays that point into the pools above
 	b3Array( b3Shape ) shapes;
+
+	// Compound shapes are static only, so only the broad-phase static pass can meet one. This
+	// lets a world without compounds skip the shape type read in the pair batch.
+	int compoundShapeCount;
 
 	// Reference counted store of shared hull data keyed by content. Shapes hold a
 	// pointer to the hull stored in the db. Type erased to avoid leaking the verstable map

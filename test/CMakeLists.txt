@@ -11,6 +11,7 @@ set(BOX3D_TEST_FILES
 	test_container.c
     test_determinism.c
     test_distance.c
+    test_dynamic_tree.c
     test_hash.c
     test_height_field.c
     test_hull.c
@@ -20,6 +21,7 @@ set(BOX3D_TEST_FILES
     test_macros.h
     test_manifold.c
     test_math.c
+    test_mesh.c
 	test_mover.c
     test_name_cache.c
     test_recording.c

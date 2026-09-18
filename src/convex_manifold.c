@@ -203,6 +203,10 @@ static b3SeparatingAxis b3QueryEdgeDirectionHullAndCapsule( const b3HullData* hu
 	};
 }
 
+_Static_assert( B3_MAX_MANIFOLD_POINTS >= 4, "must be 4 or more" );
+
+#if B3_MAX_MANIFOLD_POINTS == 4
+
 // Reduce the manifold points to a maximum of 4 points.
 // Note: this modifies the input point array to improve performance
 static void b3ReduceManifoldPoints( b3LocalManifold* manifold, int capacity, b3LocalManifoldPoint* points, int count )
@@ -278,7 +282,6 @@ static void b3ReduceManifoldPoints( b3LocalManifold* manifold, int capacity, b3L
 	// Step 2: Find farthest point in 2D
 	bestScore = 0.0f;
 	bestIndex = B3_NULL_INDEX;
-	float maxDistanceSquared = 0.0f;
 
 	for ( int index = 0; index < count; ++index )
 	{
@@ -286,7 +289,6 @@ static void b3ReduceManifoldPoints( b3LocalManifold* manifold, int capacity, b3L
 		b3Vec3 d = b3Sub( p, a );
 		b3Vec3 v = b3MulSub( d, b3Dot( d, normal ), normal );
 		float distanceSquared = b3LengthSquared( v );
-		maxDistanceSquared = b3MaxFloat( maxDistanceSquared, distanceSquared );
 		float separation = b3MaxFloat( 0.0f, -points[index].separation );
 		float score = distanceSquared + 4.0f * separation * separation;
 		if ( bias * score > bestScore )
@@ -368,6 +370,61 @@ static void b3ReduceManifoldPoints( b3LocalManifold* manifold, int capacity, b3L
 		manifold->pointCount += 1;
 	}
 }
+
+#else
+
+static void b3ReduceManifoldPoints( b3LocalManifold* manifold, int capacity, b3LocalManifoldPoint* points, int count )
+{
+	if ( capacity < 4 )
+	{
+		return;
+	}
+
+	B3_ASSERT( count <= B3_MAX_CLIP_POINTS );
+
+	int target = b3MinInt( capacity, B3_MAX_MANIFOLD_POINTS );
+
+	if ( count <= target )
+	{
+		for ( int i = 0; i < count; ++i )
+		{
+			manifold->points[i] = points[i];
+		}
+
+		manifold->pointCount = count;
+		return;
+	}
+
+	b3Vec3 normal = manifold->normal;
+	b3Vec3 u = b3Perp( normal );
+	b3Vec3 v = b3Cross( normal, u );
+	b3Vec3 origin = points[0].point;
+
+	b3Point2D pts[B3_MAX_CLIP_POINTS];
+	for ( int i = 0; i < count; ++i )
+	{
+		b3Vec3 d = b3Sub( points[i].point, origin );
+		pts[i].p = (b3Vec2){ b3Dot( d, u ), b3Dot( d, v ) };
+		pts[i].separation = points[i].separation;
+		pts[i].originalIndex = i;
+	}
+
+	b3Point2D hull[2 * B3_MAX_CLIP_POINTS];
+	int hullCount = b3Hull2D( pts, count, hull );
+	int finalCount = b3SimplifyHull2D( hull, hullCount, target );
+	B3_ASSERT( 0 < finalCount && finalCount <= target );
+
+	for ( int i = 0; i < finalCount; ++i )
+	{
+		int index = hull[i].originalIndex;
+		B3_ASSERT( 0 <= index && index < count );
+		manifold->points[i] = points[index];
+	}
+
+	manifold->pointCount = finalCount;
+}
+
+#endif
 
 void b3CollideSpheres( b3LocalManifold* manifold, int capacity, const b3Sphere* sphereA, const b3Sphere* sphereB,
 					   b3Transform transformBtoA )
@@ -986,6 +1043,7 @@ static int b3BuildPolygon( b3ClipVertex* out, b3Transform transform, const b3Hul
 static bool b3BuildFaceAContact( b3LocalManifold* manifold, int capacity, const b3HullData* hullA, const b3HullData* hullB,
 								 b3Transform transformBtoA, b3SeparatingAxis query, b3SATCache* cache )
 {
+	B3_ASSERT( capacity > 0 );
 	B3_VALIDATE( query.type == b3_faceAxisA );
 	B3_VALIDATE( 0 <= query.indexA && query.indexA < hullA->faceCount );
 	B3_VALIDATE( 0 <= query.indexB && query.indexB < hullB->vertexCount );
