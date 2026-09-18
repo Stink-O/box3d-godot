@@ -180,7 +180,7 @@ or, if you do not use git, open the
 
 Go to [Releases](https://github.com/Stink-O/box3d-godot/releases), open the
 newest one and look under **Assets**. Download
-`box3d-godot-v<version>-addon.zip`. That one file holds the library for every
+`box3d-addon-v<version>.zip`. That one file holds the library for every
 platform: Windows, Linux, Android and web. There is nothing to pick.
 
 macOS is not prebuilt. Play the

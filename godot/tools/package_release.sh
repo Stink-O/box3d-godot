@@ -2,7 +2,7 @@
 # Assemble the release assets into dist/ from binaries already built by
 # build_all.sh. Three assets, the shape every GDExtension project ships:
 #
-#   dist/box3d-godot-v<ver>-addon.zip   addons/box3d/ (manifest, LICENSE,
+#   dist/box3d-addon-v<ver>.zip   addons/box3d/ (manifest, LICENSE,
 #                                       README, every platform binary, icons);
 #                                       unzip into any project, restart Godot.
 #                                       The same file goes to the Godot Asset
@@ -44,9 +44,9 @@ for dll in "$ADDON"/bin/*.dll; do
 done
 
 # 3. The addon zip.
-rm -f "$DIST/box3d-godot-v$VER-addon.zip"
-( cd demo && zip -qr "$DIST/box3d-godot-v$VER-addon.zip" addons/box3d -x '*.import' -x '*.uid' )
-unzip -l "$DIST/box3d-godot-v$VER-addon.zip" | tail -1
+rm -f "$DIST/box3d-addon-v$VER.zip"
+( cd demo && zip -qr "$DIST/box3d-addon-v$VER.zip" addons/box3d -x '*.import' -x '*.uid' )
+unzip -l "$DIST/box3d-addon-v$VER.zip" | tail -1
 
 # 4. Demo exports. --import first (a new class_name otherwise bakes a broken
 # script), then restore project.godot, which --import rewrites and strips.
@@ -66,5 +66,5 @@ rm -f "$DIST/box3d-demo-web-threaded.zip"
 echo; echo "== dist/"; ls -la "$DIST"
 echo
 echo "Next: verify the web export in a browser twice (CLAUDE.md), then"
-echo "  gh release create v$VER --draft -R Stink-O/box3d-godot dist/box3d-godot-v$VER-addon.zip dist/box3d-demo-android.apk dist/box3d-demo-web-threaded.zip"
+echo "  gh release create v$VER --draft -R Stink-O/box3d-godot dist/box3d-addon-v$VER.zip dist/box3d-demo-android.apk dist/box3d-demo-web-threaded.zip"
 echo "  butler push webfast stinkysunstep/box3d-godot:html --userversion $VER"
