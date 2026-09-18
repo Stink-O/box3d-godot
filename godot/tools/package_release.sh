@@ -18,7 +18,10 @@ set -euo pipefail
 VER="${1:?version, e.g. 0.4.3}"; GODOT="${2:?path to the Godot 4.7 editor binary}"
 cd "$(dirname "$0")/.."
 ADDON=demo/addons/box3d
-DIST=../dist
+# Godot resolves export paths against the PROJECT folder, so use absolute ones.
+ROOT="$(cd .. && pwd)"
+DIST="$ROOT/dist"
+WEBFAST="$ROOT/webfast"
 mkdir -p "$DIST"
 
 # 1. Every library the manifest lists must exist; the manifest version must match.
@@ -42,7 +45,7 @@ done
 
 # 3. The addon zip.
 rm -f "$DIST/box3d-godot-v$VER-addon.zip"
-( cd demo && zip -qr "../$DIST/box3d-godot-v$VER-addon.zip" addons/box3d -x '*.import' -x '*.uid' )
+( cd demo && zip -qr "$DIST/box3d-godot-v$VER-addon.zip" addons/box3d -x '*.import' -x '*.uid' )
 unzip -l "$DIST/box3d-godot-v$VER-addon.zip" | tail -1
 
 # 4. Demo exports. --import first (a new class_name otherwise bakes a broken
@@ -52,13 +55,13 @@ git checkout demo/project.godot
 grep -q 'rendering_method.web="gl_compatibility"' demo/project.godot || { echo "project.godot lost the web renderer key"; exit 1; }
 "$GODOT" --headless --path demo --export-debug "Android" "$DIST/box3d-demo-android.apk" 2>&1 | grep -iE 'error|savepack|done' || true
 [ -s "$DIST/box3d-demo-android.apk" ] || { echo "APK export failed"; exit 1; }
-rm -rf ../webfast; mkdir -p ../webfast
-"$GODOT" --headless --path demo --export-release "Web Threaded" ../webfast/index.html 2>&1 | grep -iE 'error|done' || true
-[ -s ../webfast/index.wasm ] || { echo "web export failed"; exit 1; }
+rm -rf "$WEBFAST"; mkdir -p "$WEBFAST"
+"$GODOT" --headless --path demo --export-release "Web Threaded" "$WEBFAST/index.html" 2>&1 | grep -iE 'error|done' || true
+[ -s "$WEBFAST/index.wasm" ] || { echo "web export failed"; exit 1; }
 # The kill-switch must sit at the OLD service worker URL (see its header).
-cp tools/web_sw_killswitch.js ../webfast/index.service.worker.js
+cp tools/web_sw_killswitch.js "$WEBFAST/index.service.worker.js"
 rm -f "$DIST/box3d-demo-web-threaded.zip"
-( cd ../webfast && zip -qr "../dist/box3d-demo-web-threaded.zip" . )
+( cd "$WEBFAST" && zip -qr "$DIST/box3d-demo-web-threaded.zip" . )
 
 echo; echo "== dist/"; ls -la "$DIST"
 echo
