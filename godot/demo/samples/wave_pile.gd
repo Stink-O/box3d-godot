@@ -31,7 +31,7 @@ extends Node3D
 ##
 ## Threads are a hard requirement for the multi-worker half. A replay world
 ## opened with workerCount > 1 builds a scheduler and spawns threads
-## (src/physics_world.c:367-386), and on a build without pthreads a refused
+## (src/scheduler.c), and on a build without pthreads a refused
 ## thread aborts rather than erroring, so the extra counts are gated on
 ## `OS.has_feature("threads")` and the single-threaded web build runs the
 ## one-worker check alone and says so.
@@ -102,6 +102,18 @@ const MIN_SETTLE_STEPS := 10
 ## real threads (see the header).
 const WORKER_COUNTS := [1, 2, 4, 8]
 
+## Web only: physics ticks to wait between opening a replay (which spawns its
+## worker threads) and replaying and closing it. Emscripten pre-spawns a fixed
+## pthread pool (the "Web Threaded" export sets 16; Godot's own pool takes 4).
+## A thread created past the pool gets a Worker that only starts once the main
+## thread has returned to the browser event loop, and a pthread_join before
+## that never returns: the tab froze at the 8-worker check's close() with the
+## old pool of 8. The scheduler never waits on a worker to START (the main
+## thread executes pending tasks itself, src/scheduler.c b3SchedulerFinishTask),
+## so the only blocking call is the join in close(). Yielding frames here lets
+## any late Worker come up first. Native pthreads start synchronously, so 0.
+const WEB_WARMUP_TICKS := 30
+
 enum { PHASE_SETTLE, PHASE_VERIFY, PHASE_DONE }
 
 var camera_home := Vector3(16.02, 10.57, 16.02)
@@ -117,6 +129,10 @@ var _phase := PHASE_SETTLE
 var _steps := 0
 var _sleep_step := -1
 var _next_check := 0
+## The replay opened by the last check and not yet run (see _run_one_check).
+var _pending_player: Box3DReplayPlayer = null
+var _pending_workers := 0
+var _warmup_left := 0
 var _results: Array[String] = []
 var _hashes: PackedInt64Array = PackedInt64Array()
 var _diverged := false
@@ -158,6 +174,7 @@ func activate() -> void:
 	_steps = 0
 	_sleep_step = -1
 	_next_check = 0
+	_pending_player = null
 	_results.clear()
 	_hashes.clear()
 	_diverged = false
@@ -197,26 +214,40 @@ func _begin_verify() -> void:
 	_next_check = 0
 
 
-## One worker count per physics tick: a full replay of a 100 body pile is
-## thousands of dispatched ops and doing all four in one frame would stall.
+## One worker count per check: a full replay of a 100 body pile is thousands
+## of dispatched ops and doing all four in one frame would stall. A check is
+## two steps spread over physics ticks: open the player (spawns its threads),
+## then, after WEB_WARMUP_TICKS on the web and immediately elsewhere, replay
+## it to the end and close it.
 func _run_one_check() -> void:
-	var counts := _worker_counts()
-	if _next_check >= counts.size():
-		_phase = PHASE_DONE
+	if _pending_player == null:
+		var counts := _worker_counts()
+		if _next_check >= counts.size():
+			_phase = PHASE_DONE
+			print("[wave pile] verdict: %s" % _verdict())
+			return
+		var workers := int(counts[_next_check])
+		_next_check += 1
+		var player := Box3DReplayPlayer.new()
+		# The worker count is chosen HERE and essentially only here: raising
+		# it afterwards re-partitions the graph but never creates a scheduler,
+		# so the replay would still execute serially and the check would be
+		# vacuous.
+		if not player.open(_recording.get_data(), workers):
+			_record_result(workers, "%d worker(s): recording refused" % workers, true)
+			return
+		_pending_player = player
+		_pending_workers = workers
+		_warmup_left = WEB_WARMUP_TICKS if OS.has_feature("web") else 0
 		return
 
-	var workers := int(counts[_next_check])
-	_next_check += 1
-
-	var player := Box3DReplayPlayer.new()
-	# The worker count is chosen HERE and essentially only here: raising it
-	# afterwards re-partitions the graph but never creates a scheduler, so the
-	# replay would still execute serially and the check would be vacuous.
-	if not player.open(_recording.get_data(), workers):
-		_results.append("%d worker(s): recording refused" % workers)
-		_diverged = true
+	if _warmup_left > 0:
+		_warmup_left -= 1
 		return
 
+	var player := _pending_player
+	var workers := _pending_workers
+	_pending_player = null
 	# replay_all() steps to the end and reports whether every embedded state
 	# hash reproduced; has_diverged() is the same verdict read off the player.
 	var matched := player.replay_all()
@@ -230,13 +261,27 @@ func _run_one_check() -> void:
 	var first := state if _hashes.is_empty() else _hashes[0]
 	_hashes.append(state)
 	if diverged:
-		_diverged = true
-		_results.append("%d worker(s): DIVERGED at frame %d" % [workers, diverge_frame])
+		_record_result(workers, "%d worker(s): DIVERGED at frame %d" % [workers, diverge_frame], true)
 	elif first != state:
-		_diverged = true
-		_results.append("%d worker(s): final state differs (%08X)" % [workers, state])
+		_record_result(workers, "%d worker(s): final state differs (%08X)" % [workers, state], true)
 	else:
-		_results.append("%d worker(s): match, state %08X" % [workers, state])
+		_record_result(workers, "%d worker(s): match, state %08X" % [workers, state], false)
+
+
+func _record_result(_workers: int, line: String, failed: bool) -> void:
+	_results.append(line)
+	if failed:
+		_diverged = true
+	# Also on the console, so a headless browser run can read the outcome.
+	print("[wave pile] ", line)
+
+
+func _verdict() -> String:
+	if _diverged:
+		return "DIVERGED"
+	if _worker_counts().size() == 1:
+		return "reproduced (1 worker; no threads on this build)"
+	return "identical at 1, 2, 4 and 8 workers"
 
 
 func _worker_counts() -> Array:
@@ -275,12 +320,7 @@ func _update_label() -> void:
 			var lines := PackedStringArray([head])
 			lines.append_array(PackedStringArray(_results))
 			if _phase == PHASE_DONE:
-				if _diverged:
-					lines.append("verdict: DIVERGED")
-				elif _worker_counts().size() == 1:
-					lines.append("verdict: reproduced (1 worker; no threads on this build)")
-				else:
-					lines.append("verdict: identical at 1, 2, 4 and 8 workers")
+				lines.append("verdict: " + _verdict())
 			_label.text = "\n".join(lines)
 			_label.modulate = Color(1.0, 0.5, 0.45) if _diverged else Color(0.6, 1.0, 0.7)
 
