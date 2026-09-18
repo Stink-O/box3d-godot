@@ -127,7 +127,8 @@ Android and iOS all run that threaded build there. The same build is
 downloadable from [Releases](https://github.com/Stink-O/box3d-godot/releases)
 as `box3d-demo-web-threaded.zip` if you want to host your own; it needs a host
 that sends cross-origin isolation headers (COOP/COEP), which plain static
-hosting does not.
+hosting does not. To run the same demo natively, `box3d-demo-project.zip` on
+the same release is the whole project ready to open in Godot.
 
 **It is a preview, not the real thing.** Running the demo in Godot is the
 intended way and the only one that shows the binding at full speed. The browser

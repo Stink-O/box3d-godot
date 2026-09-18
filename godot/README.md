@@ -202,7 +202,11 @@ func _ready() -> void:
 
 ## Demo
 
-[`demo/`](demo) is a **sample browser** (like Box3D's own samples app):
+[`demo/`](demo) is a **sample browser** (like Box3D's own samples app). It
+ships ready to run as `box3d-demo-project.zip` on every
+[release](https://github.com/Stink-O/box3d-godot/releases): unzip, open
+`box3d-demo/project.godot` in Godot 4.7, press play, no clone or build needed.
+In the repository:
 `main.tscn` is a shell with a small **Samples** dropdown menu (categorized),
 a shared fly camera, and lighting; picking a sample instances its scene from
 `samples/` into the host. Each sample is a plain, self-contained scene in
@@ -353,10 +357,13 @@ shell and verifies the menu + ball shooting.
 
 ## Building
 
-No build output is tracked. Either download the addon zip from
-[Releases](https://github.com/Stink-O/box3d-godot/releases) and unzip it into
-`demo/` (it contains `addons/box3d/` with every platform's library, which is
-exactly the folder the demo loads from), or build it yourself as below.
+No build output is tracked. To just run the demo, download
+`box3d-demo-project.zip` from
+[Releases](https://github.com/Stink-O/box3d-godot/releases), which is this
+`demo/` folder with the libraries already inside. To run it from a clone,
+download the addon zip from the same release and unzip it into `demo/` (it
+contains `addons/box3d/` with every platform's library, which is exactly the
+folder the demo loads from), or build it yourself as below.
 Binaries used to be committed for Windows; they drifted several upstream syncs
 out of date and shipped a demo that was quietly missing bindings, so they now
 ship against a tag instead.
