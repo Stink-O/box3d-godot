@@ -24,7 +24,7 @@ upstream engine sources are unchanged; everything Godot-specific lives in
 > production dependency.
 
 **Contents:** [Features](#features) ·
-[New in 0.4.2](#new-in-042) ·
+[New in 0.4.3](#new-in-043) ·
 [Browser demo](#try-it-in-a-browser-first) ·
 [Getting started](#getting-started) ·
 [Your own project](#add-box3d-to-your-own-project) ·
@@ -46,17 +46,41 @@ upstream engine sources are unchanged; everything Godot-specific lives in
   (F1 answers for the binding the way it does for a built-in node), and
   colliders and joints draw editor gizmos: a hinge shows its axis and limit
   arc before you ever press play.
-- **One-command build.** `scons` compiles Box3D from source into the
-  extension; no prebuilt engine binary required. Prebuilt libraries for
-  Windows, Linux, Android and web ship with every
-  [release](https://github.com/Stink-O/box3d-godot/releases).
-- **A 69-sample browser demo**: stacks, a ragdoll, a drivable car, joints,
+- **One zip to install.** Every
+  [release](https://github.com/Stink-O/box3d-godot/releases) ships one
+  `addons/box3d/` zip with prebuilt libraries for Windows, Linux, Android and
+  web; unzip it next to your `project.godot` and restart Godot. Building it
+  yourself is one `scons` command, no prebuilt engine binary required.
+- **A 71-sample browser demo**: stacks, a ragdoll, a drivable car, joints,
   queries, determinism showcases and toys, organised by category, with a
   physics-engine selector that reruns any sample on Godot Physics or Jolt for
   side-by-side comparison.
 - **Runs on Android** (arm64 + x86_64), verified on real hardware under
   Vulkan, with touch controls and a mobile-scaled UI. Toolchain walkthrough:
   [`godot/ANDROID_BUILD.md`](godot/ANDROID_BUILD.md).
+
+## New in 0.4.3
+
+- **One-zip install.** The release is now a single `addons/box3d/` zip with
+  every platform's library inside, the way godot-jolt and Terrain3D ship.
+  Unzip next to `project.godot`, restart Godot, done. The loose per-platform
+  files are gone; Godot exports only the library that matches your target, so
+  the extra platforms in the zip cost your game nothing.
+- **Wind Drop sample**: a thin plate gliding down through still air, the
+  upstream "Wind Drop" sample. There is no drag setting in Box3D; the
+  float-down is `apply_wind` computing projected-area drag and lift against
+  the plate's own velocity. Toggle the air off and it drops like a stone.
+- **`max_spring_torque`** on `Box3DBallJoint` and `Box3DHingeJoint`: a torque
+  ceiling on the pose spring, so a joint can be stiff without winning at any
+  cost. Implemented entirely in the extension, no upstream patch.
+- **`Box3DBody.set_target_transform`**: upstream's velocity-based kinematic
+  drive, for moving a kinematic body to a pose in one step without teleporting.
+- **Web demo no longer freezes on Wave Pile.** The 8-worker replay joined
+  threads the browser had not started yet; the export's thread pool is larger
+  and the sample yields before it closes a replay.
+- Upstream synced through Box3D's broad-phase rewrite (three upstream
+  commits: clockwise mesh winding, `b3Joint_IsAwake`, fixes, faster
+  broad-phase).
 
 ## New in 0.4.2
 
@@ -98,10 +122,11 @@ https://github.com/user-attachments/assets/33752918-c3a2-4899-821c-bf13d9adce11
 
 **[Play it on itch.io](https://stinkysunstep.itch.io/box3d-godot)**: the demo
 in a browser, no download, multi-threaded solver, full-size scenes. Desktop,
-Android and iOS all run that threaded build there. Both browser builds are also
+Android and iOS all run that threaded build there. The same build is
 downloadable from [Releases](https://github.com/Stink-O/box3d-godot/releases)
-if you want to host your own; the single-threaded one is the one to pick for a
-plain static host, which cannot send the headers the threaded build needs.
+as `box3d-demo-web-threaded.zip` if you want to host your own; it needs a host
+that sends cross-origin isolation headers (COOP/COEP), which plain static
+hosting does not.
 
 **It is a preview, not the real thing.** Running the demo in Godot is the
 intended way and the only one that shows the binding at full speed. The browser
@@ -120,10 +145,9 @@ Building it yourself is optional and covered in
 [Building](godot/README.md#building).
 
 The short version: install [Godot 4.7](https://godotengine.org/download), get
-this repository, download your platform's libraries from
-[Releases](https://github.com/Stink-O/box3d-godot/releases) into
-`godot/demo/bin/`, open `godot/demo/project.godot`, press play. The long
-version:
+this repository, download the addon zip from
+[Releases](https://github.com/Stink-O/box3d-godot/releases) and unzip it into
+`godot/demo/`, open `godot/demo/project.godot`, press play. The long version:
 
 <details>
 <summary><b>Step 1: install Godot 4.7</b></summary>
@@ -152,24 +176,16 @@ or, if you do not use git, open the
 </details>
 
 <details>
-<summary><b>Step 3: download the library for your platform</b></summary>
+<summary><b>Step 3: download the addon zip</b></summary>
 
 Go to [Releases](https://github.com/Stink-O/box3d-godot/releases), open the
-newest one and look under **Assets**. Download the files for your system:
+newest one and look under **Assets**. Download
+`box3d-godot-v<version>-addon.zip`. That one file holds the library for every
+platform: Windows, Linux, Android and web. There is nothing to pick.
 
-| Your system | Files to download |
-| --- | --- |
-| Windows | `libbox3d_godot.windows.template_debug.x86_64.dll` and `libbox3d_godot.windows.template_release.x86_64.dll` |
-| Linux | `libbox3d_godot.linux.template_debug.x86_64.so` and `libbox3d_godot.linux.template_release.x86_64.so` |
-| macOS | Not prebuilt. Play the [browser demo](https://stinkysunstep.itch.io/box3d-godot), or [build from source](godot/README.md#building). |
-
-**Why two files?** The `template_debug` one is what the Godot editor itself
-loads, so it is the one you need to press play. The `template_release` one is
-used when you export a finished game. Grab both now and you will not have to
-come back for the second one later.
-
-The `android` and `web` files in the same list are only needed if you later
-export your game to a phone or to a web page. You can ignore them for now.
+macOS is not prebuilt. Play the
+[browser demo](https://stinkysunstep.itch.io/box3d-godot), or
+[build from source](godot/README.md#building).
 
 Windows note: the DLLs are cross-compiled from Linux and have never been run on
 Windows by the author. They may work fine, but they are untested. If Windows
@@ -178,28 +194,37 @@ unsigned-binary warning rather than a sign of a problem.
 </details>
 
 <details>
-<summary><b>Step 4: put the files where Godot looks for them</b></summary>
+<summary><b>Step 4: unzip it into the demo</b></summary>
 
-Copy the files you downloaded into this folder inside the repository:
-
-```
-box3d-godot/godot/demo/bin/
-```
-
-That folder already exists and already contains a file called
-`box3d.gdextension`. That file is the manifest: it tells Godot which library to
-load for which platform, so **do not rename or delete it**, and do not rename
-the libraries either. The names have to match what the manifest expects,
-character for character.
-
-When you are done the folder looks roughly like this (Linux shown):
+Unzip the file into this folder inside the repository:
 
 ```
-godot/demo/bin/
+box3d-godot/godot/demo/
+```
+
+so that the result is `godot/demo/addons/box3d/`. That folder already exists
+in the repository with the manifest (`box3d.gdextension`) and the icons; the
+zip adds the `bin/` folder with the libraries. Do not rename anything: the
+manifest names each library character for character.
+
+When you are done the folder looks like this:
+
+```
+godot/demo/addons/box3d/
   box3d.gdextension
-  libbox3d_godot.linux.template_debug.x86_64.so
-  libbox3d_godot.linux.template_release.x86_64.so
+  LICENSE
+  README.md
+  bin/
+    libbox3d_godot.linux.template_debug.x86_64.so
+    libbox3d_godot.linux.template_release.x86_64.so
+    libbox3d_godot.windows.template_debug.x86_64.dll
+    ...
+  icons/
 ```
+
+**Why two files per platform?** The `template_debug` one is what the Godot
+editor itself loads, so it is the one you need to press play. The
+`template_release` one is used when you export a finished game.
 </details>
 
 <details>
@@ -231,21 +256,19 @@ The controls worth knowing straight away:
 
 ## Add Box3D to your own project
 
-Once the demo runs, using the extension in a project of your own is four steps.
+Once the demo runs, using the extension in a project of your own is three
+steps.
 
-**1. Make a `bin` folder** at the root of your project, next to your
-`project.godot`.
+**1. Unzip the addon zip next to your `project.godot`**, so that your project
+contains `addons/box3d/`. (Or copy `godot/demo/addons/box3d/` from the
+repository, which is the same folder.) The manifest's paths are relative to
+`res://addons/box3d/`, so the folder must keep that name and nothing needs
+editing.
 
-**2. Copy two things into it:** the library files you downloaded, and the
-`box3d.gdextension` file from `godot/demo/bin/`. The manifest looks for the
-libraries at `res://bin/`, so keeping the folder named exactly `bin` means you
-do not have to edit anything. (If you prefer a different layout, edit the paths
-inside `box3d.gdextension` to match.)
-
-**3. Restart Godot.** Extensions are loaded at startup, so a project that was
+**2. Restart Godot.** Extensions are loaded at startup, so a project that was
 already open will not see a newly added one until you close and reopen it.
 
-**4. Check that it worked.** Add a new node and type `Box3DWorld` into the
+**3. Check that it worked.** Add a new node and type `Box3DWorld` into the
 search box. If it appears, the extension is loaded. If it does not, see the
 troubleshooting table below.
 
@@ -284,7 +307,7 @@ and joint.
 
 | What you see | What it usually means |
 | --- | --- |
-| `Box3DWorld` is not in the node list | The library is missing, in the wrong folder, or renamed. Check that the files sit next to `box3d.gdextension` and that their names are unchanged. Restart Godot after adding them. |
+| `Box3DWorld` is not in the node list | The addon is missing, in the wrong folder, or renamed. The folder must be `addons/box3d/` next to `project.godot`, with `box3d.gdextension` and `bin/` inside it. Restart Godot after adding it. |
 | An error about the extension needing a newer version | You are on Godot 4.6 or earlier. Install 4.7. |
 | It works in the editor but the exported game crashes on start | The `template_release` library is missing. Export uses that one, the editor uses `template_debug`. |
 | Godot loads but every sample is empty | The project was opened before the library was added. Close the project and reopen it. |

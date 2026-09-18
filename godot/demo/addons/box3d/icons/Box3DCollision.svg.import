@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bq427m6m14yh7"
-path="res://.godot/imported/Box3DCollision.svg-933a011d6e3631f54cfca27f0929cf66.ctex"
+path="res://.godot/imported/Box3DCollision.svg-b42af7767395b642665939af0857773a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://bin/icons/Box3DCollision.svg"
-dest_files=["res://.godot/imported/Box3DCollision.svg-933a011d6e3631f54cfca27f0929cf66.ctex"]
+source_file="res://addons/box3d/icons/Box3DCollision.svg"
+dest_files=["res://.godot/imported/Box3DCollision.svg-b42af7767395b642665939af0857773a.ctex"]
 
 [params]
 

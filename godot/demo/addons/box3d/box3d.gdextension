@@ -1,3 +1,8 @@
+; Which build this is. Godot ignores the section; people and scripts read it.
+[box3d]
+
+version = "0.4.3"
+
 [configuration]
 
 entry_symbol = "box3d_library_init"
@@ -6,54 +11,51 @@ reloadable = true
 
 [libraries]
 
-windows.debug.x86_64 = "res://bin/libbox3d_godot.windows.template_debug.x86_64.dll"
-windows.release.x86_64 = "res://bin/libbox3d_godot.windows.template_release.x86_64.dll"
+windows.debug.x86_64 = "res://addons/box3d/bin/libbox3d_godot.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "res://addons/box3d/bin/libbox3d_godot.windows.template_release.x86_64.dll"
 
-linux.debug.x86_64 = "res://bin/libbox3d_godot.linux.template_debug.x86_64.so"
-linux.release.x86_64 = "res://bin/libbox3d_godot.linux.template_release.x86_64.so"
+linux.debug.x86_64 = "res://addons/box3d/bin/libbox3d_godot.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "res://addons/box3d/bin/libbox3d_godot.linux.template_release.x86_64.so"
 
-macos.debug = "res://bin/libbox3d_godot.macos.template_debug.framework"
-macos.release = "res://bin/libbox3d_godot.macos.template_release.framework"
+; macOS has never been built (no Mac to build or test on). The keys are kept as
+; comments so a local build knows where to put the frameworks; uncomment them
+; after `scons platform=macos`. Every uncommented entry below ships in the
+; release zip, which is what the Godot Asset Store checks.
+; macos.debug = "res://addons/box3d/bin/libbox3d_godot.macos.template_debug.framework"
+; macos.release = "res://addons/box3d/bin/libbox3d_godot.macos.template_release.framework"
 
 ; Android. Only 64-bit ABIs are listed: Box3D's NEON path uses AArch64-only
 ; intrinsics (vdivq_f32/vsqrtq_f32), so arch=arm32 does not compile. See
 ; ANDROID_BUILD.md. 64-bit has been required by Google Play since 2019.
-android.debug.arm64 = "res://bin/libbox3d_godot.android.template_debug.arm64.so"
-android.release.arm64 = "res://bin/libbox3d_godot.android.template_release.arm64.so"
+android.debug.arm64 = "res://addons/box3d/bin/libbox3d_godot.android.template_debug.arm64.so"
+android.release.arm64 = "res://addons/box3d/bin/libbox3d_godot.android.template_release.arm64.so"
 
-android.debug.x86_64 = "res://bin/libbox3d_godot.android.template_debug.x86_64.so"
-android.release.x86_64 = "res://bin/libbox3d_godot.android.template_release.x86_64.so"
+android.debug.x86_64 = "res://addons/box3d/bin/libbox3d_godot.android.template_debug.x86_64.so"
+android.release.x86_64 = "res://addons/box3d/bin/libbox3d_godot.android.template_release.x86_64.so"
 
-; Web (wasm32). Built without pthreads, so the key has no ".threads" tag --
-; Godot uses the threads variant only when the export template does, and the
-; two must match or the extension silently fails to load (godot#94537). A
-; nothreads build also needs no COOP/COEP headers, so it will run on plain
-; static hosting. Build with:
+; Web (wasm32), THREADED, release only. This is what the public demo on itch.io
+; runs (SharedArrayBuffer checkbox on), verified there on desktop, Android and
+; iOS. Godot uses the ".threads" entry only when the export template has thread
+; support, and the two must match or the extension silently fails to load
+; (godot#94537). Build with:
 ;   source ~/emsdk/emsdk_env.sh
-;   scons platform=web threads=no target=template_release
-web.debug.wasm32 = "res://bin/libbox3d_godot.web.template_debug.wasm32.nothreads.wasm"
-web.release.wasm32 = "res://bin/libbox3d_godot.web.template_release.wasm32.nothreads.wasm"
-
-; Threaded variant, for hosts that send real COOP/COEP headers. This is what
-; the public demo runs: itch.io serves it cross-origin-isolated (the project's
-; SharedArrayBuffer checkbox), verified there on desktop, Android and iOS. The
-; single-threaded build above is the self-hosting fallback, not the deployment;
-; it always loads but costs 3.2x on the solver (Cube Pile: 1.24 ms/step at one
-; worker vs 0.39 at four).
+;   scons platform=web threads=yes target=template_release
 ;
-; Do NOT export the demo with thread_support on for a PLAIN static host. A
-; threaded side module declares SHARED memory; without cross-origin isolation
-; the engine has no SharedArrayBuffer and hands it non-shared memory, and the
-; module fails to link outright:
+; A threaded side module declares SHARED memory, so the page must be
+; cross-origin isolated (real COOP/COEP headers). Without them the engine has
+; no SharedArrayBuffer and the module fails to link outright:
 ;   LinkError: "env" "memory": mismatch in shared state of memory
-; Godot's PWA service worker can inject the headers, but it cannot do so on the
-; load that installs it, and a hard refresh bypasses it entirely -- so a
-; service worker is not a substitute for headers. The "Web Threaded" export
+; A service worker cannot inject the headers on the load that installs it nor
+; on a hard refresh, so it is not a substitute. The "Web Threaded" export
 ; preset carries a head_include guard that shows a readable notice instead of a
-; black screen when the page turns out not to be isolated; never strip it, and
-; never flip the plain "Web" preset to thread_support.
-web.debug.threads.wasm32 = "res://bin/libbox3d_godot.web.template_debug.wasm32.wasm"
-web.release.threads.wasm32 = "res://bin/libbox3d_godot.web.template_release.wasm32.wasm"
+; black screen when the page is not isolated; never strip it.
+;
+; The single-threaded (threads=no, "nothreads") variant was retired 2026-08-14
+; and no longer ships; `scons platform=web threads=no` still builds one and it
+; would be listed here as `web.release.wasm32` (no ".threads" tag). No debug
+; web build ships either: the editor never runs on the web, and a debug web
+; export would need `scons platform=web threads=yes target=template_debug`.
+web.release.threads.wasm32 = "res://addons/box3d/bin/libbox3d_godot.web.template_release.wasm32.wasm"
 
 ; Scene-dock / create-dialog icons for the extension's node types, one 16x16
 ; SVG per class. Godot resolves these against res://, so they live inside the
@@ -64,28 +66,28 @@ web.release.threads.wasm32 = "res://bin/libbox3d_godot.web.template_release.wasm
 ; concrete joint types each get one rather than falling back to Box3DJoint.
 [icons]
 
-Box3DWorld = "res://bin/icons/Box3DWorld.svg"
-Box3DBody = "res://bin/icons/Box3DBody.svg"
-Box3DCollisionShape = "res://bin/icons/Box3DCollisionShape.svg"
-Box3DCharacterBody = "res://bin/icons/Box3DCharacterBody.svg"
-Box3DMultiMeshRenderer = "res://bin/icons/Box3DMultiMeshRenderer.svg"
-Box3DJoint = "res://bin/icons/Box3DJoint.svg"
-Box3DHingeJoint = "res://bin/icons/Box3DHingeJoint.svg"
-Box3DSliderJoint = "res://bin/icons/Box3DSliderJoint.svg"
-Box3DDistanceJoint = "res://bin/icons/Box3DDistanceJoint.svg"
-Box3DBallJoint = "res://bin/icons/Box3DBallJoint.svg"
-Box3DFixedJoint = "res://bin/icons/Box3DFixedJoint.svg"
-Box3DMotorJoint = "res://bin/icons/Box3DMotorJoint.svg"
-Box3DWheelJoint = "res://bin/icons/Box3DWheelJoint.svg"
-Box3DParallelJoint = "res://bin/icons/Box3DParallelJoint.svg"
-Box3DFilterJoint = "res://bin/icons/Box3DFilterJoint.svg"
+Box3DWorld = "res://addons/box3d/icons/Box3DWorld.svg"
+Box3DBody = "res://addons/box3d/icons/Box3DBody.svg"
+Box3DCollisionShape = "res://addons/box3d/icons/Box3DCollisionShape.svg"
+Box3DCharacterBody = "res://addons/box3d/icons/Box3DCharacterBody.svg"
+Box3DMultiMeshRenderer = "res://addons/box3d/icons/Box3DMultiMeshRenderer.svg"
+Box3DJoint = "res://addons/box3d/icons/Box3DJoint.svg"
+Box3DHingeJoint = "res://addons/box3d/icons/Box3DHingeJoint.svg"
+Box3DSliderJoint = "res://addons/box3d/icons/Box3DSliderJoint.svg"
+Box3DDistanceJoint = "res://addons/box3d/icons/Box3DDistanceJoint.svg"
+Box3DBallJoint = "res://addons/box3d/icons/Box3DBallJoint.svg"
+Box3DFixedJoint = "res://addons/box3d/icons/Box3DFixedJoint.svg"
+Box3DMotorJoint = "res://addons/box3d/icons/Box3DMotorJoint.svg"
+Box3DWheelJoint = "res://addons/box3d/icons/Box3DWheelJoint.svg"
+Box3DParallelJoint = "res://addons/box3d/icons/Box3DParallelJoint.svg"
+Box3DFilterJoint = "res://addons/box3d/icons/Box3DFilterJoint.svg"
 ; The two static utility classes. They are never placed in a scene, so these
 ; only ever show in the class reference and in script autocompletion.
-Box3DGeometry = "res://bin/icons/Box3DGeometry.svg"
-Box3DCollision = "res://bin/icons/Box3DCollision.svg"
+Box3DGeometry = "res://addons/box3d/icons/Box3DGeometry.svg"
+Box3DCollision = "res://addons/box3d/icons/Box3DCollision.svg"
 ; The wave-2 RefCounted/Resource classes. Like the two above they are never
 ; placed in a scene, so these show in the class reference and in autocompletion.
-Box3DRecording = "res://bin/icons/Box3DRecording.svg"
-Box3DReplayPlayer = "res://bin/icons/Box3DReplayPlayer.svg"
-Box3DReplayRenderer = "res://bin/icons/Box3DReplayRenderer.svg"
-Box3DContactRules = "res://bin/icons/Box3DContactRules.svg"
+Box3DRecording = "res://addons/box3d/icons/Box3DRecording.svg"
+Box3DReplayPlayer = "res://addons/box3d/icons/Box3DReplayPlayer.svg"
+Box3DReplayRenderer = "res://addons/box3d/icons/Box3DReplayRenderer.svg"
+Box3DContactRules = "res://addons/box3d/icons/Box3DContactRules.svg"

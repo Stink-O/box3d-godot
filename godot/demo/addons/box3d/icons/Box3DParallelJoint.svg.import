@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cwfd0wddvnps4"
-path="res://.godot/imported/Box3DParallelJoint.svg-7f29e7810651d8d8484f3539f050739c.ctex"
+path="res://.godot/imported/Box3DParallelJoint.svg-6e4932819975237a0e45f01010f55f71.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://bin/icons/Box3DParallelJoint.svg"
-dest_files=["res://.godot/imported/Box3DParallelJoint.svg-7f29e7810651d8d8484f3539f050739c.ctex"]
+source_file="res://addons/box3d/icons/Box3DParallelJoint.svg"
+dest_files=["res://.godot/imported/Box3DParallelJoint.svg-6e4932819975237a0e45f01010f55f71.ctex"]
 
 [params]
 

@@ -65,3 +65,5 @@ godot/demo/override.cfg
 
 # upstream sync 2026-09-18
 *.zip
+dist/
+godot/build_logs/

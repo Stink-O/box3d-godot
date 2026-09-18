@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c443cg8rvfxdj"
-path="res://.godot/imported/Box3DFilterJoint.svg-593b8e17a1e499e9c4cd10c8f46483c2.ctex"
+path="res://.godot/imported/Box3DFilterJoint.svg-70469fbe78fd2ac7d35e0e03d2083b0c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://bin/icons/Box3DFilterJoint.svg"
-dest_files=["res://.godot/imported/Box3DFilterJoint.svg-593b8e17a1e499e9c4cd10c8f46483c2.ctex"]
+source_file="res://addons/box3d/icons/Box3DFilterJoint.svg"
+dest_files=["res://.godot/imported/Box3DFilterJoint.svg-70469fbe78fd2ac7d35e0e03d2083b0c.ctex"]
 
 [params]
 

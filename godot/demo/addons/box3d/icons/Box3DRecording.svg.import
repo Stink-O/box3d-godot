@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cb4b0v1rxv7r0"
-path="res://.godot/imported/Box3DRecording.svg-5f7c21a3c585c7c0616c4663fccc02d5.ctex"
+path="res://.godot/imported/Box3DRecording.svg-11d3f0b30bd0161317476f4840274f15.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://bin/icons/Box3DRecording.svg"
-dest_files=["res://.godot/imported/Box3DRecording.svg-5f7c21a3c585c7c0616c4663fccc02d5.ctex"]
+source_file="res://addons/box3d/icons/Box3DRecording.svg"
+dest_files=["res://.godot/imported/Box3DRecording.svg-11d3f0b30bd0161317476f4840274f15.ctex"]
 
 [params]
 

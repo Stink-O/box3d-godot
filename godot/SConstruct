@@ -3,7 +3,7 @@
 # Build the Box3D GDExtension for Godot.
 #
 # This compiles godot-cpp, the Box3D C sources (../src), and the C++ wrapper
-# (src/) into a single shared library placed in demo/bin. Run `scons` with no
+# (src/) into a single shared library placed in demo/addons/box3d/bin. Run `scons` with no
 # arguments for a debug editor build, or e.g. `scons target=template_release`.
 
 import os
@@ -61,7 +61,7 @@ if env["target"] in ["editor", "template_debug"]:
     sources.append(env.GodotCPPDocData("src/gen/doc_data.gen.cpp", source=Glob("doc_classes/*.xml")))
 
 libname = "libbox3d_godot"
-bindir = "demo/bin"
+bindir = "demo/addons/box3d/bin"
 
 if env["platform"] == "macos":
     library = env.SharedLibrary(

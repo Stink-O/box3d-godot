@@ -52,7 +52,7 @@ by observing that the app started.
 
 ### `entry_symbol = "box3d_library_init"`
 
-The manifest (`demo/bin/box3d.gdextension`) names one symbol:
+The manifest (`demo/addons/box3d/box3d.gdextension`) names one symbol:
 
 ```ini
 entry_symbol = "box3d_library_init"
@@ -93,7 +93,7 @@ Three details worth being able to defend:
 You can confirm the symbol survived the build:
 
 ```sh
-llvm-readelf --dyn-syms demo/bin/libbox3d_godot.android.template_debug.arm64.so | grep box3d_library_init
+llvm-readelf --dyn-syms demo/addons/box3d/bin/libbox3d_godot.android.template_debug.arm64.so | grep box3d_library_init
 #   77: 0000000000096120    96 FUNC    GLOBAL DEFAULT   12 box3d_library_init
 ```
 
@@ -267,7 +267,7 @@ an x86-64 `.so` with an Android filename that fails at runtime for reasons that
 look nothing like the cause. The check is one command:
 
 ```sh
-llvm-readelf -h demo/bin/libbox3d_godot.android.template_debug.arm64.so | grep Machine
+llvm-readelf -h demo/addons/box3d/bin/libbox3d_godot.android.template_debug.arm64.so | grep Machine
 #   Machine:  AArch64        <- if this says X86-64, the NDK was not used
 ```
 
@@ -314,10 +314,10 @@ suffix += "." + env["arch"]                                # .arm64
 branch (only macOS/iOS are special-cased), giving:
 
 ```
-demo/bin/libbox3d_godot.android.template_debug.arm64.so
-demo/bin/libbox3d_godot.android.template_release.arm64.so
-demo/bin/libbox3d_godot.android.template_debug.x86_64.so
-demo/bin/libbox3d_godot.android.template_release.x86_64.so
+demo/addons/box3d/bin/libbox3d_godot.android.template_debug.arm64.so
+demo/addons/box3d/bin/libbox3d_godot.android.template_release.arm64.so
+demo/addons/box3d/bin/libbox3d_godot.android.template_debug.x86_64.so
+demo/addons/box3d/bin/libbox3d_godot.android.template_release.x86_64.so
 ```
 
 Note the library is `libbox3d_godot`, **not** `libbox3d`.
@@ -337,16 +337,16 @@ NDK selects which bionic symbols exist.
 
 ---
 
-## 4. The manifest (`demo/bin/box3d.gdextension`)
+## 4. The manifest (`demo/addons/box3d/box3d.gdextension`)
 
 This is the one change Android absolutely requires, and a wrong key here is the
 classic silent failure.
 
 ```ini
-android.debug.arm64 = "res://bin/libbox3d_godot.android.template_debug.arm64.so"
-android.release.arm64 = "res://bin/libbox3d_godot.android.template_release.arm64.so"
-android.debug.x86_64 = "res://bin/libbox3d_godot.android.template_debug.x86_64.so"
-android.release.x86_64 = "res://bin/libbox3d_godot.android.template_release.x86_64.so"
+android.debug.arm64 = "res://addons/box3d/bin/libbox3d_godot.android.template_debug.arm64.so"
+android.release.arm64 = "res://addons/box3d/bin/libbox3d_godot.android.template_release.arm64.so"
+android.debug.x86_64 = "res://addons/box3d/bin/libbox3d_godot.android.template_debug.x86_64.so"
+android.release.x86_64 = "res://addons/box3d/bin/libbox3d_godot.android.template_release.x86_64.so"
 ```
 
 Things that are easy to get wrong:
@@ -366,8 +366,8 @@ Things that are easy to get wrong:
 A `#` comment is parsed as an identifier and breaks the whole file:
 
 ```
-ERROR: ConfigFile parse error at res://bin/box3d.gdextension:18: Unexpected identifier 'arm32'.
-ERROR: Error loading extension: 'res://bin/box3d.gdextension'.
+ERROR: ConfigFile parse error at res://addons/box3d/bin/box3d.gdextension:18: Unexpected identifier 'arm32'.
+ERROR: Error loading extension: 'res://addons/box3d/bin/box3d.gdextension'.
 ```
 
 (Hit during this port. See §7.)
@@ -472,7 +472,7 @@ pages. godot-cpp passes **no** page-size linker flag (`grep -rn
 **NDK r28 aligns to 16 KB by default.** Measured on the built library:
 
 ```sh
-llvm-readelf -l demo/bin/libbox3d_godot.android.template_debug.arm64.so | grep LOAD
+llvm-readelf -l demo/addons/box3d/bin/libbox3d_godot.android.template_debug.arm64.so | grep LOAD
 #  LOAD  0x000000 ... R    0x4000
 #  LOAD  0x064890 ... R E  0x4000
 #  LOAD  0x1cbce0 ... RW   0x4000
@@ -781,7 +781,7 @@ If the extension crashes, symbolize rather than guess:
 
 ```sh
 adb logcat | $ANDROID_HOME/ndk/28.1.13356709/prebuilt/linux-x86_64/bin/ndk-stack \
-    -sym godot/demo/bin
+    -sym godot/demo/addons/box3d/bin
 ```
 
 ---
@@ -919,7 +919,7 @@ Read this section before repeating any claim from this document.
   desktop-oriented settings (8192 shadow maps, MSAA, 256 KB shader buffer)
   *look* right on a phone remains genuinely **unknown**, and the only way to
   find out is to run it on a device you can physically look at:
-  `adb install godot/demo/bin/box3d_demo.apk`. Note the SSAO/SSIL warnings on
+  `adb install godot/demo/addons/box3d/bin/box3d_demo.apk`. Note the SSAO/SSIL warnings on
   Forward Mobile are cosmetic and expected — those effects are Forward+ only.
 
   The physics is provably unaffected either way (31 assertions, same device,
@@ -966,7 +966,7 @@ Be aware these are the honest weak points, in order:
    be observed. The app is alive underneath (scene loads, buffers produced, 31
    assertions pass). The heavy-settings theory was tested and **disproved** —
    `.mobile` overrides for shadow map / MSAA / shader buffer changed the output
-   not at all. Run `adb install godot/demo/bin/box3d_demo.apk` on a phone you
+   not at all. Run `adb install godot/demo/addons/box3d/bin/box3d_demo.apk` on a phone you
    can look at; that is the only way to answer it.
 
 Remaining work is optional rather than load-bearing: a second GPU vendor
@@ -1043,7 +1043,7 @@ For a **visual** check, point the runner at the demo APK instead; Test Lab
 records video and screenshots:
 
 ```sh
-APK=godot/demo/bin/box3d_demo.apk ./godot/tools/testlab_arm64.sh
+APK=godot/demo/addons/box3d/bin/box3d_demo.apk ./godot/tools/testlab_arm64.sh
 ```
 
 Rebuild the APK with:

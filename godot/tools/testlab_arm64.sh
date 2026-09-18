@@ -28,13 +28,13 @@
 #   # video + screenshots of every run, so this shows the samples actually
 #   # rendering on a real phone under Vulkan -- something no emulator here can
 #   # show. Video links are printed at the end of the gcloud output.
-#   APK=godot/demo/bin/box3d_demo.apk ./godot/tools/testlab_arm64.sh
+#   APK=godot/demo/addons/box3d/bin/box3d_demo.apk ./godot/tools/testlab_arm64.sh
 
 set -uo pipefail
 
 GCLOUD="${GCLOUD:-$HOME/google-cloud-sdk/bin/gcloud}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-APK="${APK:-$REPO/godot/demo/bin/box3d_testlab.apk}"
+APK="${APK:-$REPO/godot/demo/addons/box3d/bin/box3d_testlab.apk}"
 # Keyed by APK name so concurrent runs on different devices don't clobber each
 # other's logs (they share a bucket but not a run dir).
 OUT="${OUT:-${TMPDIR:-/tmp}/box3d_testlab_$(basename "$APK" .apk)}"

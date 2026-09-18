@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://chbc2dfnlstsg"
-path="res://.godot/imported/Box3DBallJoint.svg-db2ca8a064aa11488c478f9e24b63893.ctex"
+path="res://.godot/imported/Box3DBallJoint.svg-bf59d29a2b67021fb37b0bfcd2ccde88.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://bin/icons/Box3DBallJoint.svg"
-dest_files=["res://.godot/imported/Box3DBallJoint.svg-db2ca8a064aa11488c478f9e24b63893.ctex"]
+source_file="res://addons/box3d/icons/Box3DBallJoint.svg"
+dest_files=["res://.godot/imported/Box3DBallJoint.svg-bf59d29a2b67021fb37b0bfcd2ccde88.ctex"]
 
 [params]
 

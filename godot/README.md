@@ -349,11 +349,13 @@ shell and verifies the menu + ball shooting.
 
 ## Building
 
-No build output is tracked. Either download the library for your platform from
-[Releases](https://github.com/Stink-O/box3d-godot/releases) and drop it into
-`demo/bin/`, or build it yourself as below. Binaries used to be committed for
-Windows; they drifted several upstream syncs out of date and shipped a demo
-that was quietly missing bindings, so they now ship against a tag instead.
+No build output is tracked. Either download the addon zip from
+[Releases](https://github.com/Stink-O/box3d-godot/releases) and unzip it into
+`demo/` (it contains `addons/box3d/` with every platform's library, which is
+exactly the folder the demo loads from), or build it yourself as below.
+Binaries used to be committed for Windows; they drifted several upstream syncs
+out of date and shipped a demo that was quietly missing bindings, so they now
+ship against a tag instead.
 
 You need Python 3, SCons, and a C++17 compiler (GCC, Clang, or MSVC), plus the
 `godot-cpp` submodule. A plain clone will not build, so clone with submodules:
@@ -389,7 +391,7 @@ scons -j$(nproc) target=template_release  # optimized build for exports
 
 The first build also compiles all of godot-cpp and takes a few minutes;
 rebuilds after that are quick. (On a low-RAM machine, drop the `-j` flag.) The
-libraries land in `demo/bin/libbox3d_godot.linux.template_debug.x86_64.so` and
+libraries land in `demo/addons/box3d/bin/libbox3d_godot.linux.template_debug.x86_64.so` and
 `...template_release...`, exactly where `box3d.gdextension` expects them.
 
 Then install Godot 4.7 for Linux (godotengine.org download, Flatpak, or
@@ -412,11 +414,12 @@ py -3 -m SCons target=template_debug
 py -3 -m SCons target=template_release
 ```
 
-The libraries are written to `demo/bin/`. Open `demo/` in Godot 4.7 and press
+The libraries are written to `demo/addons/box3d/bin/`. Open `demo/` in Godot 4.7 and press
 play (see [Demo](#demo) below for controls).
 
-To use it in your own project, copy `demo/bin/box3d.gdextension` and the built
-library into your project's `bin/` folder.
+To use it in your own project, copy the whole `demo/addons/box3d/` folder into
+your project's `addons/` folder. The manifest's paths are relative to
+`res://addons/box3d/`, so nothing needs editing.
 
 ### Cross-compiling
 

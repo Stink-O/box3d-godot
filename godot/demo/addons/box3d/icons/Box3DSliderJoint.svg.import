@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cilsryf4n6gbi"
-path="res://.godot/imported/Box3DSliderJoint.svg-1c7630385a8200f8801e3edcb12445f2.ctex"
+path="res://.godot/imported/Box3DSliderJoint.svg-afd110eaa5cc363bedc670f65f9f431f.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://bin/icons/Box3DSliderJoint.svg"
-dest_files=["res://.godot/imported/Box3DSliderJoint.svg-1c7630385a8200f8801e3edcb12445f2.ctex"]
+source_file="res://addons/box3d/icons/Box3DSliderJoint.svg"
+dest_files=["res://.godot/imported/Box3DSliderJoint.svg-afd110eaa5cc363bedc670f65f9f431f.ctex"]
 
 [params]
 

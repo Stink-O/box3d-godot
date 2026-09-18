@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b2ro1wkajll1w"
-path="res://.godot/imported/Box3DCollisionShape.svg-a0cde5d9037faea288639e6b2ac97db0.ctex"
+path="res://.godot/imported/Box3DCollisionShape.svg-49dabb97a4d65e0b8a63a2c081c8f54d.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://bin/icons/Box3DCollisionShape.svg"
-dest_files=["res://.godot/imported/Box3DCollisionShape.svg-a0cde5d9037faea288639e6b2ac97db0.ctex"]
+source_file="res://addons/box3d/icons/Box3DCollisionShape.svg"
+dest_files=["res://.godot/imported/Box3DCollisionShape.svg-49dabb97a4d65e0b8a63a2c081c8f54d.ctex"]
 
 [params]
 
