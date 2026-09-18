@@ -12,10 +12,23 @@ extends Node3D
 ## same plate edge-on cuts through the air. The toggle removes the call and
 ## the plate free-falls, which is the whole comparison in one scene.
 ##
-## Upstream's numbers are kept verbatim: hull half extents (4r, 0.1r, 4r) with
-## r = 0.1 (so an 0.8 x 0.02 x 0.8 m plate), density 2, gravity scale 0.5,
-## drag 1.0, lift 4.0, max relative speed 10 m/s. The scene's AddGroundBox(15)
-## is the 30 m floor.
+## Upstream's numbers are kept verbatim except lift: hull half extents
+## (4r, 0.1r, 4r) with r = 0.1 (so an 0.8 x 0.02 x 0.8 m plate), density 2,
+## gravity scale 0.5, drag 1.0, max relative speed 10 m/s. The scene's
+## AddGroundBox(15) is the 30 m floor.
+##
+## Lift is 1.0 here, not upstream's 4.0. The plate weighs 26 g, and at lift 4
+## one face-on step of capped airflow is ~200 N, so the per-step velocity
+## change dwarfs the velocity it was computed from and the explicit force
+## overshoots. Untouched the drop is fine; grabbed with the shell's mouse
+## joint it hit 58 m/s and left the floor 99 m out. Measured headlessly with
+## the shell's own grab joint swirled for 1.5 s then released:
+##   lift 4.0: 58 m/s, 99 m from the origin, never lands
+##   lift 2.0: blows up from an 8 m/s kick alone
+##   lift 1.5: blows up from a 15 m/s kick
+##   lift 1.0: 15 m/s while held, lands 3.4 m out, 10 s to land untouched
+## Lowering max_speed does not help (the force per step still exceeds the
+## plate's momentum), and lift 1 is about the flat-plate maximum anyway.
 
 const R := 0.1
 ## b3MakeBoxHull(4r, 0.1r, 4r) is a HALF-extent call: double it.
@@ -27,7 +40,8 @@ const DENSITY := 2.0
 const GRAVITY_SCALE := 0.5
 
 const DRAG := 1.0
-const LIFT := 4.0
+## Upstream 4.0; see the header for why 1.0.
+const LIFT := 1.0
 const MAX_SPEED := 10.0
 
 ## Upstream's SetView(-45, 15, 20, {0, 5, 0}) with the radius halved to 10:

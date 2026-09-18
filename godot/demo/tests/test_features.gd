@@ -5864,6 +5864,39 @@ func _test_sample_fidelity() -> void:
 	no_air.queue_free()
 	await get_tree().physics_frame
 
+	# Grabbing the falling plate used to fling it: at upstream's lift 4 the
+	# shell's mouse joint took the 26 g plate to 58 m/s and 99 m out. The
+	# sample now runs lift 1 (see wind_drop.gd); this swirls a real grab joint
+	# around the plate for 1.5 s, lets go, and expects it to come down nearby.
+	var grab_scene: Node = drop_scene.instantiate()
+	add_child(grab_scene)
+	var g_world = grab_scene.get_node("Box3DWorld")
+	var g_plate = grab_scene.get_node("Box3DWorld/Plate")
+	for i in range(30):
+		await get_tree().physics_frame
+	var at: Vector3 = g_plate.global_position + Vector3(0.3, 0.0, 0.3)
+	var mouse = WorldOps.spawn_kinematic_sphere(g_world, at, 0.05)
+	var grab = WorldOps.make_grab_joint(g_world, mouse, g_plate, at)
+	for i in range(90):
+		var a := TAU * i / 60.0
+		mouse.position = at + Vector3(1.5 * cos(a) - 1.5, 0.5 * sin(2.0 * a), 1.5 * sin(a))
+		await get_tree().physics_frame
+	grab.queue_free()
+	mouse.queue_free()
+	var far := 0.0
+	var landed := false
+	for i in range(450):
+		await get_tree().physics_frame
+		var p: Vector3 = g_plate.global_position
+		far = maxf(far, Vector2(p.x, p.z).length())
+		if p.y < 0.3:
+			landed = true
+			break
+	_check("a grabbed and flung Wind Drop plate lands nearby (%.1f m out, %s)"
+		% [far, "landed" if landed else "still airborne"], landed and far < 10.0)
+	grab_scene.queue_free()
+	await get_tree().physics_frame
+
 
 # --- F-004 / F-013 / F-014: the developer-facing globals --------------------
 
