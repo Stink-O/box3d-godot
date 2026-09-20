@@ -12,6 +12,7 @@ GDExtension: drop in a `Box3DWorld`, add `Box3DBody` nodes, and simulate.
   <a href="https://godotengine.org/download"><img alt="Godot 4.7" src="https://img.shields.io/badge/Godot-4.7-478cbf?logo=godotengine&logoColor=white"></a>
   <a href="https://github.com/Stink-O/box3d-godot/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/Stink-O/box3d-godot"></a>
   <a href="https://stinkysunstep.itch.io/box3d-godot"><img alt="Play in browser" src="https://img.shields.io/badge/itch.io-play%20in%20browser-fa5c5c?logo=itchdotio&logoColor=white"></a>
+  <a href="https://github.com/Stink-O/box3d-godot/discussions"><img alt="Discussions" src="https://img.shields.io/badge/GitHub-discussions-24292f?logo=github"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
 </p>
 
@@ -325,7 +326,8 @@ and joint.
 | Nothing at all happens on macOS | There is no prebuilt macOS library. Build from source or use the browser demo. |
 | A downloaded `.dll` is flagged by antivirus | Expected for unsigned binaries. These particular DLLs are also untested on Windows. |
 
-**Full docs:** see [`godot/README.md`](godot/README.md).
+**Full docs:** see [`godot/README.md`](godot/README.md). Questions, ideas
+and anything else: [Discussions](https://github.com/Stink-O/box3d-godot/discussions).
 
 Inspired by the [`box3d-unity`](https://github.com/timskap/box3d-unity) binding,
 which does the same for Unity.
