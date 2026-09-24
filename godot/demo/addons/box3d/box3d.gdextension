@@ -17,12 +17,8 @@ windows.release.x86_64 = "res://addons/box3d/bin/libbox3d_godot.windows.template
 linux.debug.x86_64 = "res://addons/box3d/bin/libbox3d_godot.linux.template_debug.x86_64.so"
 linux.release.x86_64 = "res://addons/box3d/bin/libbox3d_godot.linux.template_release.x86_64.so"
 
-; macOS has never been built (no Mac to build or test on). The keys are kept as
-; comments so a local build knows where to put the frameworks; uncomment them
-; after `scons platform=macos`. Every uncommented entry below ships in the
-; release zip, which is what the Godot Asset Store checks.
-; macos.debug = "res://addons/box3d/bin/libbox3d_godot.macos.template_debug.framework"
-; macos.release = "res://addons/box3d/bin/libbox3d_godot.macos.template_release.framework"
+macos.debug = "res://addons/box3d/bin/libbox3d_godot.macos.template_debug.framework"
+macos.release = "res://addons/box3d/bin/libbox3d_godot.macos.template_release.framework"
 
 ; Android. Only 64-bit ABIs are listed: Box3D's NEON path uses AArch64-only
 ; intrinsics (vdivq_f32/vsqrtq_f32), so arch=arm32 does not compile. See
