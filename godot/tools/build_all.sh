@@ -8,6 +8,9 @@
 #
 # Usage: godot/tools/build_all.sh [logdir] [jobs]
 # Needs: scons, mingw64 (Windows), ANDROID_HOME (Android), ~/emsdk (web).
+# macOS is not built here (no Mac): .github/workflows/godot-macos.yml builds and
+# selftests the frameworks, and its box3d-macos-frameworks artifact is unpacked
+# into demo/addons/box3d/bin/ before package_release.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 LOGDIR="${1:-build_logs}"; JOBS="${2:-8}"

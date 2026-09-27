@@ -54,7 +54,7 @@ unzip -l "$DIST/box3d-addon-v$VER.zip" | tail -1
 # export leftovers) plus the binaries, under a box3d-demo/ folder.
 STAGE="$(mktemp -d)"; mkdir -p "$STAGE/box3d-demo"
 git archive HEAD demo | tar -x -C "$STAGE/box3d-demo" --strip-components=1 -f -
-mkdir -p "$STAGE/box3d-demo/addons/box3d/bin"; cp "$ADDON"/bin/* "$STAGE/box3d-demo/addons/box3d/bin/"
+mkdir -p "$STAGE/box3d-demo/addons/box3d/bin"; cp -R "$ADDON"/bin/* "$STAGE/box3d-demo/addons/box3d/bin/"  # -R: macOS frameworks are folders
 rm -f "$DIST/0-box3d-demo-project.zip"
 ( cd "$STAGE" && zip -qr "$DIST/0-box3d-demo-project.zip" box3d-demo ); rm -rf "$STAGE"
 

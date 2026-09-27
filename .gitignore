@@ -37,6 +37,9 @@ godot/msvc_capture.log
 *.dll
 *.so
 *.dylib
+# macOS frameworks (built by .github/workflows/godot-macos.yml); the binary
+# inside has no extension, so the folder is ignored whole.
+*.framework/
 ~*.dll
 # Godot hot-reload temp copies of reloadable extensions
 ~*.dll*
