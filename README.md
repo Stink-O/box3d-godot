@@ -25,7 +25,7 @@ upstream engine sources are unchanged; everything Godot-specific lives in
 > production dependency.
 
 **Contents:** [Features](#features) ·
-[New in 0.4.3](#new-in-043) ·
+[New in 0.4.4](#new-in-044) ·
 [Browser demo](#try-it-in-a-browser-first) ·
 [Getting started](#getting-started) ·
 [Your own project](#add-box3d-to-your-own-project) ·
@@ -49,10 +49,10 @@ upstream engine sources are unchanged; everything Godot-specific lives in
   arc before you ever press play.
 - **One zip to install.** Every
   [release](https://github.com/Stink-O/box3d-godot/releases) ships one
-  `addons/box3d/` zip with prebuilt libraries for Windows, Linux, Android and
-  web; unzip it next to your `project.godot` and restart Godot. A second zip
-  is the whole demo project, ready to open in Godot. Building it yourself is
-  one `scons` command, no prebuilt engine binary required.
+  `addons/box3d/` zip with prebuilt libraries for Windows, Linux, macOS,
+  Android and web; unzip it next to your `project.godot` and restart Godot.
+  A second zip is the whole demo project, ready to open in Godot. Building it
+  yourself is one `scons` command, no prebuilt engine binary required.
 - **A 72-sample browser demo**: stacks, a ragdoll, a drivable car, joints,
   queries, determinism showcases and toys, organised by category, with a
   physics-engine selector that reruns any sample on Godot Physics or Jolt for
@@ -60,6 +60,32 @@ upstream engine sources are unchanged; everything Godot-specific lives in
 - **Runs on Android** (arm64 + x86_64), verified on real hardware under
   Vulkan, with touch controls and a mobile-scaled UI. Toolchain walkthrough:
   [`godot/ANDROID_BUILD.md`](godot/ANDROID_BUILD.md).
+
+## New in 0.4.4
+
+- **Godot 4.6 support.** The same binaries now load in Godot 4.6 and 4.7:
+  the extension is built against the 4.6 API, and newer Godot versions
+  accept it. Thanks to cdgonz115 for the request
+  ([#3](https://github.com/Stink-O/box3d-godot/pull/3)).
+- **macOS support.** The addon zip now includes a universal (Apple Silicon
+  and Intel) macOS library, built and tested on a Mac by GitHub Actions on
+  every release, for Godot 4.6 and 4.7. Thanks to cdgonz115 for the first Mac
+  report and the manifest change
+  ([#2](https://github.com/Stink-O/box3d-godot/pull/2)). It is not signed by
+  Apple; see the macOS note under Getting started if it does not load.
+- **Bounce solver settings** on `Box3DWorld`: `restitution_iterations`
+  (passes of the bounce solve, 0 turns bouncing off) and
+  `enable_restitution_propagation` (a hit carries through everything
+  touching, as in a Newton's cradle). New in upstream Box3D; both are also
+  in the demo sidebar.
+- **Barrel Spire and Barrel Skyscraper samples**: 3000 oil drums stacked into
+  a hollow cone and a hollow square tower. The Skyscraper has sidebar boxes
+  for wall width, floors and barrel count.
+- **Faster replay indexing**: the replay player now uses several solver
+  workers, so a 40,000-ball recording indexes in about 45 s instead of 105 s.
+- Upstream synced through five commits (solver and SAT optimizations, the
+  compound mesh material limit removed). `Box3DWorld.get_profile()` follows
+  upstream's field names, so its `applyRestitution` key is now `restitution`.
 
 ## New in 0.4.3
 
@@ -193,11 +219,18 @@ or, if you do not use git, open the
 Go to [Releases](https://github.com/Stink-O/box3d-godot/releases), open the
 newest one and look under **Assets**. Download
 `box3d-addon-v<version>.zip`. That one file holds the library for every
-platform: Windows, Linux, Android and web. There is nothing to pick.
+platform: Windows, Linux, macOS, Android and web. There is nothing to pick.
 
-macOS is not prebuilt. Play the
-[browser demo](https://stinkysunstep.itch.io/box3d-godot), or
-[build from source](godot/README.md#building).
+macOS note (since 0.4.4): the library is universal (Apple Silicon and Intel).
+It is built and put through the full test suite on a Mac by GitHub Actions
+for every release, but it is not signed by Apple. macOS quarantines
+downloaded files, and that can stop Godot loading an unsigned library. If
+Box3D does not load, clear the quarantine flag from the addon folder in
+Terminal, then restart Godot:
+
+```sh
+xattr -dr com.apple.quarantine path/to/your/project/addons/box3d
+```
 
 Windows note: the DLLs are cross-compiled from Linux and have never been run on
 Windows by the author. They may work fine, but they are untested. If Windows
@@ -277,6 +310,13 @@ repository, which is the same folder.) The manifest's paths are relative to
 `res://addons/box3d/`, so the folder must keep that name and nothing needs
 editing.
 
+Which release fits your Godot:
+
+| Box3D for Godot | Godot |
+| --- | --- |
+| 0.4.4 and newer | 4.6 and newer |
+| 0.4.3 and older | 4.7 and newer |
+
 **2. Restart Godot.** Extensions are loaded at startup, so a project that was
 already open will not see a newly added one until you close and reopen it.
 
@@ -323,7 +363,7 @@ and joint.
 | An error about the extension needing a newer version | You are on Godot 4.5 or earlier. Install 4.6 or newer (4.7 for the demo project). |
 | It works in the editor but the exported game crashes on start | The `template_release` library is missing. Export uses that one, the editor uses `template_debug`. |
 | Godot loads but every sample is empty | The project was opened before the library was added. Close the project and reopen it. |
-| Nothing at all happens on macOS | There is no prebuilt macOS library. Build from source or use the browser demo. |
+| Nothing at all happens on macOS, or macOS says the library cannot be verified | macOS quarantined the downloaded library. Run `xattr -dr com.apple.quarantine` on the `addons/box3d` folder and restart Godot (see Step 3). |
 | A downloaded `.dll` is flagged by antivirus | Expected for unsigned binaries. These particular DLLs are also untested on Windows. |
 
 **Full docs:** see [`godot/README.md`](godot/README.md). Questions, ideas
