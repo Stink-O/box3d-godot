@@ -512,17 +512,49 @@ func _sweep_spill_dir() -> void:
 			DirAccess.remove_absolute("%s/%s" % [SPILL_DIR, f])
 
 
+## Solver workers for the replay player.
+##
+## This was 1, always, on the grounds that "the player is driven and drawn from
+## the main thread". That conflated two different threads. A recording is
+## replayed by RE-SIMULATING it -- the file carries inputs and state hashes, not
+## per-body transforms -- so every frame the transport reaches is a
+## `b3World_Step`, and the solver's workers live INSIDE that call, which the
+## main thread still makes synchronously. One worker therefore made replaying a
+## scene slower than the scene had been live, and the index pass, which steps
+## EVERY frame of the recording, is where that bill arrived.
+##
+## MEASURED on the recording this was reported against (Ball Flood, 40,000
+## balls, 720 frames, 148 MB), stepping 40 frames:
+##
+##     1 worker    184.3 ms a frame     (the whole pass: 105 s, app at ~6 fps)
+##     4 workers    61.5 ms a frame
+##     8 workers    52.3 ms a frame     (the whole pass: ~37 s)
+##
+## and `has_diverged()` false at every count, which is not luck: box3d is
+## bit-exact across worker counts and the Wave Pile sample exists to show it.
+##
+## THE WEB BUILD KEEPS ONE, deliberately. A threaded wasm build has a fixed
+## pthread pool (`threads/emscripten_pool_size=16`, four of them Godot's own),
+## a thread created past it does not start until the main thread returns to the
+## event loop, and a replay player that opens eight workers is exactly the case
+## that froze the tab at `close()` before the pool was raised (see
+## `samples/wave_pile.gd`). The browser build is the preview; it can have the
+## slow pass.
+static func replay_worker_count() -> int:
+	if OS.has_feature("web"):
+		return 1
+	# Leave the machine a core for the rest of the frame, and do not chase core
+	# counts past the point where a solver step stops scaling.
+	return clampi(OS.get_processor_count() - 1, 1, 8)
+
+
 ## Open `path` and start drawing it under `host`. Returns false if the file will
 ## not open, in which case nothing was attached and the caller should tear the
 ## bar down.
 func open_recording(path: String, host: Node3D) -> bool:
 	close_recording()
 	var player := Box3DReplayPlayer.new()
-	# One worker, always, and not as a shortcut: the player is driven and drawn
-	# from the main thread, and the single-threaded web build has no pthreads to
-	# give it. The cross-thread determinism check that a higher count would buy
-	# belongs in the selftests, where threads are guaranteed.
-	if not player.open_file(path, 1):
+	if not player.open_file(path, replay_worker_count()):
 		return false
 	# Policy BEFORE anything else: setting it clears the ring and restarts the
 	# player, which upstream requires, so doing it later would throw away

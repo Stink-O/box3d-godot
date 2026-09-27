@@ -194,8 +194,9 @@ const SAVE_CHUNK_BYTES := 4 * 1024 * 1024
 ## with a material on it. The interesting ones do not -- Cube Pile's 4096 cubes
 ## have no MeshInstance3D at all, because `common/cube_grid_multimesh.gd` frees
 ## them at load and draws the pile as per-instance MultiMesh colours instead,
-## and `Box3DMultiMeshRenderer`, `ball_cloud.gd` and `joint_grid.gd` all do the
-## same thing for the same reason (draw calls).
+## and `Box3DMultiMeshRenderer`, `ball_cloud.gd`, `barrel_cluster.gd` (the
+## Barrel Spire's 3000 drums) and `joint_grid.gd` all do the same thing for the
+## same reason (draw calls).
 ##
 ## A node in that position implements `get_replay_body_colors()` and returns
 ## `{ Box3DBody: Color }` for the bodies it draws. That is deliberately an ASK

@@ -1,0 +1,32 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://samples/barrel_spire.gd" id="1_spire"]
+
+[sub_resource type="StandardMaterial3D" id="FloorMat_1"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+metallic = 0.1
+roughness = 0.55
+
+[sub_resource type="BoxMesh" id="FloorMesh_1"]
+size = Vector3(200, 1, 200)
+
+[node name="BarrelSpire" type="Node3D"]
+script = ExtResource("1_spire")
+
+[node name="CameraStart" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 26, 52)
+
+[node name="LookAt" type="Node3D" parent="CameraStart"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26, 4, -52)
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+worker_count = 8
+
+[node name="Floor" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+body_type = 0
+box_size = Vector3(200, 1, 200)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
+mesh = SubResource("FloorMesh_1")
+material_override = SubResource("FloorMat_1")

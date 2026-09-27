@@ -206,7 +206,10 @@ nothing for the extractor to find. Fifteen of the samples now author no
 `grid_mesh`, `hit_events`, `hollow_box`, `joint_grid`, `live_geometry`,
 `manifold`, `mesh_reflection`, `mesh_tile`, `overlap_world`, `rewind`,
 `sensor_hits`, `tile_floor`), and under Jolt or Godot Physics those come up
-empty or ground-only.
+empty or ground-only. `barrel_spire` and `barrel_skyscraper` are the same
+case with a floor under them: the ground is authored, the 3000 barrels are
+built in `_ready()`, and both samples say so themselves through `rig_notes()`
+rather than leaving an empty plate to be read as a solver failure.
 
 This is a gap in the harness rather than a result about the engines, and it is
 the price of the extractor's one safety property: instantiating a sample must

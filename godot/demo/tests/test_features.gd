@@ -99,6 +99,8 @@ func _ready() -> void:
 	await _test_sample_fidelity()
 	await _test_developer_globals()
 	await _test_height_field_readback()
+	await _test_barrel_spire()
+	await _test_barrel_skyscraper()
 	_test_sample_registry()
 	print("[test] ALL -> ", "PASS" if _all_ok else "FAIL")
 	get_tree().quit(0 if _all_ok else 1)
@@ -5021,6 +5023,23 @@ func _test_replay_timeline() -> void:
 
 	_check("the timeline opens the recording", bar.open_recording(path, host))
 	_check("it is open", bar.is_open())
+
+	# A recording is replayed by RE-SIMULATING it, so the player's worker count
+	# is the speed of every frame the transport reaches AND of the whole index
+	# pass. It was 1 until a 40,000-ball Ball Flood recording showed what that
+	# costs (184 ms a frame against 52 at eight workers, and the index pass
+	# holding the shell at ~6 fps for two minutes). This pins the fix: the
+	# browser build keeps its single worker for pthread-pool reasons, and
+	# everywhere else the player gets the machine.
+	var replay_workers: int = ReplayTimeline.replay_worker_count()
+	var machine_cores: int = OS.get_processor_count()
+	_check("the replay player is opened with real workers (%d of %d cores)"
+		% [replay_workers, machine_cores],
+		replay_workers >= 1 and replay_workers <= 8
+		and (replay_workers > 1 or machine_cores <= 2 or OS.has_feature("web")))
+	_check("and the open player is running them (%d)"
+		% bar.get_player().get_worker_count(),
+		bar.get_player().get_worker_count() == replay_workers)
 	var count: int = bar.get_frame_count()
 	_check("it knows the frame count (%d)" % count, count > 0)
 	# Frame 0 is before the recording's first dispatch, so the bar steps once on
@@ -5986,6 +6005,305 @@ func _test_height_field_readback() -> void:
 		ch_mats.count(0xFF) == 150)
 	ch_scene.queue_free()
 	await get_tree().physics_frame
+
+# --- The Barrel Spire: the model, the layout, and the fact that it stands ---
+
+## 3000 is the number this sample is named after, so the arithmetic that
+## produces it is pinned here instead of eyeballed -- and with it the four
+## geometric facts the stack leans on: rings that do not overlap, a step per
+## level small enough that every barrel rests on the one below, a core that
+## stays empty all the way up, and a drum whose paint never reaches past the
+## collider holding it up.
+func _test_barrel_spire() -> void:
+	var barrel: GDScript = load("res://common/barrel.gd")
+	var spire: GDScript = load("res://samples/barrel_spire.gd")
+	var counts: PackedInt32Array = spire.ring_counts()
+	var pos: PackedVector3Array = spire.barrel_positions()
+	var diameter: float = barrel.RADIUS * 2.0
+
+	_check("the Barrel Spire stacks exactly %d barrels in %d rings (%d placed)"
+		% [spire.BARREL_COUNT, counts.size(), pos.size()],
+		pos.size() == 3000 and pos.size() == spire.BARREL_COUNT)
+
+	# The sum is only 3000 because the counts run 77, 76, ... 3 with no gaps:
+	# a ring that skipped a count would both change the total and put a step in
+	# the wall twice as deep as the one below it.
+	var stepped: bool = counts.size() > 0 and counts[0] == spire.BASE_RING \
+			and counts[counts.size() - 1] == spire.APEX_RING
+	for i in counts.size() - 1:
+		stepped = stepped and counts[i] - counts[i + 1] == 1
+	_check("every ring holds one barrel fewer than the ring below, %d down to %d"
+		% [spire.BASE_RING, spire.APEX_RING], stepped)
+
+	# Nothing may start the scene overlapping anything: a spawn overlap is
+	# depenetrated on the first step, and 3000 of them at once is a shockwave.
+	var closest := INF
+	var idx := 0
+	for level in counts.size():
+		var n := counts[level]
+		for j in n:
+			var a: Vector3 = pos[idx + j]
+			var b: Vector3 = pos[idx + (j + 1) % n]
+			closest = minf(closest, a.distance_to(b))
+		idx += n
+	_check("neighbours in a ring touch but never overlap (closest %.3f m, barrel %.2f m)"
+		% [closest, diameter], closest >= diameter - 1e-6)
+
+	# The load path: each barrel sits on the rim of the ring below it, so the
+	# wall may not step in by more than the radius it has to land on.
+	var worst_step := 0.0
+	for i in counts.size() - 1:
+		worst_step = maxf(worst_step,
+			spire.ring_radius(counts[i]) - spire.ring_radius(counts[i + 1]))
+	_check("each ring steps in less than a barrel radius (worst %.3f m of %.2f m)"
+		% [worst_step, barrel.RADIUS], worst_step < barrel.RADIUS)
+
+	# One level per barrel height exactly. A gap would drop the whole spire a
+	# level's worth of slack on load; an overlap would spawn 3000 penetrations.
+	# 1e-4, not 1e-6: the layout comes back as a PackedVector3Array, whose
+	# components are 32-bit, and a 65 m apex has a coarser epsilon than that.
+	var levels_exact := true
+	idx = 0
+	for level in counts.size():
+		levels_exact = levels_exact and absf(
+			pos[idx].y - (barrel.HEIGHT * 0.5 + level * barrel.HEIGHT)) < 1e-4
+		idx += counts[level]
+	_check("levels are stacked a barrel height apart with no slack", levels_exact)
+
+	# Hollow is the whole point: every barrel is out on its ring and the core
+	# is empty from the floor to the apex.
+	var thinnest := INF
+	var on_ring := true
+	idx = 0
+	for level in counts.size():
+		var radius: float = spire.ring_radius(counts[level])
+		thinnest = minf(thinnest, radius - barrel.RADIUS)
+		for j in counts[level]:
+			var p: Vector3 = pos[idx + j]
+			on_ring = on_ring and absf(Vector2(p.x, p.z).length() - radius) < 1e-6
+		idx += counts[level]
+	_check("the wall is one barrel thick around an empty core (%.2f m of core left at the apex, %.2f m at the base)"
+		% [thinnest, spire.ring_radius(spire.BASE_RING) - barrel.RADIUS],
+		on_ring and thinnest > 0.0)
+
+	# The model: the hoops are what reaches RADIUS and nothing reaches past it,
+	# which is what lets a ring pack to a diameter without visuals crossing.
+	var arrays: Array = barrel.mesh().surface_get_arrays(0)
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var max_r := 0.0
+	var max_y := 0.0
+	for v in verts:
+		max_r = maxf(max_r, Vector2(v.x, v.z).length())
+		max_y = maxf(max_y, absf(v.y))
+	_check("the drum's widest point is its collider radius (%.4f m of %.2f m, %.2f m tall)"
+		% [max_r, barrel.RADIUS, max_y * 2.0],
+		absf(max_r - barrel.RADIUS) < 1e-5 and absf(max_y * 2.0 - barrel.HEIGHT) < 1e-5)
+
+	# Winding, checked rather than trusted: Godot's front faces wind CLOCKWISE
+	# seen from outside, so the winding cross-product must point INWARD. Get it
+	# backwards and every barrel renders inside-out, which reads as a hole in
+	# the spire rather than as an error.
+	var outward := 0
+	for t in indices.size() / 3:
+		var a: Vector3 = verts[indices[t * 3]]
+		var b: Vector3 = verts[indices[t * 3 + 1]]
+		var c: Vector3 = verts[indices[t * 3 + 2]]
+		var mid := (a + b + c) / 3.0
+		# Away from the axis for the shell, away from the origin for the lids.
+		var out_dir := Vector3(mid.x, 0.0, mid.z)
+		if absf(mid.y) > barrel.HEIGHT * 0.49:
+			out_dir = Vector3(0.0, mid.y, 0.0)
+		if (b - a).cross(c - a).dot(out_dir) > 0.0:
+			outward += 1
+	_check("every face of the drum is wound the way Godot draws front faces (%d of %d inverted)"
+		% [outward, indices.size() / 3], outward == 0)
+
+	# The collider the model promises: same axis, same radius, same facet count,
+	# so the silhouette IS the shape the solver holds up.
+	var body: Box3DBody = barrel.make_body(spire.DENSITY)
+	var fits: bool = body.shape_type == Box3DBody.CYLINDER \
+			and is_equal_approx(body.capsule_radius, barrel.RADIUS) \
+			and is_equal_approx(body.capsule_height, barrel.HEIGHT) \
+			and body.cylinder_sides == barrel.SIDES
+	_check("a barrel body is a %d-sided cylinder of the mesh's own size" % barrel.SIDES,
+		fits)
+	body.free()
+
+	# And it stands. The layout above is only worth pinning if the spire it
+	# describes holds itself up, so the scene runs: a collapse moves hundreds
+	# of barrels metres in well under two seconds.
+	var scene: Node = (load("res://samples/barrel_spire.tscn") as PackedScene).instantiate()
+	add_child(scene)
+	await get_tree().physics_frame
+	# The cluster's children are the bodies AND the MultiMeshInstance3D it draws
+	# them with; only the bodies are barrels, and they keep their layout order.
+	var barrels: Array = scene.get_node("Box3DWorld/Barrels").get_children().filter(
+		func(c): return c is Box3DBody)
+	var apex: Box3DBody = barrels[barrels.size() - 1]
+	var apex_y: float = apex.global_position.y
+	for i in range(120):
+		await get_tree().physics_frame
+	# Vertical, not total: a 66 m spire of loose drums SWAYS as it settles, up
+	# to about a metre at the apex with a period of several seconds, and it is
+	# still swaying at 15 s (it sleeps around 20). That is the structure being
+	# a structure; what would mean it failed is barrels leaving the wall, and
+	# they only ever do that downward.
+	var slumped := 0
+	var worst_drop := 0.0
+	for i in barrels.size():
+		worst_drop = maxf(worst_drop, pos[i].y - barrels[i].global_position.y)
+		if pos[i].y - barrels[i].global_position.y > 1.0:
+			slumped += 1
+	var apex_drop: float = apex_y - apex.global_position.y
+	_check("the spire stands: its apex has dropped %.2f m after two seconds" % apex_drop,
+		apex_drop < 1.0)
+	_check("and not one of its %d barrels has dropped out of the wall (%.2f m of settling at worst, %d below a barrel height)"
+		% [barrels.size(), worst_drop, slumped], slumped == 0)
+	scene.queue_free()
+	await get_tree().physics_frame
+
+
+## The same 3000 drums as the Spire in the shape the Crysis clip is actually
+## building: a hollow square tower. The layout is checked the same way (the
+## count, the packing, the empty core), plus the one thing this stack cannot do
+## without: its 8 substeps.
+func _test_barrel_skyscraper() -> void:
+	var barrel: GDScript = load("res://common/barrel.gd")
+	var tower: GDScript = load("res://samples/barrel_skyscraper.gd")
+	var plan: PackedVector2Array = tower.floor_plan()
+	var pos: PackedVector3Array = tower.barrel_positions()
+	var per_floor: int = int(tower.per_floor())
+	var diameter: float = barrel.RADIUS * 2.0
+
+	_check("the Barrel Skyscraper stacks exactly %d barrels, %d a floor over %d floors (%d placed)"
+		% [tower.BARREL_COUNT, per_floor, tower.DEFAULT_LEVELS, pos.size()],
+		pos.size() == 3000 and pos.size() == tower.BARREL_COUNT
+		and plan.size() == per_floor)
+
+	# Walls one drum thick and nothing inside: every barrel sits ON the square,
+	# which is both halves of that claim at once. The corners are shared rather
+	# than doubled, which is where the 4 * SIDE - 4 comes from.
+	var half: float = (int(tower.DEFAULT_SIDE) - 1) * diameter * 0.5
+	var on_wall := true
+	for p in plan:
+		on_wall = on_wall and absf(maxf(absf(p.x), absf(p.y)) - half) < 1e-6
+	_check("every drum is on the wall itself, so the tower is a tube with a %.1f m shaft up the middle"
+		% (2.0 * half - diameter), on_wall)
+
+	# Straight columns are the point of this stack: each drum takes its own
+	# load straight down instead of leaning on a step, which is what makes it
+	# stand stiller than the Spire.
+	var stacked := true
+	for level in int(tower.DEFAULT_LEVELS):
+		for j in per_floor:
+			var p: Vector3 = pos[level * per_floor + j]
+			stacked = stacked and absf(p.x - plan[j].x) < 1e-6 \
+					and absf(p.z - plan[j].y) < 1e-6 \
+					and absf(p.y - (barrel.HEIGHT * 0.5 + level * barrel.HEIGHT)) < 1e-4
+	_check("every floor is the same plan, stacked square on the one below", stacked)
+
+	# Nothing starts the scene overlapping anything (the 1e-4 is the layout's
+	# 32-bit storage, not slack in the stack).
+	var closest := INF
+	for i in plan.size():
+		for j in range(i + 1, plan.size()):
+			closest = minf(closest, plan[i].distance_to(plan[j]))
+	_check("neighbours along a wall touch but never overlap (closest %.3f m, barrel %.2f m)"
+		% [closest, diameter], closest >= diameter - 1e-4)
+
+	# The setting the sample lives or dies by. Four straight walls have no
+	# compression ring to lock them, so at the default 4 substeps the contact
+	# compliance over 50 courses splays the tower outward and it never sleeps.
+	var scene: Node = (load("res://samples/barrel_skyscraper.tscn") as PackedScene).instantiate()
+	add_child(scene)
+	var world: Box3DWorld = scene.get_node("Box3DWorld")
+	_check("the tower authors the 8 substeps its walls need (%d)" % world.substep_count,
+		world.substep_count >= 8)
+
+	await get_tree().physics_frame
+	var barrels: Array = world.get_node("Barrels").get_children().filter(
+		func(c): return c is Box3DBody)
+	var top: Box3DBody = barrels[barrels.size() - 1]
+	var top_y: float = top.global_position.y
+	for i in range(120):
+		await get_tree().physics_frame
+	var slumped := 0
+	var worst_move := 0.0
+	for i in barrels.size():
+		worst_move = maxf(worst_move, (barrels[i].global_position - pos[i]).length())
+		if pos[i].y - barrels[i].global_position.y > 1.0:
+			slumped += 1
+	_check("the tower stands: its top floor has dropped %.2f m after two seconds"
+		% (top_y - top.global_position.y), top_y - top.global_position.y < 1.0)
+	_check("and every one of its %d barrels is still in the wall (worst %.2f m out of place, %d below a barrel height)"
+		% [barrels.size(), worst_move, slumped], slumped == 0)
+
+	# The sidebar's three boxes (main.gd's sample size dial). Their order is
+	# the order the shell applies them in when a Reset puts a dialled tower
+	# back, and the count comes last because the count has the final word.
+	var dials: Array = scene.sample_size_dials()
+	var keys := PackedStringArray()
+	for d: Dictionary in dials:
+		keys.append(String(d.get("key", "")))
+	_check("the sidebar gets three boxes for it, in apply order (%s)"
+		% ", ".join(keys),
+		Array(keys) == ["width", "floors", "barrels"])
+
+	var start := {}
+	for d: Dictionary in dials:
+		start[String(d.get("key", ""))] = int(d.get("value", 0))
+	_check("and they start on the tower the scene authored (%d wide, %d floors, %d barrels)"
+		% [start.get("width", 0), start.get("floors", 0), start.get("barrels", 0)],
+		start.get("width", 0) == int(tower.DEFAULT_SIDE)
+		and start.get("floors", 0) == int(tower.DEFAULT_LEVELS)
+		and start.get("barrels", 0) == int(tower.BARREL_COUNT))
+
+	# A box has one duty before it builds anything, which is to say what the
+	# number costs: this is the only control in the shell that can spawn five
+	# figures of bodies.
+	var hint_now: String = scene.sample_size_hint("floors", int(tower.DEFAULT_LEVELS))
+	var hint_80: String = scene.sample_size_hint("floors", 80)
+	var hint_wide: String = scene.sample_size_hint("width", 24)
+	_check("each box counts the bodies it would spawn before it spawns them (\"%s\")"
+		% hint_now,
+		hint_now.contains(str(tower.BARREL_COUNT))
+		and hint_80.contains(str(80 * per_floor))
+		and hint_wide.contains(str(tower.BARREL_COUNT)))
+
+	# And turning one really does rebuild the stack, rather than only relabel it.
+	scene.set_sample_size("floors", 6)
+	await get_tree().physics_frame
+	var shrunk: Array = world.get_node("Barrels").get_children().filter(
+		func(c): return c is Box3DBody)
+	var tallest := 0.0
+	for b in shrunk:
+		tallest = maxf(tallest, b.global_position.y)
+	_check("setting it to 6 floors rebuilds the tower at %d bodies, %.1f m tall"
+		% [shrunk.size(), tallest],
+		shrunk.size() == 6 * per_floor and tallest < 6.0 * barrel.HEIGHT)
+
+	# The promise the width box makes: every barrel survives a change of shape.
+	# It is re-laid onto a wider floor plan, so the same drums come back as a
+	# shorter, fatter tower with a part-built floor on top where the new width
+	# does not divide the count.
+	scene.set_sample_size("width", 24)
+	await get_tree().physics_frame
+	var widened: Array = world.get_node("Barrels").get_children().filter(
+		func(c): return c is Box3DBody)
+	var wide_top := 0.0
+	var wide_out := 0.0
+	for b in widened:
+		wide_top = maxf(wide_top, b.global_position.y)
+		wide_out = maxf(wide_out, maxf(absf(b.global_position.x), absf(b.global_position.z)))
+	_check("and widening the wall to 24 keeps all %d of them (%.1f m across now, %.1f m tall)"
+		% [widened.size(), 2.0 * wide_out + barrel.RADIUS * 2.0, wide_top],
+		widened.size() == shrunk.size()
+		and wide_out > 6.0 and wide_top < tallest)
+
+	scene.queue_free()
+	await get_tree().physics_frame
+
 
 # --- F-041: the sample registry the picker is built from --------------------
 

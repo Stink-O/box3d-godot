@@ -53,7 +53,7 @@ upstream engine sources are unchanged; everything Godot-specific lives in
   web; unzip it next to your `project.godot` and restart Godot. A second zip
   is the whole demo project, ready to open in Godot. Building it yourself is
   one `scons` command, no prebuilt engine binary required.
-- **A 70-sample browser demo**: stacks, a ragdoll, a drivable car, joints,
+- **A 72-sample browser demo**: stacks, a ragdoll, a drivable car, joints,
   queries, determinism showcases and toys, organised by category, with a
   physics-engine selector that reruns any sample on Godot Physics or Jolt for
   side-by-side comparison.

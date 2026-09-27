@@ -33,6 +33,8 @@ const SAMPLES := {
 		"Huge Pyramid": "res://samples/huge_pyramid.tscn",
 		"Mixed Stacks": "res://samples/mixed_stacks.tscn",
 		"Jenga Stack": "res://samples/jenga.tscn",
+		"Barrel Spire": "res://samples/barrel_spire.tscn",
+		"Barrel Skyscraper": "res://samples/barrel_skyscraper.tscn",
 		"Wedge": "res://samples/wedge.tscn",
 	},
 	"Constraints": {
@@ -149,6 +151,8 @@ const DESCRIPTIONS := {
 	"Huge Pyramid": "Sixteen thousand boxes in one pyramid. It stands because matching contacts are recycled between steps rather than rebuilt.",
 	"Mixed Stacks": "Stacks built from different shapes at once, so the manifolds between unlike colliders have to hold each other up.",
 	"Jenga Stack": "Sixty beams, two per layer, each layer turned a quarter turn. It settles by a few centimetres as the gaps close, then sleeps.",
+	"Barrel Spire": "Three thousand steel drums stacked into one hollow cone, the wall a single barrel thick. Every ring holds one barrel fewer than the ring below it, so the wall steps in a tenth of a metre a level and 75 levels of it lean on themselves rather than on anything inside. It sways like a mast as it settles, then the whole spire falls asleep.",
+	"Barrel Skyscraper": "The same three thousand drums as the Spire, stacked the way the Crysis clip actually stacks them: a hollow square tower, fifty floors of sixty barrels, walls one drum thick and nothing inside. Four straight walls cannot lock themselves the way a ring can, so this one runs at eight substeps; wind the sidebar back to four and the walls splay out and never settle. The sidebar has three boxes for it: wall width, floors and barrels. Widening it keeps every barrel and builds a shorter, fatter tower; the line under the boxes counts the bodies before any of them are built. Fly in at the bottom and the whole height of it is open above you.",
 	"Wedge": "A six vertex hull balanced on its own ridge. The contact is a line rather than a face, which is the case a manifold is most likely to get wrong; here it should settle and sleep instead of jittering off.",
 	"Motion Locks": "Bodies with individual axes locked. The pucks are held flat to the table and the beads are held to a single axis, so they glide instead of tumbling.",
 	"Compound Shapes": "Single bodies made of several child colliders, so one rigid body can have any shape you like.",
@@ -226,6 +230,8 @@ const USE_CASES := {
 	"Huge Pyramid": "Checking a big destructible structure survives before you ship it",
 	"Mixed Stacks": "Clutter piles built from whatever props are to hand",
 	"Jenga Stack": "Tower games where the player pulls pieces out of a stack",
+	"Barrel Spire": "Set-piece stacks the player brings down, built from one prop repeated thousands of times",
+	"Barrel Skyscraper": "Towers and warehouse stacks the player can collapse from the inside",
 	"Wedge": "Angular props like rocks and rubble that come to rest on an edge",
 	"Motion Locks": "Air hockey pucks, rail-bound crates and 2.5D movement",
 	"Compound Shapes": "Awkward props like tables and machinery as one rigid body",
@@ -424,6 +430,16 @@ var _sample_blurb: Label  ## muted one-liner in the sidebar, see DESCRIPTIONS
 var _sample_use_case: Label  ## dimmer line under it, see USE_CASES
 var _sample_blurb_box: Control  ## holds both labels, hidden while collapsed
 var _sample_blurb_toggle: Button  ## discloses the blurb; collapsed on every sample load
+## The size dials a sample can put in the sidebar (see _build_sample_size_box).
+var _sample_size_box: VBoxContainer  ## the dial rows, rebuilt per sample
+var _sample_size_hint: Label         ## what the dials would build, count first
+var _sample_size_timer: Timer        ## debounce; see SAMPLE_SIZE_DELAY
+var _sample_size_spins := {}         ## dial key -> its SpinBox
+var _sample_size_keys := []          ## dial keys in the sample's own order
+var _sample_size_pending := {}       ## dial key -> value waiting on the timer
+## Sample scene path -> { dial key: value }, so Reset and an engine switch
+## rebuild what is on screen rather than the authored default.
+var _sample_sizes := {}
 var _side_scroll: ScrollContainer  ## the sidebar's scrollable middle, all platforms
 ## Solver settings the user has explicitly changed with the sidebar this
 ## session, as `key -> the value they chose`. Every world the shell loads
@@ -520,6 +536,7 @@ func _ready() -> void:
 	_sidebar_toggle.focus_mode = Control.FOCUS_NONE
 	_sidebar_toggle.toggled.connect(_on_sidebar_toggled)
 	_build_sample_blurb()
+	_build_sample_size_box()
 	_build_record_section()
 
 	# Engine selector: same shell, different solver underneath.
@@ -1379,6 +1396,163 @@ func _sample_tooltip(sample_name: String) -> String:
 func _update_blurb_toggle_text() -> void:
 	var arrow := "v" if _sample_blurb_toggle.button_pressed else ">"
 	_sample_blurb_toggle.text = "%s About this sample" % arrow
+
+
+## How long a change to a size dial sits before it is built (seconds).
+##
+## A SpinBox emits value_changed on every arrow click AND while the mouse is
+## dragged over it, and what these dials rebuild is thousands of bodies. The
+## hint under the boxes updates on every one of those, so the numbers and their
+## cost stay live; only the build waits for the user to stop.
+const SAMPLE_SIZE_DELAY := 0.35
+
+
+## Numbers the CURRENT SAMPLE owns, in the sidebar above the solver rows.
+##
+## Some samples are one shape with knobs on it -- the Barrel Skyscraper is a
+## hollow tower you can make taller or wider -- and a knob like that has one
+## duty before it costs anybody anything: say what it is about to spawn. That
+## is the line under the boxes, and the sample writes it, because only the
+## sample knows what its numbers mean.
+##
+## Protocol, all three or no dials appear:
+##   sample_size_dials() -> [ { key, label, value, min, max, step, tooltip } ]
+##   sample_size_hint(key, value) -> String   what setting `key` to `value`
+##                                            would build, count first
+##   set_sample_size(key, value)              build it
+##
+## Dial order is the sample's, and it is load-bearing: it is the order the
+## dials are applied in when a Reset puts a remembered tower back, so a sample
+## whose dials interact declares the one that preserves state before the one
+## that sets it.
+##
+## The box lives with the blurb above the "Solver" title, because it is about
+## the sample rather than about the solver rows under it.
+func _build_sample_size_box() -> void:
+	var vbox: Control = _side_scroll.get_node("Margin/VBox")
+	_sample_size_box = VBoxContainer.new()
+	_sample_size_box.name = "SampleSizeBox"
+	_sample_size_box.visible = false
+	_sample_size_box.add_theme_constant_override("separation", 6)
+
+	_sample_size_hint = Label.new()
+	_sample_size_hint.name = "SampleSizeHint"
+	_sample_size_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_sample_size_hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
+	_sample_size_hint.add_theme_font_size_override("font_size", 11)
+
+	_sample_size_timer = Timer.new()
+	_sample_size_timer.name = "SampleSizeTimer"
+	_sample_size_timer.one_shot = true
+	_sample_size_timer.wait_time = SAMPLE_SIZE_DELAY
+	_sample_size_timer.timeout.connect(_apply_sample_size)
+	add_child(_sample_size_timer)
+
+	vbox.add_child(_sample_size_box)
+	vbox.move_child(_sample_size_box, 2)
+
+
+## Point the dials at whatever is loaded now, or hide them. Called on every
+## sample load, so a native rebuild (no script, no methods) correctly shows
+## nothing. Rebuilds the rows rather than reusing them: how many dials there
+## are and what they are called belong to the sample.
+func _refresh_sample_size() -> void:
+	_sample_size_pending.clear()
+	_sample_size_spins.clear()
+	_sample_size_keys.clear()
+	for child in _sample_size_box.get_children():
+		_sample_size_box.remove_child(child)
+		if child != _sample_size_hint:
+			child.queue_free()
+	var has_dials: bool = _current != null \
+			and _current.has_method("sample_size_dials") \
+			and _current.has_method("set_sample_size") \
+			and _current.has_method("sample_size_hint")
+	_sample_size_box.visible = has_dials
+	if not has_dials:
+		return
+	for dial: Dictionary in _current.sample_size_dials():
+		var key := String(dial.get("key", ""))
+		if key.is_empty():
+			continue
+		var row := HBoxContainer.new()
+		row.name = "SampleSize_%s" % key
+		var label := Label.new()
+		label.text = String(dial.get("label", key.capitalize()))
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		var spin := SpinBox.new()
+		spin.custom_minimum_size = Vector2(100, 0)
+		spin.min_value = float(dial.get("min", 1.0))
+		spin.max_value = float(dial.get("max", 100.0))
+		spin.step = float(dial.get("step", 1.0))
+		spin.set_value_no_signal(float(dial.get("value", 1.0)))
+		spin.value_changed.connect(_on_sample_size_changed.bind(key))
+		row.add_child(spin)
+		var tip := String(dial.get("tooltip", ""))
+		row.tooltip_text = tip
+		label.tooltip_text = tip
+		spin.tooltip_text = tip
+		_sample_size_box.add_child(row)
+		_sample_size_spins[key] = spin
+		_sample_size_keys.append(key)
+	_sample_size_box.add_child(_sample_size_hint)
+	_update_sample_size_hint()
+
+
+## The hint describes the tower as the boxes currently read it. Asking about
+## the first dial at its own value is the same question as "what are you now",
+## so there is no second entry point for the sample to keep in step.
+func _update_sample_size_hint(key := "", value := 0) -> void:
+	if _current == null or not _current.has_method("sample_size_hint"):
+		return
+	if key.is_empty():
+		if _sample_size_keys.is_empty():
+			return
+		key = String(_sample_size_keys[0])
+		value = int((_sample_size_spins[key] as SpinBox).value)
+	_sample_size_hint.text = String(_current.sample_size_hint(key, value))
+
+
+func _on_sample_size_changed(value: float, key: String) -> void:
+	# The cost of the number first, the number itself when the user stops.
+	_sample_size_pending[key] = int(value)
+	_update_sample_size_hint(key, int(value))
+	if _sample_size_timer != null:
+		_sample_size_timer.start(SAMPLE_SIZE_DELAY)
+
+
+func _apply_sample_size() -> void:
+	if _current == null or not _current.has_method("set_sample_size"):
+		return
+	if _sample_size_pending.is_empty():
+		return
+	# In the sample's own dial order, not in the order the user happened to
+	# touch them: a sample whose dials interact defines that order.
+	for key: String in _sample_size_keys:
+		if _sample_size_pending.has(key):
+			_current.set_sample_size(key, int(_sample_size_pending[key]))
+	_sample_size_pending.clear()
+	# One dial can move another (widening the tower drops its floor count), and
+	# it can move another's limits too, so the boxes are re-read from the
+	# sample rather than left showing what was typed.
+	var sizes := {}
+	for dial: Dictionary in _current.sample_size_dials():
+		var key := String(dial.get("key", ""))
+		var spin: SpinBox = _sample_size_spins.get(key)
+		if spin == null:
+			continue
+		spin.min_value = float(dial.get("min", spin.min_value))
+		spin.max_value = float(dial.get("max", spin.max_value))
+		spin.set_value_no_signal(float(dial.get("value", spin.value)))
+		sizes[key] = int(dial.get("value", spin.value))
+	_sample_sizes[_current_path] = sizes
+	_update_sample_size_hint()
+	_body_count_cache = -1
+	if _body_count_label.visible:
+		_update_body_count()
+	if _stats_overlay.visible:
+		_push_stats_bodies()
 
 
 # --- Recording (F-R2): capture any sample, from the sidebar ------------------
@@ -2378,6 +2552,17 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 			var override_world = _current.get_node_or_null("Box3DWorld")
 			if override_world != null:
 				override_world.worker_count = worker_override
+		# Sizes the user dialled for THIS sample, put back before _ready so the
+		# scene builds at that size once instead of building the authored one
+		# and immediately throwing it away. Applied in the sample's own dial
+		# order, which is the order that reproduces what was on screen.
+		if _sample_sizes.has(path) and _current.has_method("set_sample_size") \
+				and _current.has_method("sample_size_dials"):
+			var remembered: Dictionary = _sample_sizes[path]
+			for dial: Dictionary in _current.sample_size_dials():
+				var key := String(dial.get("key", ""))
+				if remembered.has(key):
+					_current.set_sample_size(key, int(remembered[key]))
 		_host.add_child(_current)
 	_step_count = 0
 	_body_count_cache = -1
@@ -2451,6 +2636,8 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	_update_all_reverts()
 	# Show the Activate button only for samples that expose an activate() action.
 	_activate.visible = _current != null and _current.has_method("activate")
+	# And the size dial only for samples that own a number worth turning.
+	_refresh_sample_size()
 	# Same idea for the sample toggle (set_toggled + get_toggle_label). The
 	# switch has to MATCH the sample's startup behaviour, not assume it is off:
 	# a sample that loads with its effect already running (Live Geometry
