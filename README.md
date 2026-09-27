@@ -72,7 +72,8 @@ upstream engine sources are unchanged; everything Godot-specific lives in
   every release, for Godot 4.6 and 4.7. Thanks to cdgonz115 for the first Mac
   report and the manifest change
   ([#2](https://github.com/Stink-O/box3d-godot/pull/2)). It is not signed by
-  Apple; see the macOS note under Getting started if it does not load.
+  Apple, so macOS blocks it after a download until you run one Terminal
+  command; see the macOS note under Getting started.
 - **Bounce solver settings** on `Box3DWorld`: `restitution_iterations`
   (passes of the bounce solve, 0 turns bouncing off) and
   `enable_restitution_propagation` (a hit carries through everything
@@ -221,16 +222,22 @@ newest one and look under **Assets**. Download
 `box3d-addon-v<version>.zip`. That one file holds the library for every
 platform: Windows, Linux, macOS, Android and web. There is nothing to pick.
 
-macOS note (since 0.4.4): the library is universal (Apple Silicon and Intel).
-It is built and put through the full test suite on a Mac by GitHub Actions
-for every release, but it is not signed by Apple. macOS quarantines
-downloaded files, and that can stop Godot loading an unsigned library. If
-Box3D does not load, clear the quarantine flag from the addon folder in
-Terminal, then restart Godot:
+**macOS: one Terminal command is required.** The library is universal (Apple
+Silicon and Intel) and is built and put through the full test suite on a Mac
+by GitHub Actions for every release, but it is not signed by Apple. macOS
+quarantines anything downloaded through a browser and blocks the library:
+Godot starts with every Box3D node missing, and macOS may offer to move the
+library to the Trash. Do not accept that; if you already did, unzip again.
+After unzipping, and before opening the project in Godot, run this in
+Terminal:
 
 ```sh
 xattr -dr com.apple.quarantine path/to/your/project/addons/box3d
 ```
+
+Confirmed on Apple Silicon: after this command Godot loads the addon
+normally. For the demo project zip, run it on the unzipped `box3d-demo`
+folder instead.
 
 Windows note: the DLLs are cross-compiled from Linux and have never been run on
 Windows by the author. They may work fine, but they are untested. If Windows
@@ -363,7 +370,7 @@ and joint.
 | An error about the extension needing a newer version | You are on Godot 4.5 or earlier. Install 4.6 or newer (4.7 for the demo project). |
 | It works in the editor but the exported game crashes on start | The `template_release` library is missing. Export uses that one, the editor uses `template_debug`. |
 | Godot loads but every sample is empty | The project was opened before the library was added. Close the project and reopen it. |
-| Nothing at all happens on macOS, or macOS says the library cannot be verified | macOS quarantined the downloaded library. Run `xattr -dr com.apple.quarantine` on the `addons/box3d` folder and restart Godot (see Step 3). |
+| On macOS, every Box3D node is missing, or macOS says the library cannot be verified | macOS quarantined the downloaded library, as it always does for a browser download. Unzip again if macOS moved it to the Trash, run `xattr -dr com.apple.quarantine` on the `addons/box3d` folder, and restart Godot (see Step 3). |
 | A downloaded `.dll` is flagged by antivirus | Expected for unsigned binaries. These particular DLLs are also untested on Windows. |
 
 **Full docs:** see [`godot/README.md`](godot/README.md). Questions, ideas

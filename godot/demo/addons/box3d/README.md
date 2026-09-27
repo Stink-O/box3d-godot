@@ -16,9 +16,10 @@ Linux, macOS universal, Android arm64 and x86_64, and threaded web). Godot
 exports only the library that matches the target, so the unused ones cost
 nothing in your game. Requires Godot 4.6 or newer.
 
-On macOS the library is not signed by Apple. If Godot does not load it, clear
-the download quarantine and restart Godot:
-`xattr -dr com.apple.quarantine addons/box3d`
+On macOS the library is not signed by Apple, so macOS blocks it after a
+browser download (every Box3D node is missing, and macOS may offer to move it
+to the Trash; do not). Before opening the project, run this in Terminal from
+the project folder: `xattr -dr com.apple.quarantine addons/box3d`
 
 The library the editor loads is the `template_debug` one; exported games use
 `template_release`. Both are included.
