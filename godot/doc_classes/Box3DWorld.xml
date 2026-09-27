@@ -106,7 +106,7 @@
 		<method name="get_live_settings" qualifiers="const">
 			<return type="Dictionary" />
 			<description>
-				What the solver is actually running with, read back from Box3D rather than from this node's properties, as a [Dictionary]: [code]gravity[/code], [code]restitutionThreshold[/code], [code]hitEventThreshold[/code], [code]contactRecycleDistance[/code], [code]maximumLinearSpeed[/code], [code]workerCount[/code], [code]sleepingEnabled[/code], [code]continuousEnabled[/code] and [code]warmStartingEnabled[/code]. Keys are Box3D's own field names.
+				What the solver is actually running with, read back from Box3D rather than from this node's properties, as a [Dictionary]: [code]gravity[/code], [code]restitutionThreshold[/code], [code]restitutionIterations[/code], [code]restitutionPropagationEnabled[/code], [code]hitEventThreshold[/code], [code]contactRecycleDistance[/code], [code]maximumLinearSpeed[/code], [code]workerCount[/code], [code]sleepingEnabled[/code], [code]continuousEnabled[/code] and [code]warmStartingEnabled[/code]. Keys are Box3D's own field names.
 				Worth reading when a property does not seem to have taken effect. Several are applied only when the world is created ([member worker_count] most notably), and [member max_linear_speed] shows here as the real cap rather than as the [code]0[/code] that means "leave Box3D's default alone". Empty while the world does not exist.
 			</description>
 		</method>
@@ -462,6 +462,9 @@
 		<member name="debug_joint_scale" type="float" setter="set_debug_joint_scale" getter="get_debug_joint_scale" default="1.0">
 			Multiplies the size of everything [member debug_draw_joints] and [member debug_draw_joint_extras] draw. Purely visual. Raise it when joint markers vanish inside the bodies they connect, lower it when a dense mechanism becomes a thicket.
 		</member>
+		<member name="enable_restitution_propagation" type="bool" setter="set_enable_restitution_propagation" getter="get_enable_restitution_propagation" default="false">
+			Lets a bounce travel through every contact a body is touching, not just the one that was hit, so a strike on one end of a row of balls comes out of the other end the way a Newton's cradle does. Off by default, as in Box3D, which describes it as expensive. Applies live. Has no effect while [member restitution_iterations] is [code]0[/code].
+		</member>
 		<member name="enable_sleep" type="bool" setter="set_enable_sleep" getter="get_enable_sleep" default="true">
 			Lets settled islands of bodies stop being simulated until something disturbs them. This is the single biggest saving in a scene with a lot of resting geometry. Individual bodies can opt out with [member Box3DBody.can_sleep].
 		</member>
@@ -477,6 +480,9 @@
 		</member>
 		<member name="max_linear_speed" type="float" setter="set_max_linear_speed" getter="get_max_linear_speed" default="0.0">
 			Speed cap for dynamic bodies, in metres per second. [code]0[/code] does not mean "no limit": it means "leave Box3D's own default alone", which is 400 m/s (faster than sound).
+		</member>
+		<member name="restitution_iterations" type="int" setter="set_restitution_iterations" getter="get_restitution_iterations" default="2">
+			Passes of Box3D's restitution (bounce) solver per substep, clamped to [code]0..63[/code]. Box3D's default is 2; more passes resolve bounces more accurately, which upstream notes means less spinning when a box lands on an edge. [code]0[/code] skips the bounce solve entirely, so nothing bounces whatever its [member Box3DBody.restitution]. Applies live.
 		</member>
 		<member name="restitution_threshold" type="float" setter="set_restitution_threshold" getter="get_restitution_threshold" default="1.0">
 			The impact speed below which [member Box3DBody.restitution] is ignored, in metres per second. Matches Box3D's default of 1.

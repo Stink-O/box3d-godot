@@ -630,7 +630,7 @@ Three notes for whoever runs this next:
 
 - **Every count in this document is the suite as it stood during the Android
   campaign** (42 assertions, 29-30 sample scenes). The harness has grown a
-  long way since: as of 0.4.3 it is **744 `[test]` lines and 73 `[samples]`
+  long way since: as of 0.4.4 it is **750 `[test]` lines and 73 `[samples]`
   lines**, and it only ever ratchets upward. Compare a fresh run against the
   *current* Linux baseline, not against the numbers quoted below. The Android
   results below are records of what was executed then, and are left as

@@ -65,6 +65,7 @@ func _ready() -> void:
 	await _test_baked_compound()
 	await _test_debug_overlay()
 	await _test_world_capacity_and_live_settings()
+	await _test_restitution_solver_settings()
 	await _test_character_soft_collision()
 	await _test_live_shape_resize()
 	await _test_per_body_queries()
@@ -2542,7 +2543,7 @@ func _test_world_capacity_and_live_settings() -> void:
 	_check("capacity properties round-trip",
 		world.capacity_dynamic_bodies == 64 and world.capacity_contacts == 256)
 	var live: Dictionary = world.get_live_settings()
-	_check("get_live_settings reports nine readings (%d)" % live.size(), live.size() == 9)
+	_check("get_live_settings reports eleven readings (%d)" % live.size(), live.size() == 11)
 	_check("live gravity matches the property", live["gravity"].is_equal_approx(world.gravity))
 	_check("live sleeping/continuous/warm flags are booleans",
 		live["sleepingEnabled"] is bool and live["continuousEnabled"] is bool
@@ -2557,6 +2558,70 @@ func _test_world_capacity_and_live_settings() -> void:
 		cap["dynamicBodyCount"] >= 6)
 	_check("get_world_count sees this world", Box3DWorld.get_world_count() >= 1)
 	world.free()
+
+
+
+## Upstream's restitution solver settings (b3WorldDef.restitutionIterations and
+## enableRestitutionPropagation). Two worlds drop the same bouncy ball; the one
+## authored with 0 passes skips the bounce solve, so its ball lands dead.
+func _test_restitution_solver_settings() -> void:
+	var probe := Box3DWorld.new()
+	_check("restitution_iterations / propagation default to Box3D's (2, off)",
+		probe.restitution_iterations == 2 and not probe.enable_restitution_propagation)
+	probe.restitution_iterations = 100
+	var high := probe.restitution_iterations
+	probe.restitution_iterations = -3
+	_check("restitution_iterations clamps to 0..63 (%d, %d)" % [high, probe.restitution_iterations],
+		high == 63 and probe.restitution_iterations == 0)
+	probe.free()
+
+	var balls: Array[Box3DBody] = []
+	var worlds: Array[Box3DWorld] = []
+	for iterations in [0, 2]:
+		var world := Box3DWorld.new()
+		world.restitution_iterations = iterations
+		world.enable_restitution_propagation = iterations == 2
+		add_child(world)
+		var ground := Box3DBody.new()
+		ground.body_type = Box3DBody.STATIC
+		ground.box_size = Vector3(10, 1, 10)
+		ground.position = Vector3(0, -0.5, 0)
+		world.add_child(ground)
+		var ball := Box3DBody.new()
+		ball.shape_type = Box3DBody.SPHERE
+		ball.sphere_radius = 0.25
+		ball.restitution = 0.9
+		ball.position = Vector3(0, 3.0, 0)
+		world.add_child(ball)
+		worlds.append(world)
+		balls.append(ball)
+
+	var dead_live: Dictionary = worlds[0].get_live_settings()
+	var bouncy_live: Dictionary = worlds[1].get_live_settings()
+	_check("authored values reach the created world (%d/%s, %d/%s)"
+			% [dead_live["restitutionIterations"], dead_live["restitutionPropagationEnabled"],
+				bouncy_live["restitutionIterations"], bouncy_live["restitutionPropagationEnabled"]],
+		dead_live["restitutionIterations"] == 0 and not dead_live["restitutionPropagationEnabled"]
+			and bouncy_live["restitutionIterations"] == 2 and bouncy_live["restitutionPropagationEnabled"])
+
+	# Falling from rest, any upward speed at all comes from the bounce.
+	var rise := [0.0, 0.0]
+	for i in range(90):
+		await get_tree().physics_frame
+		for k in range(2):
+			rise[k] = maxf(rise[k], balls[k].get_linear_velocity().y)
+	_check("0 passes skips the bounce, 2 passes bounces (up %.2f vs %.2f m/s)" % [rise[0], rise[1]],
+		rise[0] < 0.5 and rise[1] > 3.0)
+
+	worlds[0].restitution_iterations = 5
+	worlds[0].enable_restitution_propagation = true
+	var live: Dictionary = worlds[0].get_live_settings()
+	_check("restitution_iterations applies live (%d)" % live["restitutionIterations"],
+		live["restitutionIterations"] == 5)
+	_check("enable_restitution_propagation applies live",
+		live["restitutionPropagationEnabled"] == true)
+	for world in worlds:
+		world.free()
 
 
 func _test_character_soft_collision() -> void:

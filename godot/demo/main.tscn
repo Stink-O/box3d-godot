@@ -347,6 +347,32 @@ max_value = 20.0
 step = 0.5
 value = 10.0
 
+[node name="BounceItersRow" type="HBoxContainer" parent="UI/Sidebar/Margin/VBox"]
+visible = false
+layout_mode = 2
+
+[node name="BounceItersLabel" type="Label" parent="UI/Sidebar/Margin/VBox/BounceItersRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Bounce Iterations"
+
+[node name="BounceItersSpin" type="SpinBox" parent="UI/Sidebar/Margin/VBox/BounceItersRow"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+tooltip_text = "Passes of the bounce (restitution) solver per substep. More passes bounce more accurately; 0 turns bouncing off. Box3D's default is 2."
+max_value = 8.0
+value = 2.0
+
+[node name="BouncePropagationRow" type="HBoxContainer" parent="UI/Sidebar/Margin/VBox"]
+visible = false
+layout_mode = 2
+
+[node name="BouncePropagationCheck" type="CheckBox" parent="UI/Sidebar/Margin/VBox/BouncePropagationRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Let a bounce travel through everything a body is touching, the way a Newton's cradle passes a hit down the row. Box3D calls it expensive, so it is off by default."
+text = "Bounce Propagation"
+
 [node name="StartViewRow" type="HBoxContainer" parent="UI/Sidebar/Margin/VBox"]
 layout_mode = 2
 

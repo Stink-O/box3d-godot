@@ -109,6 +109,8 @@ Dictionary Box3DWorld::get_live_settings() const {
 	join_async_step();
 	d["gravity"] = to_gd(b3World_GetGravity(world_id));
 	d["restitutionThreshold"] = (double)b3World_GetRestitutionThreshold(world_id);
+	d["restitutionIterations"] = b3World_GetRestitutionIterations(world_id);
+	d["restitutionPropagationEnabled"] = b3World_IsRestitutionPropagationEnabled(world_id);
 	d["hitEventThreshold"] = (double)b3World_GetHitEventThreshold(world_id);
 	d["contactRecycleDistance"] = (double)b3World_GetContactRecycleDistance(world_id);
 	d["maximumLinearSpeed"] = (double)b3World_GetMaximumLinearSpeed(world_id);
@@ -431,6 +433,8 @@ void Box3DWorld::ensure_world() {
 	def.enableSleep = enable_sleep;
 	def.hitEventThreshold = (float)hit_event_threshold;
 	def.restitutionThreshold = (float)restitution_threshold;
+	def.restitutionIterations = restitution_iterations;
+	def.enableRestitutionPropagation = enable_restitution_propagation;
 	// Optional pre-sizing. Zeros are Box3D's own default (grow on demand), so a
 	// scene that authors nothing here is unaffected.
 	def.capacity.staticShapeCount = capacity_static_shapes;
@@ -2800,6 +2804,32 @@ double Box3DWorld::get_restitution_threshold() const {
 	return restitution_threshold;
 }
 
+void Box3DWorld::set_restitution_iterations(int p_iterations) {
+	// Clamped here as well as in Box3D (src/physics_world.c), so the property
+	// reads back what the solver is actually running.
+	restitution_iterations = CLAMP(p_iterations, 0, B3_MAX_RESTITUTION_ITERATIONS);
+	if (b3World_IsValid(world_id)) {
+		join_async_step();
+		b3World_SetRestitutionIterations(world_id, restitution_iterations);
+	}
+}
+
+int Box3DWorld::get_restitution_iterations() const {
+	return restitution_iterations;
+}
+
+void Box3DWorld::set_enable_restitution_propagation(bool p_enabled) {
+	enable_restitution_propagation = p_enabled;
+	if (b3World_IsValid(world_id)) {
+		join_async_step();
+		b3World_EnableRestitutionPropagation(world_id, enable_restitution_propagation);
+	}
+}
+
+bool Box3DWorld::get_enable_restitution_propagation() const {
+	return enable_restitution_propagation;
+}
+
 void Box3DWorld::set_contact_recycle_distance(double p_distance) {
 	contact_recycle_distance = p_distance;
 	if (b3World_IsValid(world_id)) {
@@ -2954,6 +2984,10 @@ void Box3DWorld::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_hit_event_threshold"), &Box3DWorld::get_hit_event_threshold);
 	ClassDB::bind_method(D_METHOD("set_restitution_threshold", "speed"), &Box3DWorld::set_restitution_threshold);
 	ClassDB::bind_method(D_METHOD("get_restitution_threshold"), &Box3DWorld::get_restitution_threshold);
+	ClassDB::bind_method(D_METHOD("set_restitution_iterations", "iterations"), &Box3DWorld::set_restitution_iterations);
+	ClassDB::bind_method(D_METHOD("get_restitution_iterations"), &Box3DWorld::get_restitution_iterations);
+	ClassDB::bind_method(D_METHOD("set_enable_restitution_propagation", "enabled"), &Box3DWorld::set_enable_restitution_propagation);
+	ClassDB::bind_method(D_METHOD("get_enable_restitution_propagation"), &Box3DWorld::get_enable_restitution_propagation);
 	ClassDB::bind_method(D_METHOD("set_contact_recycle_distance", "distance"), &Box3DWorld::set_contact_recycle_distance);
 	ClassDB::bind_method(D_METHOD("get_contact_recycle_distance"), &Box3DWorld::get_contact_recycle_distance);
 
@@ -3036,6 +3070,12 @@ void Box3DWorld::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "hit_event_threshold", PROPERTY_HINT_RANGE, "0,20,0.01,or_greater,suffix:m/s"), "set_hit_event_threshold", "get_hit_event_threshold");
 	// Upstream warns against very small values here: they keep bodies awake.
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restitution_threshold", PROPERTY_HINT_RANGE, "0,20,0.01,or_greater,suffix:m/s"), "set_restitution_threshold", "get_restitution_threshold");
+	// More passes settle bounces more accurately (upstream: "less box
+	// spinning"); 0 turns bouncing off. Propagation is upstream's "expensive"
+	// option: a bounce travels through everything touching, as in a Newton's
+	// cradle.
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "restitution_iterations", PROPERTY_HINT_RANGE, "0," + itos(B3_MAX_RESTITUTION_ITERATIONS) + ",1"), "set_restitution_iterations", "get_restitution_iterations");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enable_restitution_propagation"), "set_enable_restitution_propagation", "get_enable_restitution_propagation");
 
 	// b3WorldDef.capacity: expected counts, read ONLY when the world is created.
 	// 0 means "let Box3D grow on demand", which is its own default. Measure a

@@ -69,6 +69,12 @@ private:
 	// 1 m/s (src/types.c:17-18) so the defaults change nothing.
 	double hit_event_threshold = 1.0;
 	double restitution_threshold = 1.0;
+	// Passes of the restitution (bounce) solver per substep, and whether it
+	// propagates across every touching contact. Both default to
+	// b3DefaultWorldDef's values (src/types.c:19-20): 2 passes, no propagation.
+	// 0 passes skips the bounce solve, so nothing bounces at all.
+	int restitution_iterations = 2;
+	bool enable_restitution_propagation = false;
 	// Contact point recycling distance; 0 disables recycling (box3d.h:187-188).
 	// The default is B3_CONTACT_RECYCLE_DISTANCE = 10 * B3_LINEAR_SLOP = 0.05 m
 	// at this binding's fixed 1 length unit per meter (constants.h:53, :88).
@@ -468,6 +474,10 @@ public:
 	double get_hit_event_threshold() const;
 	void set_restitution_threshold(double p_speed);
 	double get_restitution_threshold() const;
+	void set_restitution_iterations(int p_iterations);
+	int get_restitution_iterations() const;
+	void set_enable_restitution_propagation(bool p_enabled);
+	bool get_enable_restitution_propagation() const;
 	void set_contact_recycle_distance(double p_distance);
 	double get_contact_recycle_distance() const;
 	void set_capacity_static_shapes(int p_count);

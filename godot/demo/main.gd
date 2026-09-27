@@ -407,6 +407,10 @@ const ENGINE_ACCENTS := {
 @onready var _contact_hertz_spin: SpinBox = $UI/Sidebar/Margin/VBox/ContactHertzRow/ContactHertzSpin
 @onready var _contact_damping_row: Control = $UI/Sidebar/Margin/VBox/ContactDampingRow
 @onready var _contact_damping_spin: SpinBox = $UI/Sidebar/Margin/VBox/ContactDampingRow/ContactDampingSpin
+@onready var _bounce_iters_row: Control = $UI/Sidebar/Margin/VBox/BounceItersRow
+@onready var _bounce_iters_spin: SpinBox = $UI/Sidebar/Margin/VBox/BounceItersRow/BounceItersSpin
+@onready var _bounce_prop_row: Control = $UI/Sidebar/Margin/VBox/BouncePropagationRow
+@onready var _bounce_prop_check: CheckBox = $UI/Sidebar/Margin/VBox/BouncePropagationRow/BouncePropagationCheck
 @onready var _readout: Label = $UI/Sidebar/Margin/VBox/Readout
 @onready var _set_start_btn: Button = $UI/Sidebar/Margin/VBox/StartViewRow/SetStartView
 @onready var _clear_start_btn: Button = $UI/Sidebar/Margin/VBox/StartViewRow/ClearStartView
@@ -615,6 +619,9 @@ func _ready() -> void:
 	_sidebar_debug_check.toggled.connect(_on_sidebar_debug_changed)
 	_contact_hertz_spin.value_changed.connect(_on_contact_hertz_changed)
 	_contact_damping_spin.value_changed.connect(_on_contact_damping_changed)
+	_bounce_iters_spin.value_changed.connect(_on_bounce_iters_changed)
+	_bounce_prop_check.focus_mode = Control.FOCUS_NONE
+	_bounce_prop_check.toggled.connect(_on_bounce_propagation_changed)
 	_stats_check.focus_mode = Control.FOCUS_NONE
 	_stats_check.toggled.connect(_on_stats_toggled)
 	_profiler_check.focus_mode = Control.FOCUS_NONE
@@ -2169,6 +2176,24 @@ func _on_contact_damping_changed(value: float) -> void:
 			world.contact_damping = value)
 
 
+func _on_bounce_iters_changed(value: float) -> void:
+	if _updating_sidebar:
+		return
+	_mark_sticky("restitution_iterations", _bounce_iters_spin, int(value))
+	_with_world(func(world):
+		if "restitution_iterations" in world:
+			world.restitution_iterations = int(value))
+
+
+func _on_bounce_propagation_changed(pressed: bool) -> void:
+	if _updating_sidebar:
+		return
+	_mark_sticky("enable_restitution_propagation", _bounce_prop_check, pressed)
+	_with_world(func(world):
+		if "enable_restitution_propagation" in world:
+			world.enable_restitution_propagation = pressed)
+
+
 func _on_sleep_changed(pressed: bool) -> void:
 	if _updating_sidebar:
 		return
@@ -2253,6 +2278,12 @@ func _apply_sticky_settings(world) -> void:
 	if _sticky.has("contact_damping") and "contact_damping" in world:
 		world.contact_damping = float(_sticky["contact_damping"])
 		_contact_damping_spin.set_value_no_signal(world.contact_damping)
+	if _sticky.has("restitution_iterations") and "restitution_iterations" in world:
+		world.restitution_iterations = int(_sticky["restitution_iterations"])
+		_bounce_iters_spin.set_value_no_signal(world.restitution_iterations)
+	if _sticky.has("enable_restitution_propagation") and "enable_restitution_propagation" in world:
+		world.enable_restitution_propagation = bool(_sticky["enable_restitution_propagation"])
+		_bounce_prop_check.set_pressed_no_signal(world.enable_restitution_propagation)
 	_updating_sidebar = false
 
 
@@ -2347,9 +2378,18 @@ func _refresh_sidebar_from_world(world) -> void:
 		if has_hertz:
 			_contact_hertz_spin.set_value_no_signal(world.contact_hertz)
 			_contact_damping_spin.set_value_no_signal(world.contact_damping)
+		# Upstream's bounce settings, same probe-then-show rule as above.
+		var has_bounce: bool = "restitution_iterations" in world
+		_bounce_iters_row.visible = has_bounce
+		_bounce_prop_row.visible = has_bounce
+		if has_bounce:
+			_bounce_iters_spin.set_value_no_signal(world.restitution_iterations)
+			_bounce_prop_check.set_pressed_no_signal(world.enable_restitution_propagation)
 	else:
 		_contact_hertz_row.visible = false
 		_contact_damping_row.visible = false
+		_bounce_iters_row.visible = false
+		_bounce_prop_row.visible = false
 	_updating_sidebar = false
 	_update_readout()
 
@@ -2938,7 +2978,8 @@ func _add_revert(ctrl: Control, follows_scene := false) -> void:
 func _setup_reverts() -> void:
 	for c in [_substep_spin, _worker_spin, _max_speed_spin, _gravity_spin,
 			_continuous_check, _sleep_check, _recycling_check,
-			_contact_hertz_spin, _contact_damping_spin]:
+			_contact_hertz_spin, _contact_damping_spin,
+			_bounce_iters_spin, _bounce_prop_check]:
 		_add_revert(c, true)
 	# Shell-level display preferences: they belong to the session, not to the
 	# sample, and already outlive a load on their own.
@@ -2952,7 +2993,8 @@ func _setup_reverts() -> void:
 func _capture_world_baselines() -> void:
 	for c in [_substep_spin, _worker_spin, _max_speed_spin, _gravity_spin,
 			_continuous_check, _sleep_check, _recycling_check,
-			_contact_hertz_spin, _contact_damping_spin]:
+			_contact_hertz_spin, _contact_damping_spin,
+			_bounce_iters_spin, _bounce_prop_check]:
 		_set_revert_baseline(c, _revert_value(c))
 
 
