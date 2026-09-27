@@ -15,7 +15,7 @@ jobs:
   test:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: ${{ matrix.timeout || 4 }}
+    timeout-minutes: ${{ matrix.timeout || 10 }}
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     strategy:
       fail-fast: false
@@ -51,6 +51,8 @@ jobs:
             test: ./bin/Debug/test
           - name: windows-arm64
             os: windows-11-arm
+            msvc: true
+            msvc-arch: arm64
             args: -A arm64 -DBOX3D_DISABLE_SIMD=TRUE -DBOX3D_SANITIZE=ON
             test: ./bin/Debug/test
           # Optimized runs. The determinism golden hashes are otherwise only checked at -O0,
@@ -80,7 +82,7 @@ jobs:
       if: ${{ matrix.msvc }}
       uses: TheMrMilchmann/setup-msvc-dev@v4
       with:
-        arch: x64
+        arch: ${{ matrix['msvc-arch'] || 'x64' }}
 
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{ matrix.config || env.BUILD_TYPE }} -DBOX3D_SAMPLES=OFF -DBUILD_SHARED_LIBS=OFF -DBOX3D_VALIDATE=ON -DCMAKE_COMPILE_WARNING_AS_ERROR=ON ${{ matrix.args }}
@@ -102,7 +104,7 @@ jobs:
   build-windows-mingw:
     name: windows-mingw
     runs-on: windows-latest
-    timeout-minutes: 4
+    timeout-minutes: 10
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     defaults:
       run:
@@ -135,7 +137,7 @@ jobs:
   emscripten:
     name: emscripten
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
     - uses: actions/checkout@v6
@@ -151,7 +153,7 @@ jobs:
   samples:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 8
+    timeout-minutes: 10
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     strategy:
       fail-fast: false

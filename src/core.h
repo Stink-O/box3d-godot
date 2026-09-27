@@ -113,8 +113,16 @@ typedef struct b3AtomicU32
 	uint32_t value;
 } b3AtomicU32;
 
+typedef struct b3AtomicI64
+{
+	// 64-bit atomic wants 8-byte alignment
+	_Alignas( 8 ) int64_t value;
+} b3AtomicI64;
+
 // Minimum memory alignment used for all allocations
 #define B3_ALIGNMENT 16
+
+#define B3_RESTRICT restrict
 
 // Returns the number of elements of an array
 #define B3_ARRAY_COUNT( A ) (int)( sizeof( A ) / sizeof( A[0] ) )

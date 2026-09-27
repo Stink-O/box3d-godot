@@ -13,6 +13,7 @@ typedef struct b3ManifoldConstraintPoint
 	float relativeVelocity;
 	float normalImpulse;
 	float totalNormalImpulse;
+	float restitutionImpulse;
 	float normalMass;
 	float leverArm;
 } b3ManifoldConstraintPoint;
@@ -56,18 +57,21 @@ int b3GetWideContactConstraintByteCount( void );
 // Overflow contacts don't fit into the constraint graph coloring
 void b3PrepareContacts_Overflow( b3StepContext* context );
 void b3WarmStartContacts_Overflow( b3StepContext* context );
-void b3SolveContacts_Overflow( b3StepContext* context, bool useBias );
+void b3PushContacts_Overflow( b3StepContext* context );
+void b3SolveContacts_Overflow( b3StepContext* context );
 void b3ApplyRestitution_Overflow( b3StepContext* context );
 void b3StoreImpulses_Overflow( b3StepContext* context );
 
 void b3PrepareContacts_Mesh( b3SolverBlock block, b3StepContext* context );
 void b3WarmStartContacts_Mesh( b3SolverBlock block, b3StepContext* context );
-void b3SolveContacts_Mesh( b3SolverBlock block, b3StepContext* context, bool useBias );
+void b3PushContacts_Mesh( b3SolverBlock block, b3StepContext* context );
+void b3SolveContacts_Mesh( b3SolverBlock block, b3StepContext* context );
 void b3ApplyRestitution_Mesh( b3SolverBlock block, b3StepContext* context );
 void b3StoreImpulses_Mesh( b3SolverBlock block, b3StepContext* context, int workerIndex );
 
 void b3PrepareContacts_Convex( b3SolverBlock block, b3StepContext* context );
 void b3WarmStartContacts_Convex( b3SolverBlock block, b3StepContext* context );
-void b3SolveContacts_Convex( b3SolverBlock block, b3StepContext* context, bool useBias );
+void b3PushContacts_Convex( b3SolverBlock block, b3StepContext* context );
+void b3SolveContacts_Convex( b3SolverBlock block, b3StepContext* context );
 void b3ApplyRestitution_Convex( b3SolverBlock block, b3StepContext* context );
 void b3StoreImpulses_Convex( b3SolverBlock block, b3StepContext* context, int workerIndex );

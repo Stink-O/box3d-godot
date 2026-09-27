@@ -62,7 +62,7 @@ static int TestBlockAlignment( void )
 		{
 			elements[j] = b3AllocateElement( &allocator );
 			ENSURE( elements[j] != NULL );
-			ENSURE( ( (uintptr_t)elements[j] & ( B3_ALIGNMENT - 1 ) ) == 0 );
+			ENSURE( ( (uintptr_t)elements[j] & ( B3_BLOCK_ALIGNMENT - 1 ) ) == 0 );
 		}
 
 		for ( int j = 0; j < count; ++j )
@@ -75,7 +75,7 @@ static int TestBlockAlignment( void )
 		{
 			elements[j] = b3AllocateElement( &allocator );
 			ENSURE( elements[j] != NULL );
-			ENSURE( ( (uintptr_t)elements[j] & ( B3_ALIGNMENT - 1 ) ) == 0 );
+			ENSURE( ( (uintptr_t)elements[j] & ( B3_BLOCK_ALIGNMENT - 1 ) ) == 0 );
 		}
 
 		for ( int j = 0; j < count; ++j )

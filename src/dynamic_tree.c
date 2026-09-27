@@ -1929,7 +1929,10 @@ int b3DynamicTree_Rebuild( b3DynamicTree* tree, bool fullBuild )
 	else
 	{
 		b3TreeNode node = *root;
-		node.flagIndex &= ~B3_MOVED_NODE;
+		if ( fullBuild == false )
+		{
+			node.flagIndex &= ~B3_MOVED_NODE;
+		}
 		leafIndices[0] = 0;
 		leaves[0] = node;
 #if B3_TREE_HEURISTIC == 0
@@ -1954,7 +1957,10 @@ int b3DynamicTree_Rebuild( b3DynamicTree* tree, bool fullBuild )
 				continue;
 			}
 
-			node.flagIndex &= ~B3_MOVED_NODE;
+			if ( fullBuild == false )
+			{
+				node.flagIndex &= ~B3_MOVED_NODE;
+			}
 			leafIndices[leafCount] = leafCount;
 			leaves[leafCount] = node;
 #if B3_TREE_HEURISTIC == 0
@@ -1977,7 +1983,10 @@ int b3DynamicTree_Rebuild( b3DynamicTree* tree, bool fullBuild )
 	tree->dfsOrdered = true;
 
 	b3DynamicTree_Validate( tree );
-	b3DynamicTree_ValidateNoMoved( tree );
+	if ( fullBuild == false )
+	{
+		b3DynamicTree_ValidateNoMoved( tree );
+	}
 
 	return leafCount;
 }

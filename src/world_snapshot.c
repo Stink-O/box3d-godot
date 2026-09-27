@@ -33,7 +33,7 @@
 
 // Snapshot image magic 'BNS3' and version
 #define B3_SNAP_MAGIC 0x33534E42u
-#define B3_SNAP_VERSION 5u // broad-phase pair traversal, move buffer removed
+#define B3_SNAP_VERSION 10u // post solve restitution
 
 #define B3_SNAP_FLAG_VALIDATION 0x1u
 #define B3_SNAP_FLAG_DOUBLE_PRECISION 0x2u
@@ -470,6 +470,7 @@ static void b3SerWorldConfig( b3RecBuffer* buf, const b3World* world )
 	b3SnapW_Bytes( buf, &world->gravity, sizeof( b3Vec3 ) );
 	b3SnapW_Bytes( buf, &world->hitEventThreshold, sizeof( float ) );
 	b3SnapW_Bytes( buf, &world->restitutionThreshold, sizeof( float ) );
+	b3SnapW_I32( buf, world->restitutionIterations );
 	b3SnapW_Bytes( buf, &world->maxLinearSpeed, sizeof( float ) );
 	b3SnapW_Bytes( buf, &world->contactSpeed, sizeof( float ) );
 	b3SnapW_Bytes( buf, &world->contactHertz, sizeof( float ) );
@@ -487,6 +488,7 @@ static void b3SerWorldConfig( b3RecBuffer* buf, const b3World* world )
 	flags |= world->enableWarmStarting ? 0x02u : 0u;
 	flags |= world->enableContinuous ? 0x04u : 0u;
 	flags |= world->enableSpeculative ? 0x08u : 0u;
+	flags |= world->enableRestitutionPropagation ? 0x10u : 0u;
 	b3RecBufAppend( buf, &flags, 1 );
 }
 
@@ -495,6 +497,7 @@ static void b3DesWorldConfig( b3SnapReader* r, b3World* world )
 	b3SnapR_Bytes( r, &world->gravity, sizeof( b3Vec3 ) );
 	b3SnapR_Bytes( r, &world->hitEventThreshold, sizeof( float ) );
 	b3SnapR_Bytes( r, &world->restitutionThreshold, sizeof( float ) );
+	world->restitutionIterations = b3SnapR_I32( r );
 	b3SnapR_Bytes( r, &world->maxLinearSpeed, sizeof( float ) );
 	b3SnapR_Bytes( r, &world->contactSpeed, sizeof( float ) );
 	b3SnapR_Bytes( r, &world->contactHertz, sizeof( float ) );
@@ -513,6 +516,7 @@ static void b3DesWorldConfig( b3SnapReader* r, b3World* world )
 	world->enableWarmStarting = ( flags & 0x02u ) != 0;
 	world->enableContinuous = ( flags & 0x04u ) != 0;
 	world->enableSpeculative = ( flags & 0x08u ) != 0;
+	world->enableRestitutionPropagation = ( flags & 0x10u ) != 0;
 }
 
 // Shapes carry pointer fields: materials, userData, userShape, and the geometry union.
@@ -628,7 +632,7 @@ static void b3DesShapes( b3SnapReader* r, b3World* world, b3RecReader* rdr )
 	// shape with the same geometry. Carrying its handle over avoids tearing down and rebuilding every
 	// GPU mesh on each seek, which the host (a 3D renderer) would otherwise pay for. Handles that are
 	// not reclaimed below belong to shapes that are gone or were replaced, and get released so the host
-	// pool does not leak across seeks. Box2D has no such handles, so its restore skips all of this.
+	// pool does not leak across seeks.
 	int oldShapeCount = world->shapes.count;
 	void** savedUserShape = NULL;
 	uint16_t* savedGeneration = NULL;
@@ -831,8 +835,6 @@ static void b3SerContacts( b3RecBuffer* buf, b3World* world )
 		// Write raw struct with pointer fields zeroed
 		b3Contact copy = *c;
 		copy.manifolds = NULL;
-		copy.bodySimIndexA = B3_NULL_INDEX;
-		copy.bodySimIndexB = B3_NULL_INDEX;
 		if ( copy.flags & b3_simMeshContact )
 		{
 			copy.meshContact.triangleCache.data = NULL;
@@ -889,8 +891,6 @@ static void b3DesContacts( b3SnapReader* r, b3World* world )
 		b3Contact* dst = world->contacts.data + i;
 		b3SnapR_Bytes( r, dst, sizeof( b3Contact ) );
 		dst->manifolds = NULL;
-		dst->bodySimIndexA = B3_NULL_INDEX;
-		dst->bodySimIndexB = B3_NULL_INDEX;
 		if ( dst->flags & b3_simMeshContact )
 		{
 			dst->meshContact.triangleCache.data = NULL;
@@ -1061,6 +1061,8 @@ int b3SerializeWorld( b3World* world, b3RecBuffer* buf, b3Recording* rec )
 
 	// Shape sparse array with geometry interning
 	b3SerShapes( buf, world, rec );
+
+	b3SerPodArray( buf, world->fatAABBs );
 
 	// Contact sparse array with manifold and mesh triangleCache
 	b3SerContacts( buf, world );
@@ -1237,6 +1239,13 @@ bool b3DeserializeIntoShell( const uint8_t* data, int size, b3World* world, b3Re
 
 	// 5. Shape sparse array
 	b3DesShapes( r, world, rdr );
+
+	if ( !r->ok )
+	{
+		return false;
+	}
+
+	b3DesPodArray( r, world->fatAABBs );
 
 	if ( !r->ok )
 	{

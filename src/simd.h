@@ -412,9 +412,24 @@ static inline void b3StoreW( float* data, b3FloatW a )
 	vst1q_f32( data, a );
 }
 
+static inline b3FloatW b3UnpackLoW( b3FloatW a, b3FloatW b )
+{
+	return vzip1q_f32( a, b );
+}
+
+static inline b3FloatW b3UnpackHiW( b3FloatW a, b3FloatW b )
+{
+	return vzip2q_f32( a, b );
+}
+
 static inline b3FloatW b3NegW( b3FloatW a )
 {
 	return vnegq_f32( a );
+}
+
+static inline b3FloatW b3AbsW( b3FloatW a )
+{
+	return vabsq_f32( a );
 }
 
 static inline b3FloatW b3AddW( b3FloatW a, b3FloatW b )
@@ -474,6 +489,20 @@ static inline b3FloatW b3AndW( b3FloatW a, b3FloatW b )
 static inline b3FloatW b3OrW( b3FloatW a, b3FloatW b )
 {
 	return vreinterpretq_f32_u32( vorrq_u32( vreinterpretq_u32_f32( a ), vreinterpretq_u32_f32( b ) ) );
+}
+
+// a & ~b
+static inline b3FloatW b3AndNotW( b3FloatW a, b3FloatW b )
+{
+	return vreinterpretq_f32_u32( vbicq_u32( vreinterpretq_u32_f32( a ), vreinterpretq_u32_f32( b ) ) );
+}
+
+static inline b3FloatW b3SoftMaskW( const int* indexA, const int* indexB )
+{
+	int32x4_t zero = vdupq_n_s32( 0 );
+	uint32x4_t a = vceqq_s32( vld1q_s32( (const int32_t*)indexA ), zero );
+	uint32x4_t b = vceqq_s32( vld1q_s32( (const int32_t*)indexB ), zero );
+	return vreinterpretq_f32_u32( vorrq_u32( a, b ) );
 }
 
 static inline b3FloatW b3GreaterThanW( b3FloatW a, b3FloatW b )
@@ -575,6 +604,16 @@ static inline void b3StoreW( float* data, b3FloatW a )
 	_mm_storeu_ps( data, a );
 }
 
+static inline b3FloatW b3UnpackLoW( b3FloatW a, b3FloatW b )
+{
+	return _mm_unpacklo_ps( a, b );
+}
+
+static inline b3FloatW b3UnpackHiW( b3FloatW a, b3FloatW b )
+{
+	return _mm_unpackhi_ps( a, b );
+}
+
 static inline b3FloatW b3NegW( b3FloatW a )
 {
 	// Create a mask with the sign bit set for each element
@@ -582,6 +621,11 @@ static inline b3FloatW b3NegW( b3FloatW a )
 
 	// XOR the input with the mask to negate each element
 	return _mm_xor_ps( a, mask );
+}
+
+static inline b3FloatW b3AbsW( b3FloatW a )
+{
+	return _mm_andnot_ps( _mm_set1_ps( -0.0f ), a );
 }
 
 static inline b3FloatW b3AddW( b3FloatW a, b3FloatW b )
@@ -648,6 +692,22 @@ static inline b3FloatW b3AndW( b3FloatW a, b3FloatW b )
 static inline b3FloatW b3OrW( b3FloatW a, b3FloatW b )
 {
 	return _mm_or_ps( a, b );
+}
+
+// a & ~b
+static inline b3FloatW b3AndNotW( b3FloatW a, b3FloatW b )
+{
+	// Arguments are reversed
+	return _mm_andnot_ps( b, a );
+}
+
+// This is used to optimize selection of contact softness.
+static inline b3FloatW b3SoftMaskW( const int* indexA, const int* indexB )
+{
+	__m128i zero = _mm_setzero_si128();
+	__m128i a = _mm_cmpeq_epi32( _mm_loadu_si128( (const __m128i*)indexA ), zero );
+	__m128i b = _mm_cmpeq_epi32( _mm_loadu_si128( (const __m128i*)indexB ), zero );
+	return _mm_castsi128_ps( _mm_or_si128( a, b ) );
 }
 
 static inline b3FloatW b3GreaterThanW( b3FloatW a, b3FloatW b )
@@ -742,9 +802,24 @@ static inline void b3StoreW( float* data, b3FloatW a )
 	data[3] = a.w;
 }
 
+static inline b3FloatW b3UnpackLoW( b3FloatW a, b3FloatW b )
+{
+	return (b3FloatW){ a.x, b.x, a.y, b.y };
+}
+
+static inline b3FloatW b3UnpackHiW( b3FloatW a, b3FloatW b )
+{
+	return (b3FloatW){ a.z, b.z, a.w, b.w };
+}
+
 static inline b3FloatW b3NegW( b3FloatW a )
 {
 	return (b3FloatW){ -a.x, -a.y, -a.z, -a.w };
+}
+
+static inline b3FloatW b3AbsW( b3FloatW a )
+{
+	return (b3FloatW){ a.x < 0.0f ? -a.x : a.x, a.y < 0.0f ? -a.y : a.y, a.z < 0.0f ? -a.z : a.z, a.w < 0.0f ? -a.w : a.w };
 }
 
 static inline b3FloatW b3AddW( b3FloatW a, b3FloatW b )
@@ -831,6 +906,27 @@ static inline b3FloatW b3OrW( b3FloatW a, b3FloatW b )
 	r.y = a.y != 0.0f || b.y != 0.0f ? 1.0f : 0.0f;
 	r.z = a.z != 0.0f || b.z != 0.0f ? 1.0f : 0.0f;
 	r.w = a.w != 0.0f || b.w != 0.0f ? 1.0f : 0.0f;
+	return r;
+}
+
+// a & ~b
+static inline b3FloatW b3AndNotW( b3FloatW a, b3FloatW b )
+{
+	b3FloatW r;
+	r.x = a.x != 0.0f && b.x == 0.0f ? 1.0f : 0.0f;
+	r.y = a.y != 0.0f && b.y == 0.0f ? 1.0f : 0.0f;
+	r.z = a.z != 0.0f && b.z == 0.0f ? 1.0f : 0.0f;
+	r.w = a.w != 0.0f && b.w == 0.0f ? 1.0f : 0.0f;
+	return r;
+}
+
+static inline b3FloatW b3SoftMaskW( const int* indexA, const int* indexB )
+{
+	b3FloatW r;
+	r.x = indexA[0] == 0 || indexB[0] == 0 ? 1.0f : 0.0f;
+	r.y = indexA[1] == 0 || indexB[1] == 0 ? 1.0f : 0.0f;
+	r.z = indexA[2] == 0 || indexB[2] == 0 ? 1.0f : 0.0f;
+	r.w = indexA[3] == 0 || indexB[3] == 0 ? 1.0f : 0.0f;
 	return r;
 }
 
@@ -924,6 +1020,19 @@ static inline int b3MinIndexW( b3FloatW a, int bitCount )
 }
 
 #endif
+
+static inline void b3TransposeW( b3FloatW r0, b3FloatW r1, b3FloatW r2, b3FloatW r3, b3FloatW* c0, b3FloatW* c1, b3FloatW* c2,
+								 b3FloatW* c3 )
+{
+	b3FloatW t0 = b3UnpackLoW( r0, r2 );
+	b3FloatW t1 = b3UnpackLoW( r1, r3 );
+	b3FloatW t2 = b3UnpackHiW( r0, r2 );
+	b3FloatW t3 = b3UnpackHiW( r1, r3 );
+	*c0 = b3UnpackLoW( t0, t1 );
+	*c1 = b3UnpackHiW( t0, t1 );
+	*c2 = b3UnpackLoW( t2, t3 );
+	*c3 = b3UnpackHiW( t2, t3 );
+}
 
 #if defined( B3_SIMD_NEON )
 

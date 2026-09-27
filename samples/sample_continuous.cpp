@@ -1033,7 +1033,7 @@ static int sampleStall = RegisterSample( "Continuous", "Stall", Stall::Create );
 // The best way to run this sample is:
 // 1. press pause (P)
 // 2. restart (R) or press the Drop button
-// 3. then single step (O)
+// 3. then single step (.)
 // Then look at the metrics and overlap. The shape is drawn orange while it is using
 // continuous collision detection.
 class SafetyFactor : public Sample

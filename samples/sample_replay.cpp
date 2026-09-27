@@ -216,7 +216,7 @@ enum SelectionKind
 //   - right info panel (DrawControls): Show Timeline button, view toggles, frame counter, and the
 //     selection detail
 //   - left Outline window (DrawSampleWindows): the recorded scene tree
-//   - Timeline tab in the diagnostics drawer (DrawMetricsTab): transport, scrubber, keyframe readout
+//   - Timeline tab in the metrics drawer (DrawMetricsTab): transport, scrubber, keyframe readout
 class ReplayViewer : public Sample
 {
 public:
@@ -395,6 +395,14 @@ public:
 			m_camera->SetRenderTransform( b3GetLengthUnitsPerMeter(), m_context->viewZUp );
 			float aspect = m_camera->m_height > 0 ? (float)m_camera->m_width / (float)m_camera->m_height : 1.0f;
 			m_camera->Frame( m_info.bounds, aspect, 0.75f );
+
+			// The bounds include static geometry, and a large ground plate can push the fit past the
+			// draw distance, which culls the whole scene. Pull in so the middle of the scene still draws.
+			float maxRadius = 0.75f * m_context->drawDistance;
+			if ( m_camera->m_radius > maxRadius )
+			{
+				m_camera->SetOrbit( m_camera->m_yaw, m_camera->m_pitch, maxRadius );
+			}
 		}
 	}
 
@@ -523,7 +531,8 @@ public:
 	}
 
 	// , steps backward. Forward is the global single step on . so it works in every sample, and the
-	// step count lands in the context. Shift moves five frames, matching that key.
+	// step count lands in the context. Shift moves five frames, matching that key. Esc drops the
+	// selection.
 	void Keyboard( int key, int action, int mods ) override
 	{
 		if ( m_generating )
@@ -536,7 +545,11 @@ public:
 			return;
 		}
 
-		if ( key == KEY_COMMA )
+		if ( key == KEY_ESCAPE )
+		{
+			m_selKind = SelNone;
+		}
+		else if ( key == KEY_COMMA )
 		{
 			int back = ( mods & MOD_SHIFT ) ? 5 : 1;
 			SeekTo( b3RecPlayer_GetFrame( m_player ) - back );
@@ -678,6 +691,11 @@ public:
 	// A replay re-runs recorded inputs, so the live solver sliders would do nothing. This also hides
 	// the Solver and Recording sections in the right info panel.
 	bool HasSolverControls() const override
+	{
+		return false;
+	}
+
+	bool HasProfile() const override
 	{
 		return false;
 	}
@@ -1076,7 +1094,7 @@ public:
 		float menuBarHeight = ImGui::GetFrameHeight();
 		float top = menuBarHeight + 0.5f * fontSize;
 
-		// Stop above the diagnostics drawer when it is open so the panels do not overlap. The 16 em
+		// Stop above the metrics drawer when it is open so the panels do not overlap. The 16 em
 		// drawer height mirrors DrawMetrics.
 		float bottom = m_context->showMetrics ? ( m_camera->m_height - 16.0f * fontSize - fontSize )
 											  : ( m_camera->m_height - 0.5f * fontSize );
@@ -1654,7 +1672,7 @@ public:
 		}
 	}
 
-	// Timeline tab in the diagnostics drawer: file, transport, keyframe readout, scrubber, divergence.
+	// Timeline tab in the metrics drawer: file, transport, keyframe readout, scrubber, divergence.
 	void DrawMetricsTab() override
 	{
 		ImGuiTabItemFlags flags = m_selectTimelineTab ? ImGuiTabItemFlags_SetSelected : 0;
@@ -1741,7 +1759,12 @@ public:
 		b3Counters c = b3World_GetCounters( m_replayWorldId );
 		ImGui::Text( "frames %d", m_info.frameCount );
 		ImGui::SameLine();
-		ImGui::Text( "   %.0f hz, %d sub-steps", hz, m_info.subStepCount );
+		ImGui::Text( "   %.0f Hz, %d sub-steps", hz, m_info.subStepCount );
+		if ( m_info.lengthScale > 0.0f )
+		{
+			ImGui::SameLine();
+			ImGui::Text( "   %g units/m", m_info.lengthScale );
+		}
 		ImGui::SameLine();
 		ImGui::Text( "   bodies %d  shapes %d  contacts %d  joints %d", c.bodyCount, c.shapeCount, c.contactCount, c.jointCount );
 

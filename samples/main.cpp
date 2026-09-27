@@ -194,7 +194,10 @@ static void OnEvent( const sapp_event* e )
 						}
 						else
 						{
+							// The replay viewer redraws the highlight from its own selection every
+							// frame, so it has to clear that too
 							ClearSelection();
+							s_context.sample->Keyboard( e->key_code, ACTION_PRESS, mods );
 						}
 						break;
 
@@ -233,46 +236,29 @@ static void OnEvent( const sapp_event* e )
 						s_context.showMetrics = !s_context.showMetrics;
 						break;
 
+					case SAPP_KEYCODE_I:
+						s_context.showProfile = !s_context.showProfile;
+						break;
+
 					case SAPP_KEYCODE_R:
 						SelectSample( &s_context, s_context.sampleIndex, true );
 						break;
 
 					case SAPP_KEYCODE_LEFT_BRACKET:
-						SelectSample( &s_context, b3MaxInt( 0, s_context.sampleIndex - 1 ), false );
+						SelectSample( &s_context, ( s_context.sampleIndex + g_sampleCount - 1 ) % g_sampleCount, false );
 						break;
 
 					case SAPP_KEYCODE_RIGHT_BRACKET:
-						SelectSample( &s_context, b3MinInt( g_sampleCount - 1, s_context.sampleIndex + 1 ), false );
+						SelectSample( &s_context, ( s_context.sampleIndex + 1 ) % g_sampleCount, false );
 						break;
 
 					case SAPP_KEYCODE_F:
-					{
-						// Frame the selection, or let the sample frame its whole scene when nothing is
-						// selected. A non-body selection such as a recorded query supplies its own bounds and
-						// takes priority over the hovered body. The replay viewer's scene lives in a
-						// player-owned world, not the base world, so the whole-scene case routes through
-						// FocusHome.
-						Camera& cam = s_context.camera;
-						float aspect = cam.m_height > 0 ? (float)cam.m_width / (float)cam.m_height : 1.0f;
-						b3AABB bounds;
-						if ( s_context.sample->FocusBounds( &bounds ) )
-						{
-							cam.Frame( bounds, aspect, 1.5f );
-						}
-						else
-						{
-							b3BodyId bodyId = s_context.sample->FocusBody();
-							if ( B3_IS_NON_NULL( bodyId ) )
-							{
-								cam.Frame( b3Body_ComputeAABB( bodyId ), aspect, 1.5f );
-							}
-							else
-							{
-								s_context.sample->FocusHome();
-							}
-						}
-					}
-					break;
+						FrameSelection( &s_context );
+						break;
+
+					case SAPP_KEYCODE_HOME:
+						s_context.sample->FocusHome();
+						break;
 
 					default:
 						s_context.sample->Keyboard( e->key_code, ACTION_PRESS, mods );

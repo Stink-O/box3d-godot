@@ -105,6 +105,9 @@ B3_API float b3GetStallThreshold( void );
 /// The time that a body must be still before it will go to sleep. In seconds.
 #define B3_TIME_TO_SLEEP 0.5f
 
+/// The maximum number of restitution iterations. Needed to avoid a solver overflow.
+#define B3_MAX_RESTITUTION_ITERATIONS 63
+
 /// The maximum number of contact points between two touching shapes.
 /// The default and minimum is 4 and this case uses a fast approximate hull to reduce the
 /// point count. A larger value builds a 2D convex hull of the candidate points and then
@@ -140,12 +143,6 @@ B3_API float b3GetStallThreshold( void );
 #define B3_CHILD_POWER ( 64 - 2 * B3_SHAPE_POWER )
 #define B3_MAX_SHAPES ( 1 << B3_SHAPE_POWER )
 #define B3_MAX_CHILD_SHAPES ( 1 << B3_CHILD_POWER )
-
-/// Increase this if your application needs more accurate restitution. Doing so will
-/// slow down the simulation. Must be 1 or more.
-#ifndef B3_RESTITUTION_ITERATIONS
-#define B3_RESTITUTION_ITERATIONS 1
-#endif
 
 /// This is the limit on how many mesh or heightfield triangles a single convex shape can collide with.
 /// Increasing this will increase stack usage, so be careful. I recommend to simplify your collision data

@@ -819,6 +819,17 @@ static void b3RecDispatch_WorldEnableSpeculative( const b3RecArgs_WorldEnableSpe
 	b3World_EnableSpeculative( rdr->replayWorldId, a->flag );
 }
 
+static void b3RecDispatch_WorldSetRestitutionIterations( const b3RecArgs_WorldSetRestitutionIterations* a, b3RecReader* rdr )
+{
+	b3World_SetRestitutionIterations( rdr->replayWorldId, a->iterations );
+}
+
+static void b3RecDispatch_WorldEnableRestitutionPropagation( const b3RecArgs_WorldEnableRestitutionPropagation* a,
+															 b3RecReader* rdr )
+{
+	b3World_EnableRestitutionPropagation( rdr->replayWorldId, a->flag );
+}
+
 static void b3RecDispatch_CreateBody( const b3RecArgs_CreateBody* a, b3RecReader* rdr )
 {
 	b3BodyId recId = b3RecR_BODYID( rdr );

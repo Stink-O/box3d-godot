@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "gfx/debug_adapter.h"
 #include "gfx/draw.h"
 #include "human.h"
 #include "imgui.h"
@@ -237,104 +238,6 @@ public:
 };
 
 static int sampleSlideTwist = RegisterSample( "Shapes", "Slide Twist", SlideTwist::Create );
-
-class Restitution : public Sample
-{
-public:
-	enum ShapeType
-	{
-		e_sphereShape = 0,
-		e_boxShape
-	};
-
-	explicit Restitution( SampleContext* context )
-		: Sample( context )
-	{
-		if ( context->restart == false )
-		{
-			m_camera->SetView( 0.0f, 25.0f, 85.0f, { 0.0f, 20.0f, 0.0f } );
-		}
-
-		AddGroundBox( 50.0f );
-
-		m_shapeType = e_sphereShape;
-
-		CreateBodies();
-	}
-
-	void CreateBodies()
-	{
-		for ( int i = 0; i < m_count; ++i )
-		{
-			if ( B3_IS_NON_NULL( m_bodyIds[i] ) )
-			{
-				b3DestroyBody( m_bodyIds[i] );
-				m_bodyIds[i] = b3_nullBodyId;
-			}
-		}
-
-		b3Sphere sphere = { b3Vec3_zero, 0.5f };
-		b3BoxHull box = b3MakeBoxHull( 0.5f, 0.5f, 0.5f );
-
-		b3ShapeDef shapeDef = b3DefaultShapeDef();
-
-		b3BodyDef bodyDef = b3DefaultBodyDef();
-		bodyDef.type = b3_dynamicBody;
-
-		float dr = 1.0f / ( m_count > 1 ? m_count - 1 : 1 );
-		float x = -1.0f * ( m_count - 1 );
-		float dx = 2.0f;
-
-		for ( int i = 0; i < m_count; ++i )
-		{
-			bodyDef.position = { x, 40.0f, 0.0f };
-			b3BodyId bodyId = b3CreateBody( m_worldId, &bodyDef );
-
-			m_bodyIds[i] = bodyId;
-
-			if ( m_shapeType == e_sphereShape )
-			{
-				b3CreateSphereShape( bodyId, &shapeDef, &sphere );
-			}
-			else
-			{
-				b3CreateHullShape( bodyId, &shapeDef, &box.base );
-			}
-
-			shapeDef.baseMaterial.restitution += dr;
-			x += dx;
-		}
-	}
-
-	bool DrawControls() override
-	{
-		if ( ImGui::RadioButton( "Sphere", m_shapeType == e_sphereShape ) )
-		{
-			m_shapeType = e_sphereShape;
-			CreateBodies();
-		}
-
-		if ( ImGui::RadioButton( "Box", m_shapeType == e_boxShape ) )
-		{
-			m_shapeType = e_boxShape;
-			CreateBodies();
-		}
-
-		return true;
-	}
-
-	static Sample* Create( SampleContext* context )
-	{
-		return new Restitution( context );
-	}
-
-	static constexpr int m_count = 40;
-
-	b3BodyId m_bodyIds[m_count] = {};
-	ShapeType m_shapeType;
-};
-
-static int sampleRestitution = RegisterSample( "Shapes", "Restitution", Restitution::Create );
 
 // This shows an optimization when creating many static shapes you can skip having them invoke collision, assuming
 // dynamic bodies are added after the static bodies.
