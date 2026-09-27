@@ -1,0 +1,138 @@
+# Box3D for Godot: macOS build and selftest.
+#
+# Additive to the fork (upstream's workflow is build.yml; do not edit that one).
+# Nobody on the project owns a Mac, so this job IS the macOS build: it produces
+# the universal (arm64 + x86_64) frameworks the release ships, and proves them
+# by running the same headless selftests as the Linux ritual on a real Mac,
+# on both Godot versions the addon supports, and on the x86_64 slice under
+# Rosetta. The frameworks are uploaded as the `box3d-macos-frameworks`
+# artifact (a tarball, so file modes survive); unpack it into
+# godot/demo/addons/box3d/bin/ before godot/tools/package_release.sh.
+name: Godot macOS build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "godot/**"
+      - "src/**"
+      - "include/**"
+      - ".github/workflows/godot-macos.yml"
+
+env:
+  # Floors, not targets: the counts only ratchet upward (see CLAUDE.md).
+  # [samples] is re-derived from samples/*.tscn below, so only [test] is here.
+  MIN_TEST_LINES: 750
+
+jobs:
+  macos:
+    runs-on: macos-latest  # Apple Silicon
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install SCons
+        run: pip install scons
+
+      # Each target starts from a swept tree: object files carry no target in
+      # their name, so an incremental build can call a stale target current.
+      - name: Build universal frameworks (debug, release)
+        working-directory: godot
+        run: |
+          sweep() { find . ../src -name '*.os' -delete; find . ../src -name '*.o' -delete; rm -f .sconsign.dblite; }
+          sweep
+          scons -j3 platform=macos arch=universal target=template_debug
+          sweep
+          scons -j3 platform=macos arch=universal target=template_release
+          ls -la demo/addons/box3d/bin/
+          for f in demo/addons/box3d/bin/*.framework/libbox3d_godot.*; do lipo -info "$f"; done
+
+      - name: Download Godot 4.7.1 and 4.6.3
+        run: |
+          for v in 4.7.1 4.6.3; do
+            curl -fsSL -o "godot-$v.zip" "https://github.com/godotengine/godot/releases/download/$v-stable/Godot_v$v-stable_macos.universal.zip"
+            mkdir -p "godot-$v" && unzip -q "godot-$v.zip" -d "godot-$v"
+          done
+          ls godot-*/
+
+      - name: Install Rosetta (for the x86_64 slice)
+        run: softwareupdate --install-rosetta --agree-to-license || true
+
+      # The manifest lists the macOS frameworks only once they ship (PR #2).
+      # Until then, list them here so Godot loads what was just built.
+      - name: Point the manifest at the frameworks
+        run: |
+          m=godot/demo/addons/box3d/box3d.gdextension
+          if ! grep -q '^macos.debug' "$m"; then
+            sed -i '' -e 's/^; macos\.debug = /macos.debug = /' -e 's/^; macos\.release = /macos.release = /' "$m"
+          fi
+          grep -n '^macos' "$m"
+
+      - name: Selftests
+        run: |
+          # No `set -u`: macOS bash 3.2 treats an empty "${pre[@]}" as unbound.
+          fail=0
+          samples_floor=$(( $(ls godot/demo/samples/*.tscn | wc -l) + 1 ))
+          run() {  # run <label> <godot binary> [command prefix, e.g. arch -x86_64]
+            local label="$1"; shift
+            local godot="$1"; shift
+            local pre=("$@")
+            echo "== $label"
+            # The first import on a clean tree can abort during teardown after
+            # it succeeded (a known Godot quirk); the second run exits 0.
+            "${pre[@]}" "$godot" --headless --path godot/demo --import > /dev/null 2>&1 \
+              || "${pre[@]}" "$godot" --headless --path godot/demo --import > /dev/null 2>&1 || true
+            # --import rewrites project.godot and drops settings; restore it.
+            git checkout godot/demo/project.godot
+            "${pre[@]}" "$godot" --headless --path godot/demo res://tests/test_features.tscn -- --selftest > "features-$label.log" 2>&1 || true
+            "${pre[@]}" "$godot" --headless --path godot/demo res://tests/test_samples.tscn -- --selftest > "samples-$label.log" 2>&1 || true
+            "${pre[@]}" "$godot" --headless --path godot/demo res://main.tscn --quit-after 120 > "shell-$label.log" 2>&1 || true
+            local t s e l
+            t=$(grep -c '^\[test\]' "features-$label.log" || true)
+            s=$(grep -c '^\[samples\]' "samples-$label.log" || true)
+            e=$(cat "features-$label.log" "samples-$label.log" "shell-$label.log" | grep -c 'SCRIPT ERROR' || true)
+            l=$(cat "features-$label.log" | grep -c 'Cannot load\|Error loading extension' || true)
+            echo "   [test] $t (floor $MIN_TEST_LINES), [samples] $s (floor $samples_floor), SCRIPT ERROR $e, load errors $l"
+            grep -h 'Godot Engine v' "features-$label.log" | head -1 || true
+            grep -h -- '-> FAIL' "features-$label.log" "samples-$label.log" | head -20 || true
+            if ! grep -q '^\[test\] ALL -> PASS' "features-$label.log" \
+               || ! grep -q '^\[samples\] ALL -> PASS' "samples-$label.log" \
+               || [ "$t" -lt "$MIN_TEST_LINES" ] || [ "$s" -lt "$samples_floor" ] \
+               || [ "$e" -ne 0 ] || [ "$l" -ne 0 ]; then
+              echo "   FAILED"; fail=1
+            else
+              echo "   ok"
+            fi
+          }
+          run arm64-4.7.1 godot-4.7.1/Godot.app/Contents/MacOS/Godot
+          run arm64-4.6.3 godot-4.6.3/Godot.app/Contents/MacOS/Godot
+          run x86_64-4.7.1 godot-4.7.1/Godot.app/Contents/MacOS/Godot arch -x86_64
+          exit $fail
+
+      - name: Upload selftest logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selftest-logs
+          path: "*.log"
+
+      # Tarred first: artifact zips do not keep file modes or symlinks.
+      - name: Pack frameworks
+        run: |
+          cd godot/demo/addons/box3d/bin
+          tar -czf "$GITHUB_WORKSPACE/box3d-macos-frameworks.tar.gz" *.framework
+          tar -tzvf "$GITHUB_WORKSPACE/box3d-macos-frameworks.tar.gz"
+
+      - name: Upload frameworks
+        uses: actions/upload-artifact@v4
+        with:
+          name: box3d-macos-frameworks
+          path: box3d-macos-frameworks.tar.gz
