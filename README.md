@@ -9,7 +9,7 @@ physics engine, embedded in **[Godot 4](https://godotengine.org)** as a
 GDExtension: drop in a `Box3DWorld`, add `Box3DBody` nodes, and simulate.
 
 <p align="center">
-  <a href="https://godotengine.org/download"><img alt="Godot 4.7" src="https://img.shields.io/badge/Godot-4.7-478cbf?logo=godotengine&logoColor=white"></a>
+  <a href="https://godotengine.org/download"><img alt="Godot 4.6+" src="https://img.shields.io/badge/Godot-4.6%2B-478cbf?logo=godotengine&logoColor=white"></a>
   <a href="https://github.com/Stink-O/box3d-godot/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/Stink-O/box3d-godot"></a>
   <a href="https://stinkysunstep.itch.io/box3d-godot"><img alt="Play in browser" src="https://img.shields.io/badge/itch.io-play%20in%20browser-fa5c5c?logo=itchdotio&logoColor=white"></a>
   <a href="https://github.com/Stink-O/box3d-godot/discussions"><img alt="Discussions" src="https://img.shields.io/badge/GitHub-discussions-24292f?logo=github"></a>
@@ -168,9 +168,9 @@ Download it from [godotengine.org/download](https://godotengine.org/download).
 Godot is a single executable with no installer: unzip it and run it. The normal
 (non-.NET) download is the simplest choice.
 
-**The version matters.** This extension declares a minimum of Godot 4.7, so
-4.6 and earlier will refuse to load it. If in doubt, check `Help > About` in
-the editor.
+**The version matters.** The extension itself loads in Godot 4.6 or newer, and
+4.5 and earlier will refuse it. The demo project was made in 4.7, so use 4.7
+to open it. If in doubt, check `Help > About` in the editor.
 </details>
 
 <details>
@@ -320,7 +320,7 @@ and joint.
 | What you see | What it usually means |
 | --- | --- |
 | `Box3DWorld` is not in the node list | The addon is missing, in the wrong folder, or renamed. The folder must be `addons/box3d/` next to `project.godot`, with `box3d.gdextension` and `bin/` inside it. Restart Godot after adding it. |
-| An error about the extension needing a newer version | You are on Godot 4.6 or earlier. Install 4.7. |
+| An error about the extension needing a newer version | You are on Godot 4.5 or earlier. Install 4.6 or newer (4.7 for the demo project). |
 | It works in the editor but the exported game crashes on start | The `template_release` library is missing. Export uses that one, the editor uses `template_debug`. |
 | Godot loads but every sample is empty | The project was opened before the library was added. Close the project and reopen it. |
 | Nothing at all happens on macOS | There is no prebuilt macOS library. Build from source or use the browser demo. |

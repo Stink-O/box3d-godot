@@ -13,7 +13,7 @@ which does the same thing for Unity via P/Invoke.
 > **Status: very early / experimental.** Box3D itself is v0.1.0 and this binding
 > is young — expect rough edges, missing pieces, and API churn; it is **not
 > production-ready**, it's a starting point. That said, it's already fairly
-> broad: it targets **Godot 4.7** and covers worlds, rigid bodies, every
+> broad: it targets **Godot 4.6 and newer** and covers worlds, rigid bodies, every
 > primitive shape plus convex-hull/triangle-mesh colliders, the full joint set,
 > contact/sensor events, world queries, a character controller, and live solver
 > tuning — see the roadmap below (all checked).

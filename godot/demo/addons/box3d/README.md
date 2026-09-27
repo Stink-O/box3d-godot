@@ -1,6 +1,6 @@
 # Box3D for Godot
 
-A Godot 4.7 GDExtension wrapping [Box3D](https://github.com/erincatto/box3d),
+A Godot 4.6+ GDExtension wrapping [Box3D](https://github.com/erincatto/box3d),
 Erin Catto's 3D rigid body physics engine: `Box3DWorld`, `Box3DBody`,
 `Box3DCharacterBody`, nine joint types, recording and replay, and the query
 and geometry helpers, all as ordinary nodes.

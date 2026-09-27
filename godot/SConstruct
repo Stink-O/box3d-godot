@@ -8,6 +8,15 @@
 
 import os
 
+# Target the Godot 4.6 extension API unless told otherwise. A GDExtension loads
+# in any Godot at or above the API it was built against, and godot-cpp refuses
+# to load in anything older ("Cannot load a GDExtension built for Godot 4.7.0
+# using an older version of Godot"), so this one setting is what makes the
+# same binary serve 4.6 and 4.7. It must match `compatibility_minimum` in
+# demo/addons/box3d/box3d.gdextension. The cost: the wrapper cannot call an
+# engine API newer than 4.6 (it fails to compile if it tries).
+ARGUMENTS.setdefault("api_version", "4.6")
+
 # Build godot-cpp and inherit its fully configured environment. CCFLAGS
 # (shared by C and C++) carry the platform/arch/runtime settings, so the Box3D
 # C objects are compiled with the same MSVC runtime as godot-cpp and link
