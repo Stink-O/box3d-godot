@@ -1276,9 +1276,7 @@ bool Box3DBody::create_baked_compound(const Transform3D &p_body_inv) {
 		def.sphereCount = (int)sphere_defs.size();
 		def.capsules = capsule_defs.empty() ? nullptr : capsule_defs.data();
 		def.capsuleCount = (int)capsule_defs.size();
-		// No meshes: a Box3DCollisionShape cannot author one, and a mesh inside
-		// a compound is capped at B3_MAX_COMPOUND_MESH_MATERIALS (4) materials
-		// (types.h:2428-2430).
+		// No meshes: a Box3DCollisionShape cannot author one.
 		compound_data = b3CreateCompound(&def);
 		if (compound_data != nullptr) {
 			b3ShapeDef sd = b3DefaultShapeDef();

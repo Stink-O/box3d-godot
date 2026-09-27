@@ -87,7 +87,7 @@ Dictionary Box3DWorld::get_profile() const {
 	d["solveImpulses"] = p.solveImpulses;
 	d["integratePositions"] = p.integratePositions;
 	d["relaxImpulses"] = p.relaxImpulses;
-	d["applyRestitution"] = p.applyRestitution;
+	d["restitution"] = p.restitution;
 	d["storeImpulses"] = p.storeImpulses;
 	d["splitIslands"] = p.splitIslands;
 	d["transforms"] = p.transforms;

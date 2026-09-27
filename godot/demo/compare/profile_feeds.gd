@@ -95,7 +95,7 @@ class Box3DFeed extends ProfileFeed:
 		"step", "pairs", "collide", "solve",
 		"solverSetup", "constraints",
 		"prepareConstraints", "integrateVelocities", "warmStart", "solveImpulses",
-		"integratePositions", "relaxImpulses", "applyRestitution", "storeImpulses",
+		"integratePositions", "relaxImpulses", "restitution", "storeImpulses",
 		"splitIslands",
 		"transforms", "jointEvents", "hitEvents", "refit", "sleepIslands", "bullets",
 		"sensors",
@@ -108,7 +108,7 @@ class Box3DFeed extends ProfileFeed:
 		"setup", "constraints",
 		"prepare", "velocities", "warm start", "bias",
 		"positions", "relax", "restitution", "store",
-		"split islands",
+		"split",
 		"transforms", "joint events", "hit events", "refit BVH", "sleep", "bullets",
 		"sensors",
 	]
