@@ -53,7 +53,8 @@ godot/msvc_capture.log
 /webfast/
 
 # Exported Android packages (rebuild with: godot --headless --path godot/demo \
-# --export-debug "Android" bin/box3d_demo.apk). ~60 MB each -- not worth tracking.
+# --export-debug "Android" ../../dist/box3d-demo-android.apk). ~60 MB each, not
+# worth tracking.
 *.apk
 *.aab
 *.idsig

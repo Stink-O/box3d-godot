@@ -373,6 +373,23 @@ and joint.
 | On macOS, every Box3D node is missing, or macOS says the library cannot be verified | macOS quarantined the downloaded library, as it always does for a browser download. Unzip again if macOS moved it to the Trash, run `xattr -dr com.apple.quarantine` on the `addons/box3d` folder, and restart Godot (see Step 3). |
 | A downloaded `.dll` is flagged by antivirus | Expected for unsigned binaries. These particular DLLs are also untested on Windows. |
 
+**Building upstream's CMake samples on Linux.** The Godot extension does not
+need this, but `cmake --preset linux-release` (see
+[Building all platforms](#building-all-platforms) below) also builds Box3D's
+own samples app, and that needs some system packages:
+
+```sh
+sudo apt-get install libgl1-mesa-dev libx11-dev libxi-dev libxcursor-dev libgtk-3-dev
+```
+
+GTK3 is for the samples' Replay file dialog
+([nativefiledialog-extended](https://github.com/btzy/nativefiledialog-extended)).
+Without it, configuring fails with
+`The following required packages were not found: gtk+-3.0`. To build only the
+library, configure with `-DBOX3D_SAMPLES=OFF`. [Building for
+Linux](#building-for-linux) with `build.sh` builds the samples too, so it needs
+the same packages.
+
 **Full docs:** see [`godot/README.md`](godot/README.md). Questions, ideas
 and anything else: [Discussions](https://github.com/Stink-O/box3d-godot/discussions).
 

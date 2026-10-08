@@ -21,8 +21,10 @@ godot-cpp/bin/
 # Godot editor cache
 demo/.godot/
 
-# Keep the built extension libraries in demo/bin so the demo runs without a
-# build step, but ignore any stray intermediates there.
-demo/bin/*.exp
-demo/bin/*.lib
-demo/bin/*.pdb
+# Built libraries land in demo/addons/box3d/bin (since 0.4.3; it was demo/bin
+# before). The libraries themselves are ignored by the root .gitignore; this
+# also ignores the MSVC intermediates there. A leftover demo/bin folder from an
+# older checkout is unused and safe to delete.
+demo/addons/box3d/bin/*.exp
+demo/addons/box3d/bin/*.lib
+demo/addons/box3d/bin/*.pdb
