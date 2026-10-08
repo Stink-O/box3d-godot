@@ -5208,7 +5208,7 @@ func _test_replay_timeline() -> void:
 	# A displayed frame is a list of shape transforms; producing one needs the
 	# solver, LOOKING at one does not. Upstream's backward step re-simulates
 	# (b3RecPlayer_SeekFrame restores the nearest keyframe and re-steps the gap,
-	# src/recording_replay.c:3148-3194), which is why reverse playback tanked on
+	# src/replay.c:3120-3166), which is why reverse playback tanked on
 	# a big scene. Box3DReplayRenderer remembers the frames the transport shows,
 	# so a backward step inside that window is a MultiMesh upload.
 	#

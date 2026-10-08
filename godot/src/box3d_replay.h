@@ -116,9 +116,9 @@ public:
 	// This is that key, and it is upstream's guarantee rather than a
 	// convention: b3RecMakeBodyId retargets a recorded body id onto the replay
 	// world by replacing world0 ONLY, keeping index1 and generation
-	// (src/recording_replay.c:656-663), and every replayed b3CreateBody asserts
+	// (src/replay.c:659-666), and every replayed b3CreateBody asserts
 	// the id it got back has the recorded index1 and generation
-	// (b3RecCheckBodyId, :695-698, via b3RecCheckId :685-693). Bodies that
+	// (b3RecCheckBodyId, :698-701, via b3RecCheckId :688-696). Bodies that
 	// already existed when recording started arrive through the snapshot seed
 	// (src/recording.c:1050-1058), which serializes the id pools themselves
 	// (src/world_snapshot.c:999-1004 / :1146-1151), so their ids are preserved
@@ -143,10 +143,11 @@ public:
 // private world.
 //
 // THE PLAYER NEVER TOUCHES YOUR WORLD. b3CreatePlayer stands up a fresh
-// b3CreateWorld of its own (src/recording_replay.c:2715-2725, called at :2820)
+// b3CreateWorld of its own (b3RecPlayerCreateWorld, src/replay.c:2687-2697,
+// called at :2792)
 // and every dispatched op is retargeted onto it — the recorded world id is
 // informational and the id-remapping helpers overwrite the world field of every
-// body, shape and joint id (src/recording_replay.c:656-681). So replaying
+// body, shape and joint id (src/replay.c:659-684). So replaying
 // cannot mutate a Box3DWorld, a Box3DBody or a Box3DJoint that a scene owns,
 // however many joint setters the stream contains. That is deliberate here as
 // well as upstream: b3RecPlayer_GetWorldId is NOT bound, because handing script
@@ -154,9 +155,9 @@ public:
 //
 // ONE PROCESS-WIDE SIDE EFFECT, so budget for it. A recording carries the
 // length scale it was made at (src/recording.c:1043) and opening one INSTALLS
-// that scale globally (b3SetLengthUnitsPerMeter, src/recording_replay.c:2809-
-// 2813), restoring the previous value when the player is closed
-// (src/recording_replay.c:2958-2960). While a player is open, every other Box3D
+// that scale globally (b3SetLengthUnitsPerMeter, src/replay.c:2782-
+// 2785), restoring the previous value when the player is closed
+// (src/replay.c:2931-2932). While a player is open, every other Box3D
 // world in the process is running under the recording's scale. Keep players
 // short-lived, and do not open one from a scene that has authored a non-default
 // physics/box3d/length_units_per_meter unless the recording was made at the
@@ -182,7 +183,7 @@ public:
 // one caller. Upstream requires it be called immediately after
 // b3CreatePlayer, because it destroys and rebuilds the replay world under
 // the new callbacks and rewinds to frame 0 (box3d.h:406-413,
-// src/recording_replay.c:3635-3671). This class therefore REMEMBERS the
+// src/replay.c:3607-3645). This class therefore REMEMBERS the
 // callback triple and re-applies it inside open(), right after Create, so a
 // renderer that was attached before a recording was opened gets the ordering
 // upstream asks for without the caller having to sequence it.
@@ -215,14 +216,14 @@ public:
 	// WORKER COUNT IS CHOSEN HERE AND ESSENTIALLY ONLY HERE. This is the whole
 	// determinism handle and it is easy to get wrong, so read this before
 	// using set_worker_count(). The replay world is created with
-	// b3WorldDef.workerCount = this argument (src/recording_replay.c:2721),
+	// b3WorldDef.workerCount = this argument (src/replay.c:2695),
 	// and b3CreateWorld only builds the internal scheduler — the thing that
 	// actually spawns threads — when that def asks for more than one worker
 	// (src/physics_world.c:367-386). b3World_SetWorkerCount afterwards
 	// rebuilds the worker CONTEXTS and never creates a scheduler
 	// (src/physics_world.c:2271-2287), and the player never rebuilds its world
 	// on Restart or a seek (b3RecPlayer_Restart deserializes in place,
-	// src/recording_replay.c:3116-3147). So a player opened at 1 and raised to
+	// src/replay.c:3088-3118). So a player opened at 1 and raised to
 	// 8 afterwards re-partitions the graph but still executes serially: it is a
 	// weaker test than it looks. Open at the count you want to test.
 	bool open(const PackedByteArray &p_data, int p_worker_count = 1);
@@ -310,7 +311,7 @@ public:
 	// callback for shapes that are still alive (upstream only calls it from
 	// b3DestroyShape, src/shape.c:1025, and from snapshot restore,
 	// src/world_snapshot.c:771-773), and this call destroys the world
-	// (src/recording_replay.c:3650-3654).
+	// (src/replay.c:3622-3625).
 	void install_debug_shape_callbacks(b3CreateDebugShapeCallback *p_create,
 			b3DestroyDebugShapeCallback *p_destroy, void *p_context);
 

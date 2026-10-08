@@ -19,7 +19,7 @@ extends PanelContainer
 ##
 ##     AND IT DOES NOT USE THE SOLVER (F-R4). Upstream's backward step is
 ##     `b3RecPlayer_SeekFrame`, which restores the nearest keyframe and re-steps
-##     the gap (`src/recording_replay.c:3148-3194`) -- it RE-SIMULATES every
+##     the gap (`src/replay.c:3120-3166`) -- it RE-SIMULATES every
 ##     frame it shows you. A displayed frame does not need the solver, only the
 ##     shape transforms, so `Box3DReplayRenderer` remembers them: every frame
 ##     the transport displays through the player is captured, and a backward

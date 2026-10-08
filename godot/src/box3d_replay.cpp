@@ -142,9 +142,9 @@ bool Box3DReplayPlayer::open(const PackedByteArray &p_data, int p_worker_count) 
 	// refusal aborts the process, so clamp rather than trust the caller.
 	count = 1;
 #endif
-	// Upstream installs the recording's length scale before it finishes
-	// validating the header, and every failure path returns without restoring
-	// it (src/recording_replay.c:2809-2813 vs :2833-2869). Snapshot it here so
+	// Upstream installs the recording's length scale before it loads the
+	// geometry registry and the seed snapshot, and both of those failure paths
+	// return without restoring it (src/replay.c:2782-2785 vs :2804-2835). Snapshot it here so
 	// a rejected recording cannot silently rescale every other world in the
 	// process.
 	const float previous_scale = b3GetLengthUnitsPerMeter();

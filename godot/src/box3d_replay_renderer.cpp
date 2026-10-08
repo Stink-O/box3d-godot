@@ -28,10 +28,10 @@ namespace {
 
 // --- content hashing --------------------------------------------------------
 //
-// Geometry is deduplicated by CONTENT, never by pointer: the player destroys
-// and recreates its replay world on Restart and on every backward seek
-// (src/recording_replay.c:3116-3147), so the same recorded box comes back at a
-// different address with the same bytes.
+// Geometry is deduplicated by CONTENT, never by pointer: the player
+// deserialises a fresh copy of every shape on Restart and on every backward
+// seek (src/replay.c:3088-3118, :3120-3166), so the same recorded box comes
+// back at a different address with the same bytes.
 
 const uint64_t FNV_OFFSET = 1469598103934665603ull;
 const uint64_t FNV_PRIME = 1099511628211ull;
@@ -1228,7 +1228,7 @@ void Box3DReplayRenderer::uninstall() {
 	}
 	// Nulls first: this destroys the replay world under the old callbacks, and
 	// upstream sets the function pointers to null BEFORE it does
-	// (src/recording_replay.c:3643-3654), so nothing calls back into a node
+	// (src/replay.c:3615-3625), so nothing calls back into a node
 	// that may be halfway through being torn down.
 	player->install_debug_shape_callbacks(nullptr, nullptr, nullptr);
 }

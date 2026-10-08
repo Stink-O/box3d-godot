@@ -86,7 +86,7 @@ namespace godot {
 // to look at one, only to PRODUCE one. Backward playback in upstream's viewer
 // (and in this port before this cache) re-produced every frame it displayed:
 // b3RecPlayer_SeekFrame restores the nearest keyframe and re-steps the gap
-// (src/recording_replay.c:3148-3194), so every backward frame costs a snapshot
+// (src/replay.c:3120-3166), so every backward frame costs a snapshot
 // deserialize plus up to a whole keyframe interval of full solver steps.
 //
 // MEASURED on Cube Pile (4097 replayed shapes, 400 recorded frames, Linux
@@ -484,9 +484,9 @@ private:
 	// THE KEY IS THE BODY ID, and that it works is upstream's guarantee rather
 	// than an assumption: b3RecMakeBodyId retargets a recorded id onto the
 	// replay world by replacing world0 ONLY, keeping index1 and generation
-	// (src/recording_replay.c:656-663), and every replayed create asserts the
+	// (src/replay.c:659-666), and every replayed create asserts the
 	// id it got back equals the id that was recorded (b3RecCheckBodyId,
-	// :695-698). Bodies present when recording started come through the
+	// :698-701). Bodies present when recording started come through the
 	// snapshot seed, which serializes the id pools themselves
 	// (src/world_snapshot.c:999-1004, :1146-1151). So (index1, generation) is
 	// the same number in the live world and in the replay world, and it is the
