@@ -7,6 +7,7 @@
 
 #include "physics_world.h"
 #include "recording.h"
+#include "simd.h"
 #include "test_macros.h"
 
 #include "box3d/box3d.h"
@@ -130,6 +131,106 @@ static int HullDedup( void )
 	ENSURE( entryCount == 1 );
 
 	b3DestroyRecording( rec );
+	return 0;
+}
+
+static int ValidateReplayAtWidth( const b3Recording* rec, int width )
+{
+	b3SetSIMDWidth( width );
+	bool valid = b3ValidateReplay( b3Recording_GetData( rec ), b3Recording_GetSize( rec ), 1 );
+	b3SetSIMDWidth( 0 );
+	return valid ? 0 : 1;
+}
+
+// A recording made at the native SIMD width must replay at width 4 and vice versa.
+static int CrossWidthReplay( void )
+{
+	b3SetSIMDWidth( 0 );
+	int nativeWidth = b3GetSIMDWidth();
+	if ( nativeWidth == 4 )
+	{
+		printf( "  subtest skipped: CrossWidthReplay, native SIMD width is 4\n" );
+		return 0;
+	}
+
+	enum
+	{
+		hullCount = 6
+	};
+
+	b3HullData* hulls[hullCount] = { 0 };
+	hulls[0] = b3CreateRock( 0.5f );
+	hulls[1] = b3CreateComplexHull( 0.5f );
+	hulls[2] = b3CreateCylinder( 0.8f, 0.4f, 0.0f, 8 );
+	hulls[3] = b3CreateCone( 0.8f, 0.5f, 0.2f, 7 );
+
+	uint32_t seed = 12345u;
+	for ( int hullIndex = 4; hullIndex < hullCount; ++hullIndex )
+	{
+		b3Vec3 points[20];
+		for ( int i = 0; i < 20; ++i )
+		{
+			float v[3];
+			for ( int k = 0; k < 3; ++k )
+			{
+				seed = seed * 1664525u + 1013904223u;
+				v[k] = ( (float)( seed >> 8 ) / (float)( 1 << 24 ) - 0.5f ) * ( k == 1 ? 0.6f : 1.0f );
+			}
+			points[i] = (b3Vec3){ v[0], v[1], v[2] };
+		}
+		hulls[hullIndex] = b3CreateHull( points, 20, 20 );
+	}
+
+	b3Recording* rec = b3CreateRecording( 0 );
+
+	b3SetSIMDWidth( nativeWidth );
+
+	b3WorldDef worldDef = b3DefaultWorldDef();
+	b3WorldId worldId = b3CreateWorld( &worldDef );
+
+	b3World_StartRecording( worldId, rec );
+
+	b3BodyDef groundDef = b3DefaultBodyDef();
+	groundDef.type = b3_staticBody;
+	b3BodyId groundId = b3CreateBody( worldId, &groundDef );
+	b3BoxHull groundBox = b3MakeBoxHull( 20.0f, 1.0f, 20.0f );
+	b3ShapeDef groundShape = b3DefaultShapeDef();
+	b3CreateHullShape( groundId, &groundShape, &groundBox.base );
+
+	b3ShapeDef dynamicShape = b3DefaultShapeDef();
+	dynamicShape.density = 1.0f;
+
+	for ( int i = 0; i < 18; ++i )
+	{
+		b3BodyDef bodyDef = b3DefaultBodyDef();
+		bodyDef.type = b3_dynamicBody;
+		bodyDef.position = (b3Pos){ 0.4f * (float)( i % 3 ) - 0.4f, 1.5f + 0.9f * (float)i, 0.3f * (float)( i % 2 ) };
+		bodyDef.rotation = b3MakeQuatFromAxisAngle( (b3Vec3){ 0.0f, 1.0f, 0.0f }, 0.37f * (float)i );
+		b3BodyId bodyId = b3CreateBody( worldId, &bodyDef );
+		b3CreateHullShape( bodyId, &dynamicShape, hulls[i % hullCount] );
+	}
+
+	float timeStep = 1.0f / 60.0f;
+	for ( int i = 0; i < 120; ++i )
+	{
+		b3World_Step( worldId, timeStep, 4 );
+	}
+
+	b3World_StopRecording( worldId );
+	b3DestroyWorld( worldId );
+	b3SetSIMDWidth( 0 );
+
+	int narrowStatus = ValidateReplayAtWidth( rec, 4 );
+	int nativeStatus = ValidateReplayAtWidth( rec, nativeWidth );
+
+	b3DestroyRecording( rec );
+	for ( int i = 0; i < hullCount; ++i )
+	{
+		b3DestroyHull( hulls[i] );
+	}
+
+	ENSURE( narrowStatus == 0 );
+	ENSURE( nativeStatus == 0 );
 	return 0;
 }
 
@@ -752,6 +853,22 @@ static float QueryReplayCastFcn( b3ShapeId shapeId, b3Pos point, b3Vec3 normal, 
 	(void)context;
 	// Return the fraction to keep the closest hit, exercising the recorded user-return path.
 	return fraction;
+}
+
+static float CompoundHitCastFcn( b3ShapeId shapeId, b3Pos point, b3Vec3 normal, float fraction, uint64_t userMaterialId,
+								 int triangleIndex, int childIndex, void* context )
+{
+	(void)point;
+	(void)normal;
+	(void)fraction;
+	(void)userMaterialId;
+	(void)triangleIndex;
+	(void)childIndex;
+	if ( b3Shape_GetType( shapeId ) == b3_compoundShape )
+	{
+		*(bool*)context = true;
+	}
+	return 1.0f;
 }
 
 static bool QueryReplayPlaneFcn( b3ShapeId shapeId, const b3PlaneResult* planes, int planeCount, void* context )
@@ -1544,6 +1661,10 @@ static int AllOps( void )
 		b3RecPlayer* player = b3CreatePlayer( recData, recSize, 1 );
 		ENSURE( player != NULL );
 
+		// Capture keyframes while every geometry kind is live. The default interval is longer
+		// than this recording.
+		b3RecPlayer_SetKeyframePolicy( player, b3RecPlayer_GetKeyframeBudget( player ), 4 );
+
 		b3RecPlayerInfo info = b3RecPlayer_GetInfo( player );
 		b3Vec3 recExtents = b3Sub( info.bounds.upperBound, info.bounds.lowerBound );
 		ENSURE( recExtents.x > 0.0f && recExtents.y > 0.0f );
@@ -1566,6 +1687,27 @@ static int AllOps( void )
 		ENSURE( frames == 12 );
 		ENSURE( b3RecPlayer_GetFrame( player ) == 12 );
 		ENSURE( b3RecPlayer_IsAtEnd( player ) );
+		ENSURE( b3RecPlayer_HasDiverged( player ) == false );
+		ENSURE( b3RecPlayer_GetKeyframeBytes( player ) > 0 );
+
+		// Seek back onto the frame 4 keyframe, then skip forward onto the frame 8 keyframe. Each
+		// restore rebuilds the compound from the registry, so a ray must still reach its tree and
+		// the state hashes must hold through the re-stepped frames.
+		int seekTargets[] = { 6, 9 };
+		for ( int k = 0; k < 2; ++k )
+		{
+			b3RecPlayer_SeekFrame( player, seekTargets[k] );
+			ENSURE( b3RecPlayer_GetFrame( player ) == seekTargets[k] );
+
+			bool hitCompound = false;
+			b3World_CastRay( b3RecPlayer_GetWorldId( player ), (b3Pos){ 30.0f, 10.0f, 0.0f }, (b3Vec3){ 0.0f, -20.0f, 0.0f },
+							 b3DefaultQueryFilter(), CompoundHitCastFcn, &hitCompound );
+			ENSURE( hitCompound );
+		}
+		while ( b3RecPlayer_StepFrame( player ) )
+		{
+		}
+		ENSURE( b3RecPlayer_GetFrame( player ) == 12 );
 		ENSURE( b3RecPlayer_HasDiverged( player ) == false );
 
 		// The trailing DestroyWorld is an end marker; the world stays valid after end
@@ -1732,19 +1874,110 @@ static int ReservedHeaderBytes( void )
 	return 0;
 }
 
+// A corrupt compound in the geometry registry must fail the replay cleanly. A stale version or a
+// wrong kind is rejected when the shape is created and a truncated entry is rejected at load.
+static int CorruptCompound( void )
+{
+	b3CompoundSphereDef sphereDef;
+	sphereDef.sphere = (b3Sphere){ { 0.0f, 0.0f, 0.0f }, 1.0f };
+	sphereDef.material = b3DefaultSurfaceMaterial();
+	b3CompoundDef compoundDef;
+	memset( &compoundDef, 0, sizeof( compoundDef ) );
+	compoundDef.spheres = &sphereDef;
+	compoundDef.sphereCount = 1;
+	b3CompoundData* compound = b3CreateCompound( &compoundDef );
+	ENSURE( compound != NULL );
+	int compoundByteCount = compound->byteCount;
+
+	b3Recording* rec = b3CreateRecording( 0 );
+	ENSURE( rec != NULL );
+
+	b3WorldDef worldDef = b3DefaultWorldDef();
+	b3WorldId worldId = b3CreateWorld( &worldDef );
+	b3World_StartRecording( worldId, rec );
+
+	b3BodyDef bd = b3DefaultBodyDef();
+	b3BodyId groundId = b3CreateBody( worldId, &bd );
+	b3ShapeDef sd = b3DefaultShapeDef();
+	b3CreateBakedCompoundShape( groundId, &sd, compound );
+
+	bd.type = b3_dynamicBody;
+	bd.position = (b3Pos){ 0.0f, 3.0f, 0.0f };
+	b3BodyId bodyId = b3CreateBody( worldId, &bd );
+	b3Sphere s = { { 0.0f, 0.0f, 0.0f }, 0.5f };
+	b3CreateSphereShape( bodyId, &sd, &s );
+
+	for ( int i = 0; i < 10; ++i )
+	{
+		b3World_Step( worldId, 1.0f / 60.0f, 4 );
+	}
+
+	b3World_StopRecording( worldId );
+	b3DestroyWorld( worldId );
+	b3DestroyCompound( compound );
+
+	const uint8_t* recData = b3Recording_GetData( rec );
+	int recSize = b3Recording_GetSize( rec );
+	ENSURE( b3ValidateReplay( recData, recSize, 1 ) );
+
+	// The registry entry is a kind byte and a 4 byte length, then the blob, which leads with its version
+	uint64_t version = B3_COMPOUND_VERSION;
+	int blobOffset = -1;
+	for ( int i = 5; i + (int)sizeof( version ) <= recSize; ++i )
+	{
+		if ( memcmp( recData + i, &version, sizeof( version ) ) == 0 )
+		{
+			blobOffset = i;
+			break;
+		}
+	}
+	ENSURE( blobOffset > 0 );
+	ENSURE( recData[blobOffset - 5] == (uint8_t)b3_geometryCompound );
+	int32_t storedByteCount;
+	memcpy( &storedByteCount, recData + blobOffset - 4, sizeof( storedByteCount ) );
+	ENSURE( storedByteCount == compoundByteCount );
+
+	uint8_t* patched = (uint8_t*)b3Alloc( (size_t)recSize );
+
+	memcpy( patched, recData, (size_t)recSize );
+	patched[blobOffset] ^= 0xFF;
+	ENSURE( b3ValidateReplay( patched, recSize, 1 ) == false );
+
+	memcpy( patched, recData, (size_t)recSize );
+	int32_t shortByteCount = 8;
+	memcpy( patched + blobOffset - 4, &shortByteCount, sizeof( shortByteCount ) );
+	ENSURE( b3CreatePlayer( patched, recSize, 1 ) == NULL );
+
+	memcpy( patched, recData, (size_t)recSize );
+	int32_t zeroByteCount = 0;
+	memcpy( patched + blobOffset - 4, &zeroByteCount, sizeof( zeroByteCount ) );
+	ENSURE( b3CreatePlayer( patched, recSize, 1 ) == NULL );
+
+	memcpy( patched, recData, (size_t)recSize );
+	patched[blobOffset - 5] = (uint8_t)b3_geometryMesh;
+	ENSURE( b3ValidateReplay( patched, recSize, 1 ) == false );
+
+	b3Free( patched, (size_t)recSize );
+	b3DestroyRecording( rec );
+	return 0;
+}
+
 // Geometry that shares a content hash but differs in bytes must dedup exactly. Mirrors the keyframe
 // flow that crashed: the seed appends every slot 1:1 (even byte-identical duplicates a hash collision
 // left in an already-recorded file), then capture must resolve a live blob back to an existing slot
 // without growing the registry. Forces the collision by handing the same hash to distinct blobs.
 static int GeometryHashCollision( void )
 {
-	const int n = 16;
+	enum
+	{
+		n = 16
+	};
 	const uint64_t sharedHash = 0xABCD1234ull;
 
 	b3GeometryRegistry reg = { 0 };
 
-	uint8_t* blobA = (uint8_t*)b3Alloc( (size_t)n );
-	uint8_t* blobB = (uint8_t*)b3Alloc( (size_t)n );
+	uint8_t blobA[n];
+	uint8_t blobB[n];
 	memset( blobA, 0xAA, (size_t)n );
 	memset( blobB, 0xBB, (size_t)n );
 
@@ -1757,12 +1990,12 @@ static int GeometryHashCollision( void )
 	// Re-interning either blob must find it through the hash chain and never grow the registry,
 	// including the one shadowed behind the bucket head. The old single-entry lookup missed the
 	// shadowed blob and appended a duplicate, which is exactly what tripped the keyframe assert.
-	uint8_t* blobA2 = (uint8_t*)b3Alloc( (size_t)n );
+	uint8_t blobA2[n];
 	memset( blobA2, 0xAA, (size_t)n );
 	ENSURE( b3InternGeometry( &reg, b3_geometryHull, sharedHash, blobA2, n ) == idA );
 	ENSURE( reg.entries.count == 2 );
 
-	uint8_t* blobB2 = (uint8_t*)b3Alloc( (size_t)n );
+	uint8_t blobB2[n];
 	memset( blobB2, 0xBB, (size_t)n );
 	ENSURE( b3InternGeometry( &reg, b3_geometryHull, sharedHash, blobB2, n ) == idB );
 	ENSURE( reg.entries.count == 2 );
@@ -1772,9 +2005,9 @@ static int GeometryHashCollision( void )
 	// Seed-then-capture: appending byte-identical duplicate slots keeps id == slot index, and a later
 	// exact intern still resolves to one of them without appending a new entry.
 	b3GeometryRegistry seeded = { 0 };
-	uint8_t* slot0 = (uint8_t*)b3Alloc( (size_t)n );
-	uint8_t* slot1 = (uint8_t*)b3Alloc( (size_t)n );
-	uint8_t* slot2 = (uint8_t*)b3Alloc( (size_t)n );
+	uint8_t slot0[n];
+	uint8_t slot1[n];
+	uint8_t slot2[n];
 	memset( slot0, 0xAA, (size_t)n );
 	memset( slot1, 0xBB, (size_t)n );
 	memset( slot2, 0xAA, (size_t)n ); // duplicate of slot0
@@ -1782,7 +2015,7 @@ static int GeometryHashCollision( void )
 	ENSURE( b3AppendGeometry( &seeded, b3_geometryHull, sharedHash, slot1, n ) == 1 );
 	ENSURE( b3AppendGeometry( &seeded, b3_geometryHull, sharedHash, slot2, n ) == 2 );
 
-	uint8_t* live = (uint8_t*)b3Alloc( (size_t)n );
+	uint8_t live[n];
 	memset( live, 0xAA, (size_t)n );
 	uint32_t resolved = b3InternGeometry( &seeded, b3_geometryHull, sharedHash, live, n );
 	ENSURE( seeded.entries.count == 3 );	  // no growth
@@ -2147,6 +2380,7 @@ int RecordingTest( void )
 	RUN_SUBTEST( HullDedup );
 	RUN_SUBTEST( MidStreamNoContacts );
 	RUN_SUBTEST( MidStreamContacts );
+	RUN_SUBTEST( CrossWidthReplay );
 	RUN_SUBTEST( StagedStepCreationPose );
 	RUN_SUBTEST( ScrubBackward );
 	RUN_SUBTEST( SeekWithHull );
@@ -2159,5 +2393,6 @@ int RecordingTest( void )
 	RUN_SUBTEST( GeometryMutatorReplay );
 	RUN_SUBTEST( AllOps );
 	RUN_SUBTEST( ReservedHeaderBytes );
+	RUN_SUBTEST( CorruptCompound );
 	return 0;
 }

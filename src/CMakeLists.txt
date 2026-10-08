@@ -19,17 +19,19 @@ set(BOX3D_SOURCE_FILES
 	compound.h
 	constraint_graph.c
 	constraint_graph.h
-	contact.c
-	contact.h
+	contact_solver_wide.inl
 	contact_solver.c
 	contact_solver.h
+	contact.c
+	contact.h
 	container.h
+	convex_manifold_wide.inl
 	convex_manifold.c
 	core.c
 	core.h
 	ctz.h
-	distance.c
 	distance_joint.c
+	distance.c
 	dynamic_tree.c
 	dynamic_tree.h
 	height_field.c
@@ -45,8 +47,8 @@ set(BOX3D_SOURCE_FILES
 	manifold.h
 	math_functions.c
 	math_internal.h
-	mesh.c
 	mesh_contact.c
+	mesh.c
 	motor_joint.c
 	mover.c
 	name_cache.c
@@ -60,13 +62,11 @@ set(BOX3D_SOURCE_FILES
 	prismatic_joint.c
 	qsort.h
 	rapidhash.h
+	recording_ops.inl
 	recording.c
 	recording.h
-	recording_ops.inl
-	recording_replay.c
-	recording_replay.h
-	world_snapshot.c
-	world_snapshot.h
+	replay.c
+	replay.h
 	revolute_joint.c
 	scheduler.c
 	scheduler.h
@@ -74,12 +74,17 @@ set(BOX3D_SOURCE_FILES
 	sensor.h
 	shape.c
 	shape.h
+	simd_avx2.h
+	simd_neon.h
+	simd_scalar.h
+	simd_sse2.h
+	simd_wide.h
 	simd.c
 	simd.h
-	solver.c
-	solver.h
 	solver_set.c
 	solver_set.h
+	solver.c
+	solver.h
 	sphere.c
 	spherical_joint.c
 	table.c
@@ -90,6 +95,10 @@ set(BOX3D_SOURCE_FILES
 	verstable.h
 	weld_joint.c
 	wheel_joint.c
+	wide4.c
+	wide8.c
+	world_snapshot.c
+	world_snapshot.h
 
 	box3d.natvis
 )
@@ -167,6 +176,11 @@ if (BOX3D_DISABLE_SIMD)
 	target_compile_definitions(box3d PRIVATE BOX3D_DISABLE_SIMD)
 endif()
 
+if (NOT BOX3D_AVX2)
+	message(STATUS "Box3D AVX2 disabled")
+	target_compile_definitions(box3d PRIVATE BOX3D_DISABLE_AVX2)
+endif()
+
 if (BOX3D_DOUBLE_PRECISION)
 	message(STATUS "Box3D double precision ON")
 	# PUBLIC: consumers must see the same precision mode in the headers or they cannot match the ABI
@@ -195,6 +209,10 @@ if (MSVC)
 
 	if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
 		target_compile_options(box3d PRIVATE -Wmissing-prototypes)
+	endif()
+
+	if (BOX3D_AVX2 AND NOT CMAKE_C_COMPILER_ID STREQUAL "Clang" AND CMAKE_C_COMPILER_ARCHITECTURE_ID MATCHES "^(x64|X86)$")
+		set_source_files_properties(wide8.c PROPERTIES COMPILE_OPTIONS "/arch:AVX2")
 	endif()
 
 elseif (MINGW)

@@ -12,6 +12,10 @@
 
 #include <set>
 
+#ifdef BOX3D_INTERNAL_BENCHMARKS
+#include "sat_benchmark.h"
+#endif
+
 inline bool operator<( b3BodyId a, b3BodyId b )
 {
 	uint64_t ua = b3StoreBodyId( a );
@@ -730,6 +734,121 @@ public:
 };
 
 static int sampleFallingTrees = RegisterSample( "Benchmark", "Falling Trees", BenchmarkFallingTrees::Create );
+
+class BenchmarkMeshDrop : public Sample
+{
+public:
+	explicit BenchmarkMeshDrop( SampleContext* context )
+		: Sample( context )
+	{
+		if ( context->restart == false )
+		{
+			m_camera->SetView( 0.0f, 30.0f, 140.0f, b3Pos_zero );
+			GetGuiDraw()->forceScale = 0.1f;
+		}
+
+		CreateMeshDropBenchmark( m_worldId );
+	}
+
+	~BenchmarkMeshDrop() override
+	{
+		DestroyMeshDropBenchmark();
+	}
+
+	static Sample* Create( SampleContext* context )
+	{
+		return new BenchmarkMeshDrop( context );
+	}
+};
+
+static int sampleMeshDropBenchmark = RegisterSample( "Benchmark", "Mesh Drop", BenchmarkMeshDrop::Create );
+
+class BenchmarkVillage : public Sample
+{
+public:
+	explicit BenchmarkVillage( SampleContext* context )
+		: Sample( context )
+	{
+		if ( context->restart == false )
+		{
+			m_camera->SetView( 45.0f, 30.0f, 300.0f, b3Pos_zero );
+		}
+
+		b3Capacity capacity = {};
+		GetVillageCapacity( &capacity );
+		CreateWorld( &capacity );
+
+		CreateVillage( m_worldId );
+	}
+
+	~BenchmarkVillage() override
+	{
+		DestroyVillage();
+	}
+
+	void Step() override
+	{
+		StepVillage( m_worldId, m_stepCount );
+		Sample::Step();
+	}
+
+	bool DrawControls() override
+	{
+		ImGui::Checkbox( "Draw Casts", &m_drawCasts );
+		ImGui::Checkbox( "Draw Spheres", &m_drawSpheres );
+		return true;
+	}
+
+	void Render() override
+	{
+		Sample::Render();
+
+		VillageCurtain curtain = GetVillageCurtain();
+
+		int hitCount = 0;
+		for ( int i = 0; i < curtain.castCount; ++i )
+		{
+			const VillageCast& cast = curtain.casts[i];
+			hitCount += cast.hit ? 1 : 0;
+
+			if ( m_drawCasts == false )
+			{
+				continue;
+			}
+
+			b3Pos end = cast.origin + cast.fraction * curtain.translation;
+			DrawLine( cast.origin, end, MakeColor( cast.hit ? b3_colorYellow : b3_colorGray ) );
+
+			if ( cast.hit == false )
+			{
+				continue;
+			}
+
+			DrawPoint( cast.point, 4.0f, MakeColor( b3_colorGreen ) );
+			DrawLine( cast.point, cast.point + 0.5f * cast.normal, MakeColor( b3_colorGreen ) );
+
+			if ( m_drawSpheres )
+			{
+				b3WorldTransform transform = b3WorldTransform_identity;
+				transform.p = end;
+				DrawSphereEx( transform, curtain.radius, MakeColorAlpha( b3_colorPurple, 0.5f ), 0.0f, 0.5f,
+							  TRANSPARENT_SHADOW_NONE );
+			}
+		}
+
+		DrawTextLine( "casts = %d, hits = %d", curtain.castCount, hitCount );
+	}
+
+	static Sample* Create( SampleContext* context )
+	{
+		return new BenchmarkVillage( context );
+	}
+
+	bool m_drawCasts = true;
+	bool m_drawSpheres = true;
+};
+
+static int sampleVillageBenchmark = RegisterSample( "Benchmark", "Village", BenchmarkVillage::Create );
 
 struct ShapeUserData
 {
@@ -1561,3 +1680,145 @@ public:
 };
 
 static int benchmarkSleep = RegisterSample( "Benchmark", "Sleep", BenchmarkSleep::Create );
+
+#ifdef BOX3D_INTERNAL_BENCHMARKS
+
+// GJK versus SAT on hull pairs held inside the speculative margin. Times are per query and smoothed over frames.
+class BenchmarkSeparatingAxis : public Sample
+{
+public:
+	explicit BenchmarkSeparatingAxis( SampleContext* context )
+		: Sample( context )
+	{
+		if ( m_context->restart == false )
+		{
+			m_camera->SetView( 0.0f, 15.0f, 4.0f, b3Pos_zero );
+		}
+
+		m_data = CreateSatBenchmark( (SatHullType)m_typeA, (SatHullType)m_typeB );
+	}
+
+	~BenchmarkSeparatingAxis() override
+	{
+		DestroySatBenchmark( m_data );
+	}
+
+	bool HasSolverControls() const override
+	{
+		return false;
+	}
+
+	bool HasProfile() const override
+	{
+		return false;
+	}
+
+	bool DrawControls() override
+	{
+		const char* hullNames[] = { "Complex", "Rock", "Cylinder" };
+		static_assert( IM_ARRAYSIZE( hullNames ) == satHull_count );
+
+		ImGui::PushItemWidth( 8.0f * ImGui::GetFontSize() );
+
+		bool changed = ImGui::Combo( "Hull A", &m_typeA, hullNames, IM_ARRAYSIZE( hullNames ) );
+		changed = ImGui::Combo( "Hull B", &m_typeB, hullNames, IM_ARRAYSIZE( hullNames ) ) || changed;
+		if ( changed )
+		{
+			DestroySatBenchmark( m_data );
+			m_data = CreateSatBenchmark( (SatHullType)m_typeA, (SatHullType)m_typeB );
+			m_resetAverage = true;
+		}
+
+		m_resetAverage = ImGui::Checkbox( "Inscribed Sphere", &m_inscribedSphere ) || m_resetAverage;
+		m_resetAverage = ImGui::Checkbox( "Warm Start GJK", &m_warmStart ) || m_resetAverage;
+		ImGui::SliderInt( "Pair", &m_pairIndex, 0, SAT_PAIR_COUNT - 1 );
+
+		ImGui::PopItemWidth();
+		return true;
+	}
+
+	void Render() override
+	{
+		b3Transform transformB = m_data->transforms[m_pairIndex];
+		b3WorldTransform worldA = b3MakeWorldTransform( b3Transform_identity );
+		b3WorldTransform worldB = b3MakeWorldTransform( transformB );
+
+		DrawHull( worldA, m_data->hullA, MakeColor( b3_colorGreen ) );
+		DrawHull( worldB, m_data->hullB, MakeColor( b3_colorCyan ) );
+
+		b3DistanceInput input = {};
+		input.proxyA = { b3GetHullPoints( m_data->hullA ), m_data->hullA->vertexCount, 0.0f };
+		input.proxyB = { b3GetHullPoints( m_data->hullB ), m_data->hullB->vertexCount, 0.0f };
+		input.transform = transformB;
+		input.useRadii = false;
+
+		b3SimplexCache cache = {};
+		b3DistanceOutput output = b3ShapeDistance( &input, &cache, nullptr, 0 );
+
+		b3Pos pA = b3TransformWorldPoint( worldA, output.pointA );
+		b3Pos pB = b3TransformWorldPoint( worldA, output.pointB );
+		DrawPoint( pA, 8.0f, MakeColor( b3_colorRed ) );
+		DrawPoint( pB, 8.0f, MakeColor( b3_colorYellow ) );
+		DrawLine( pA, pB, MakeColor( b3_colorWhite ) );
+
+		Sample::Render();
+	}
+
+	void Step() override
+	{
+		EnableSatInscribedSphere( m_data, m_inscribedSphere );
+
+		int repeatCount = m_isDebug ? 1 : 10;
+		SatBenchmarkResult result = RunSatBenchmark( m_data, repeatCount, m_warmStart );
+
+		float scale = 1000.0f / result.queryCount;
+		float distanceTime = scale * result.distanceMs;
+		float satTime = scale * result.satMs;
+
+		if ( m_resetAverage )
+		{
+			m_distanceTime = distanceTime;
+			m_satTime = satTime;
+			m_resetAverage = false;
+		}
+		else
+		{
+			float alpha = 0.05f;
+			m_distanceTime = b3LerpFloat( m_distanceTime, distanceTime, alpha );
+			m_satTime = b3LerpFloat( m_satTime, satTime, alpha );
+		}
+
+		DrawTextLine( "pairs = %d, queries per frame = %d", SAT_PAIR_COUNT, result.queryCount );
+		DrawTextLine( "GJK (us) = %.3f, iterations = %.2f", m_distanceTime, result.averageIterations );
+		DrawTextLine( "SAT (us) = %.3f", m_satTime );
+		DrawTextLine( "SAT / GJK = %.2f", m_satTime / m_distanceTime );
+		DrawTextLine( "target dist = %.4f, avg dist = %.4f, avg sep = %.4f", m_data->targetDistance,
+					  result.averageDistance, result.averageSeparation );
+
+		if ( result.earlyReturnCount > 0 )
+		{
+			DrawTextLine( "SAT early returns = %d", result.earlyReturnCount );
+		}
+
+		Sample::Step();
+	}
+
+	static Sample* Create( SampleContext* context )
+	{
+		return new BenchmarkSeparatingAxis( context );
+	}
+
+	SatBenchmarkData* m_data;
+	int m_typeA = satHull_complex;
+	int m_typeB = satHull_complex;
+	int m_pairIndex = 0;
+	bool m_inscribedSphere = true;
+	bool m_warmStart = false;
+	bool m_resetAverage = true;
+	float m_distanceTime = 0.0f;
+	float m_satTime = 0.0f;
+};
+
+static int sampleSeparatingAxis = RegisterSample( "Benchmark", "SAT vs GJK", BenchmarkSeparatingAxis::Create );
+
+#endif

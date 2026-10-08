@@ -52,6 +52,10 @@ if(BOX3D_DISABLE_SIMD)
 	target_compile_definitions(test PRIVATE BOX3D_DISABLE_SIMD)
 endif()
 
+if(NOT BOX3D_AVX2)
+	target_compile_definitions(test PRIVATE BOX3D_DISABLE_AVX2)
+endif()
+
 target_link_libraries(test PRIVATE box3d shared)
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "" FILES ${BOX3D_TEST_FILES})
