@@ -35,6 +35,7 @@ func _ready() -> void:
 	await _test_mesh_collider()
 	await _test_auto_visual()
 	await _test_solver_tuning()
+	await _test_sse2_fallback()
 	await _test_async_step()
 	await _test_contact_recycling()
 	await _test_sync_node_transform_off()
@@ -1003,6 +1004,59 @@ func _test_auto_visual() -> void:
 		off.get_node_or_null("Box3DAutoVisual") == null)
 
 	world.free()
+
+
+func _test_sse2_fallback() -> void:
+	var avx2 := Box3DWorld.is_avx2_available()
+	print("  avx2_available=%s" % avx2)
+	# Two identical piles, one forced onto the 4-wide SSE2 kernels. Upstream
+	# keeps a single golden determinism hash for SSE2 and AVX2 machines, so the
+	# two must match bit for bit. Where AVX2 is absent (ARM, web, old x86) both
+	# worlds already run SSE2 or NEON and this passes trivially.
+	var worlds: Array[Box3DWorld] = []
+	for fallback in [false, true]:
+		var w := Box3DWorld.new()
+		w.auto_step = false
+		w.worker_count = 1
+		w.sse2_fallback = fallback
+		add_child(w)
+		_build_heavy(w)
+		worlds.append(w)
+	await get_tree().physics_frame
+	_check("sse2_fallback round-trips",
+		worlds[1].sse2_fallback == true and worlds[0].sse2_fallback == false)
+
+	var start: Array[Transform3D] = []
+	for c in worlds[0].get_children():
+		if c is Box3DBody:
+			start.append((c as Box3DBody).global_transform)
+	for i in range(240):
+		for w in worlds:
+			w.step(1.0 / 60.0)
+
+	var a: Array[Transform3D] = []
+	var b: Array[Transform3D] = []
+	for c in worlds[0].get_children():
+		if c is Box3DBody:
+			a.append((c as Box3DBody).global_transform)
+	for c in worlds[1].get_children():
+		if c is Box3DBody:
+			b.append((c as Box3DBody).global_transform)
+	var same := 0
+	var moved := 0.0
+	for i in range(mini(a.size(), b.size())):
+		if a[i] == b[i]:
+			same += 1
+		moved = maxf(moved, a[i].origin.distance_to(start[i].origin))
+	_check("the pile moved, so the comparison means something (%.3f m)" % moved,
+		a.size() > 300 and moved > 0.01)
+	_check("SSE2 fallback and the default path stay bit-identical (%d/%d bodies, avx2=%s)"
+		% [same, a.size(), avx2], a.size() == b.size() and same == a.size())
+
+	worlds[1].sse2_fallback = false
+	_check("sse2_fallback can be cleared on a live world", worlds[1].sse2_fallback == false)
+	for w in worlds:
+		w.free()
 
 
 func _test_solver_tuning() -> void:
@@ -3900,6 +3954,21 @@ func _test_geometry() -> void:
 	for v in rock["vertices"]:
 		far = maxf(far, v.length())
 	_check("rock points sit on the 0.3 m sphere (%.3f)" % far, absf(far - 0.3) < 0.001)
+
+	var complex: Dictionary = Box3DGeometry.create_complex_hull(0.4)
+	var complex_again: Dictionary = Box3DGeometry.create_complex_hull(0.4)
+	print("  complex hull=%d verts %d tris" % [complex["vertices"].size(), complex["indices"].size() / 3])
+	var c_lo := INF
+	var c_hi := 0.0
+	for v in complex["vertices"]:
+		c_lo = minf(c_lo, v.length())
+		c_hi = maxf(c_hi, v.length())
+	_check("create_complex_hull keeps its 32 sphere points (%d)" % complex["vertices"].size(),
+		complex["vertices"].size() == 32 and complex["indices"].size() >= 3 * 60)
+	_check("complex hull points sit on the 0.4 m sphere (%.4f..%.4f)" % [c_lo, c_hi],
+		absf(c_lo - 0.4) < 0.001 and absf(c_hi - 0.4) < 0.001)
+	_check("create_complex_hull is seeded, so it repeats exactly",
+		complex["vertices"] == complex_again["vertices"])
 
 	var cube: Dictionary = Box3DGeometry.make_cube_hull(0.5)
 	print("  cube=%d verts %d tris" % [cube["vertices"].size(), cube["indices"].size() / 3])

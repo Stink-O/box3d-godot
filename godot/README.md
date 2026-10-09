@@ -46,6 +46,7 @@ nest bodies (with a `MeshInstance3D` child for visuals) under a world.
 | `contact_damping` | `float` | `10.0` | Contact bounciness (damping ratio, non-dimensional). Lower resolves overlap more energetically. |
 | `enable_sleep` | `bool` | `true` | Let resting bodies sleep. Disable if your game needs every body simulated every frame. |
 | `enable_warm_starting` | `bool` | `true` | Constraint warm starting. Advanced/testing only — disabling it hurts stability for no gain. |
+| `sse2_fallback` | `bool` | `false` | Forces the 4-wide SSE2 solver kernels on a CPU with AVX2. Testing only: the two paths give bit-identical results and AVX2 is faster. `Box3DWorld.is_avx2_available()` says whether AVX2 is in use. |
 
 `contact_hertz` / `contact_damping` forward to `b3World_SetContactTuning` (the
 push-out speed cap is left at Box3D's default) and both take effect immediately

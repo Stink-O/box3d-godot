@@ -157,6 +157,13 @@ bool Box3DWorld::is_double_precision() {
 	return b3IsDoublePrecision();
 }
 
+// b3IsAVX2Available (base.h:180-181): true only when this library was built
+// with the AVX2 kernels (x86) AND the CPU running it has AVX2. Always false
+// on ARM and the web.
+bool Box3DWorld::is_avx2_available() {
+	return b3IsAVX2Available();
+}
+
 // b3Log's capture handler for dump_memory_stats(). b3LogFcn takes no context
 // pointer (base.h:106), so the sink has to be a file static.
 static String *b3_log_sink = nullptr;
@@ -452,6 +459,7 @@ void Box3DWorld::ensure_world() {
 	// at creation (src/physics_world.c:338), so it can only be set afterwards.
 	b3World_SetContactRecycleDistance(world_id, (float)contact_recycle_distance);
 	b3World_EnableWarmStarting(world_id, enable_warm_starting);
+	b3World_EnableSSE2Fallback(world_id, sse2_fallback);
 	// Last: a world that was destroyed and recreated gets its solver callbacks
 	// back, so the rules survive a rebuild the way every other property does.
 	if (contact_rules.is_valid()) {
@@ -2771,6 +2779,20 @@ bool Box3DWorld::get_enable_warm_starting() const {
 	return enable_warm_starting;
 }
 
+void Box3DWorld::set_sse2_fallback(bool p_enabled) {
+	sse2_fallback = p_enabled;
+	if (b3World_IsValid(world_id)) {
+		// A locked (mid-step) world asserts and drops the call
+		// (src/physics_world.c:102-107), so finish any async step first.
+		join_async_step();
+		b3World_EnableSSE2Fallback(world_id, sse2_fallback);
+	}
+}
+
+bool Box3DWorld::get_sse2_fallback() const {
+	return sse2_fallback;
+}
+
 void Box3DWorld::set_contact_speed(double p_speed) {
 	contact_speed = p_speed;
 	apply_contact_tuning();
@@ -2916,6 +2938,7 @@ void Box3DWorld::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("dump_memory_stats"), &Box3DWorld::dump_memory_stats);
 	ClassDB::bind_static_method("Box3DWorld", D_METHOD("get_box3d_version"), &Box3DWorld::get_box3d_version);
 	ClassDB::bind_static_method("Box3DWorld", D_METHOD("is_double_precision"), &Box3DWorld::is_double_precision);
+	ClassDB::bind_static_method("Box3DWorld", D_METHOD("is_avx2_available"), &Box3DWorld::is_avx2_available);
 	ClassDB::bind_static_method("Box3DWorld", D_METHOD("get_length_units_per_meter"), &Box3DWorld::get_length_units_per_meter);
 	ClassDB::bind_static_method("Box3DWorld", D_METHOD("set_length_units_per_meter", "units"), &Box3DWorld::set_length_units_per_meter);
 	ClassDB::bind_static_method("Box3DWorld", D_METHOD("get_world_count"), &Box3DWorld::get_world_count);
@@ -2978,6 +3001,8 @@ void Box3DWorld::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_enable_sleep"), &Box3DWorld::get_enable_sleep);
 	ClassDB::bind_method(D_METHOD("set_enable_warm_starting", "enabled"), &Box3DWorld::set_enable_warm_starting);
 	ClassDB::bind_method(D_METHOD("get_enable_warm_starting"), &Box3DWorld::get_enable_warm_starting);
+	ClassDB::bind_method(D_METHOD("set_sse2_fallback", "enabled"), &Box3DWorld::set_sse2_fallback);
+	ClassDB::bind_method(D_METHOD("get_sse2_fallback"), &Box3DWorld::get_sse2_fallback);
 	ClassDB::bind_method(D_METHOD("set_contact_speed", "speed"), &Box3DWorld::set_contact_speed);
 	ClassDB::bind_method(D_METHOD("get_contact_speed"), &Box3DWorld::get_contact_speed);
 	ClassDB::bind_method(D_METHOD("set_hit_event_threshold", "speed"), &Box3DWorld::set_hit_event_threshold);
@@ -3056,6 +3081,7 @@ void Box3DWorld::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_linear_speed", PROPERTY_HINT_RANGE, "0,1000,0.1,or_greater,suffix:m/s"), "set_max_linear_speed", "get_max_linear_speed");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enable_sleep"), "set_enable_sleep", "get_enable_sleep");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enable_warm_starting"), "set_enable_warm_starting", "get_enable_warm_starting");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sse2_fallback"), "set_sse2_fallback", "get_sse2_fallback");
 
 	ADD_GROUP("Contact", "contact_");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "contact_hertz", PROPERTY_HINT_RANGE, "0,120,0.1,or_greater,suffix:Hz"), "set_contact_hertz", "get_contact_hertz");

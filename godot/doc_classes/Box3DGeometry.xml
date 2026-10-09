@@ -28,6 +28,13 @@
 				A mesh collider is single-sided, and this one faces outward: it is a solid box to anything outside it. For a room, use [method create_hollow_box_mesh].
 			</description>
 		</method>
+		<method name="create_complex_hull" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="radius" type="float" />
+			<description>
+				Upstream's convex pile hull: 32 pseudo-random points on a sphere of [param radius], hulled. The random sequence has a fixed seed, so every call returns the same shape. Rounder and more expensive than [method create_rock], which makes it a fair stress test for hull-to-hull contacts.
+			</description>
+		</method>
 		<method name="create_cone" qualifiers="static">
 			<return type="Dictionary" />
 			<param index="0" name="height" type="float" />

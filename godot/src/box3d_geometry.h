@@ -56,6 +56,7 @@ public:
 	// b3CreateRock (collision.h:222): the 10-point Fibonacci-lattice hull
 	// upstream's debris uses.
 	static Dictionary create_rock(double p_radius);
+	static Dictionary create_complex_hull(double p_radius);
 	// b3CreateCylinder (collision.h:216) and b3CreateCone (collision.h:219):
 	// tessellated hulls, the same ones Box3DBody's CYLINDER and CONE shapes are
 	// built from, so a visual made from these matches the collider exactly.

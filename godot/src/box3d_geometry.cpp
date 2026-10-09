@@ -132,6 +132,10 @@ Dictionary Box3DGeometry::create_rock(double p_radius) {
 	return consume_hull(b3CreateRock((float)p_radius));
 }
 
+Dictionary Box3DGeometry::create_complex_hull(double p_radius) {
+	return consume_hull(b3CreateComplexHull((float)p_radius));
+}
+
 Dictionary Box3DGeometry::create_cylinder(double p_height, double p_radius, double p_y_offset, int p_sides) {
 	return consume_hull(b3CreateCylinder((float)p_height, (float)p_radius, (float)p_y_offset, p_sides));
 }
@@ -316,6 +320,7 @@ Ref<ArrayMesh> Box3DGeometry::make_array_mesh(const Dictionary &p_geometry, cons
 
 void Box3DGeometry::_bind_methods() {
 	ClassDB::bind_static_method("Box3DGeometry", D_METHOD("create_rock", "radius"), &Box3DGeometry::create_rock);
+	ClassDB::bind_static_method("Box3DGeometry", D_METHOD("create_complex_hull", "radius"), &Box3DGeometry::create_complex_hull);
 	ClassDB::bind_static_method("Box3DGeometry", D_METHOD("create_cylinder", "height", "radius", "y_offset", "sides"), &Box3DGeometry::create_cylinder, DEFVAL(0.0), DEFVAL(16));
 	ClassDB::bind_static_method("Box3DGeometry", D_METHOD("create_cone", "height", "radius1", "radius2", "slices"), &Box3DGeometry::create_cone, DEFVAL(16));
 	ClassDB::bind_static_method("Box3DGeometry", D_METHOD("create_hull", "points", "max_vertex_count"), &Box3DGeometry::create_hull, DEFVAL(0));

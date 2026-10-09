@@ -148,6 +148,12 @@
 				Useful for catching a leak: a world is released when its node leaves the tree, so a count that climbs as scenes come and go means something is keeping a scene alive.
 			</description>
 		</method>
+		<method name="is_avx2_available" qualifiers="static">
+			<return type="bool" />
+			<description>
+				Whether the solver can use its 8-wide AVX2 kernels here: the library was built with them (x86 only) and the CPU running it supports AVX2. Box3D picks them automatically at runtime when this is [code]true[/code]. Always [code]false[/code] on ARM and in the browser. See [member sse2_fallback].
+			</description>
+		</method>
 		<method name="is_contact_valid" qualifiers="const">
 			<return type="bool" />
 			<param index="0" name="contact_id" type="Vector3i" />
@@ -487,6 +493,9 @@
 		<member name="restitution_threshold" type="float" setter="set_restitution_threshold" getter="get_restitution_threshold" default="1.0">
 			The impact speed below which [member Box3DBody.restitution] is ignored, in metres per second. Matches Box3D's default of 1.
 			Bouncy bodies would otherwise never settle: each tiny contact returns a tiny bounce and the body buzzes on the floor forever. This is what lets a ball with [code]restitution = 0.9[/code] come to rest. [b]Do not set it very small[/b] -- upstream warns that it then keeps bodies from ever sleeping. Raise it instead if a bouncy body still jitters at rest.
+		</member>
+		<member name="sse2_fallback" type="bool" setter="set_sse2_fallback" getter="get_sse2_fallback" default="false">
+			Forces the 4-wide SSE2 solver kernels even on a CPU with AVX2. A testing switch, not a tuning knob: upstream keeps the two paths bit-identical, and leaving it off is faster. Does nothing where [method is_avx2_available] is [code]false[/code].
 		</member>
 		<member name="substep_count" type="int" setter="set_substep_count" getter="get_substep_count" default="4">
 			Solver substeps per step. More substeps make stacks, joints and fast contacts stiffer and more accurate at close to linear cost. It is also the cheapest fix for a wobbly stack.

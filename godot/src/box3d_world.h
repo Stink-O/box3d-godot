@@ -81,6 +81,10 @@ private:
 	double contact_recycle_distance = 0.05;
 	bool enable_sleep = true;
 	bool enable_warm_starting = true;
+	// b3World_EnableSSE2Fallback (box3d.h:222-224): run the 4-wide SSE2
+	// solver kernels even on a CPU with AVX2. Upstream has no getter, so the
+	// value lives here and is re-applied when the world is created.
+	bool sse2_fallback = false;
 	// b3WorldDef.capacity (b3Capacity, types.h:120-137): expected counts used to
 	// pre-size the world so a scene that grows into them never reallocates
 	// mid-step. Read ONLY when the world is created; 0 keeps Box3D's own
@@ -384,6 +388,7 @@ public:
 	// only ever read together.
 	static String get_box3d_version();
 	static bool is_double_precision();
+	static bool is_avx2_available();
 	// b3World_DumpMemoryStats (box3d.h:257), the allocator breakdown behind
 	// upstream's Sim > Dump Mem Stats (samples/sample.cpp:1623-1626): id pools,
 	// island links, world arrays, solver sets, constraint graph, the hull
@@ -468,6 +473,8 @@ public:
 	bool get_enable_sleep() const;
 	void set_enable_warm_starting(bool p_enabled);
 	bool get_enable_warm_starting() const;
+	void set_sse2_fallback(bool p_enabled);
+	bool get_sse2_fallback() const;
 	void set_contact_speed(double p_speed);
 	double get_contact_speed() const;
 	void set_hit_event_threshold(double p_speed);
