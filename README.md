@@ -25,7 +25,7 @@ upstream engine sources are unchanged; everything Godot-specific lives in
 > production dependency.
 
 **Contents:** [Features](#features) ·
-[New in 0.4.4](#new-in-044) ·
+[New in 0.5.0](#new-in-050) ·
 [Browser demo](#try-it-in-a-browser-first) ·
 [Getting started](#getting-started) ·
 [Your own project](#add-box3d-to-your-own-project) ·
@@ -60,6 +60,31 @@ upstream engine sources are unchanged; everything Godot-specific lives in
 - **Runs on Android** (arm64 + x86_64), verified on real hardware under
   Vulkan, with touch controls and a mobile-scaled UI. Toolchain walkthrough:
   [`godot/ANDROID_BUILD.md`](godot/ANDROID_BUILD.md).
+
+## New in 0.5.0
+
+- **Old recordings no longer load.** Upstream changed the hull and compound
+  data versions, and every recording carries them, so `.b3rec` files made
+  with 0.4.4 or earlier are refused. Record them again. Hull and compound
+  data saved with upstream's own serialisation is affected the same way.
+  This is why the version jumps to 0.5.0.
+- **AVX2 solver kernels.** On x86 CPUs that have AVX2, upstream Box3D now
+  picks 8-wide solver kernels at runtime. The results stay bit-identical to
+  the SSE2 path; a new selftest steps the same 386-body pile both ways and
+  compares every transform. `Box3DWorld.is_avx2_available()` reports which
+  path is in use, and `Box3DWorld.sse2_fallback` forces SSE2 for testing.
+- **`Box3DGeometry.create_complex_hull(radius)`**: upstream's 32-point
+  convex pile hull, a rounder alternative to `create_rock`.
+- Upstream synced through eight commits, including a fix for a crash when
+  recording compound shapes, recording and compound serialisation fixes,
+  collision tree performance work, and a mesh contact triangle limit raised
+  from 256 to 512.
+- Docs: the Linux packages upstream's CMake samples need, including GTK3
+  ([#4](https://github.com/Stink-O/box3d-godot/issues/4)), and the stale
+  `demo/bin` references from before 0.4.3
+  ([#5](https://github.com/Stink-O/box3d-godot/issues/5)). Thanks to
+  clankill3r for both. The addon's own README now says the macOS quarantine
+  command is required.
 
 ## New in 0.4.4
 

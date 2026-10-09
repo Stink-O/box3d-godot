@@ -24,7 +24,7 @@ on:
 env:
   # Floors, not targets: the counts only ratchet upward (see CLAUDE.md).
   # [samples] is re-derived from samples/*.tscn below, so only [test] is here.
-  MIN_TEST_LINES: 750
+  MIN_TEST_LINES: 757
 
 jobs:
   macos:
