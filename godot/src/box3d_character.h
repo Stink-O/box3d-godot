@@ -38,7 +38,7 @@ class Box3DCharacterBody : public Node3D {
 	// declares no layer must not become invisible to shapes that narrow theirs.
 	uint32_t collision_layer = 0xFFFFFFFFu;
 	// Box3D has no up axis of its own, so which planes count as floor is the
-	// application's decision (box3d.h:165-166). Defaults match Godot's
+	// application's decision (box3d.h:181-182). Defaults match Godot's
 	// CharacterBody3D: +Y, 45 degrees.
 	Vector3 up_direction = Vector3(0, 1, 0);
 	double floor_max_angle = 0.7853981633974483; // radians
@@ -118,7 +118,7 @@ public:
 	// diagnostic; upstream exposes it for the same reason (types.h:1846-1847).
 	int get_last_solver_iterations() const;
 
-	// b3Body_CollideMover (box3d.h:779-780): the planes ONE body would present
+	// b3Body_CollideMover (box3d.h:814-815): the planes ONE body would present
 	// to this character's capsule at its current position, without moving
 	// anything. One Dictionary per plane: { normal, distance, position,
 	// collider, shape }. Unlike get_last_collisions() this is a live query, not

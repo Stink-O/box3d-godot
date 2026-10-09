@@ -26,7 +26,7 @@ using namespace godot;
 // each table its own pair of functions: a fixed bank of slots, each slot a file
 // scope atomic snapshot pointer, each function a template instantiation that
 // knows its slot at compile time. b3World_SetFrictionCallback is per world
-// (src/physics_world.c:2254), so world A can hold slot 0's function while world
+// (src/physics_world.c:2250-2259), so world A can hold slot 0's function while world
 // B holds slot 1's, and the rules follow the resource rather than the process.
 //
 // A slot is only claimed by a table that actually has a mixing rule, so the
@@ -36,7 +36,7 @@ static std::atomic<const Box3DRuleSnapshot *> g_mix_snapshot[Box3DContactRules::
 // Slot ownership. Main thread only: worlds and resources are created there.
 static Box3DContactRules *g_mix_owner[Box3DContactRules::MAX_MIXING_TABLES] = {};
 
-// Upstream's defaults, reproduced EXACTLY (src/physics_world.c:154-164, with
+// Upstream's defaults, reproduced EXACTLY (src/physics_world.c:155-165, with
 // b3MaxFloat from math_functions.h). A table with no rule for a pair must not
 // approximate the default, it must BE the default, or installing an empty table
 // would move the simulation.
@@ -118,13 +118,13 @@ const Box3DContactRule *Box3DRuleSnapshot::find(uint64_t p_a, uint64_t p_b) cons
 // ---------------------------------------------------------------------------
 // The two callbacks that DO get a context
 // ---------------------------------------------------------------------------
-// b3CustomFilterFcn and b3PreSolveFcn both carry a void* (box3d.h:159-163), so
+// b3CustomFilterFcn and b3PreSolveFcn both carry a void* (box3d.h:175-179), so
 // these two are per world with the rule table itself as the context. Both are
 // only ever called for a pair where at least one shape opted in, so an installed
 // table with no rules of that kind costs one predictable branch.
 //
 // b3Shape_GetSurfaceMaterial is a pure read of the world's shape array
-// (src/shape.c:1102-1107 -> :19-25): no allocation, no lock, and nothing can
+// (src/shape.c:1306-1311 -> :19-25): no allocation, no lock, and nothing can
 // resize that array mid-step because shape creation and destruction require an
 // unlocked world. It is the safe way to get a userMaterialId from a b3ShapeId on
 // a worker thread. For a mesh or height field shape it reports material [0];
@@ -537,7 +537,7 @@ std::vector<Box3DWorld *> Box3DContactRules::live_worlds() {
 }
 
 void Box3DContactRules::apply_mixing(b3WorldId p_world_id, bool p_enable) {
-	// NULL restores upstream's own default functions (src/physics_world.c:2257, :2268).
+	// NULL restores upstream's own default functions (src/physics_world.c:2258, :2269).
 	if (p_enable && mixing_slot >= 0) {
 		b3World_SetFrictionCallback(p_world_id, g_friction_fn[mixing_slot]);
 		b3World_SetRestitutionCallback(p_world_id, g_restitution_fn[mixing_slot]);
@@ -555,8 +555,10 @@ void Box3DContactRules::install(Box3DWorld *p_world) {
 		attached.push_back(id);
 	}
 	// get_world_id() creates the world if it does not exist yet and joins any
-	// in-flight async step; the four setters below take the UNLOCKED world and
-	// silently do nothing on a locked one (src/physics_world.c:3299, :3310).
+	// in-flight async step; the four setters below take the UNLOCKED world
+	// (src/physics_world.c:2252, :2263, :3393, :3404), and on a locked one
+	// b3GetUnlockedWorldFromId asserts, or with asserts compiled out returns
+	// NULL so the setter silently does nothing (src/physics_world.c:95-109).
 	b3WorldId world_id = p_world->get_world_id();
 
 	// The filter and pre-solve callbacks are installed unconditionally, even

@@ -49,7 +49,7 @@ public:
 		MESH = 6,
 		FIT_MESH = 7, // box collider auto-sized to the child MeshInstance3D's bounds
 		// b3CreateHeightFieldShape: a terrain grid in the XZ plane. Static
-		// bodies only (box3d.h:823-829). The one shape that ignores the node's
+		// bodies only (box3d.h:866-871). The one shape that ignores the node's
 		// scale: b3CreateHeightFieldShape takes neither a transform nor a
 		// scale, and height_field_scale is upstream's own knob for it.
 		HEIGHT_FIELD = 8,
@@ -64,12 +64,12 @@ private:
 	// A triangle-mesh shape references this data (Box3D does not copy it), so it
 	// must outlive the shape; freed in destroy_body().
 	b3MeshData *mesh_data = nullptr;
-	// Same contract for a height-field shape (box3d.h:826-828): Box3D keeps a
+	// Same contract for a height-field shape (box3d.h:866-871): Box3D keeps a
 	// reference, so this blob must outlive the shape. Freed in destroy_body().
 	b3HeightFieldData *height_field_data = nullptr;
 	// And again for a baked compound. Upstream documents no @warning for this
 	// one, but b3CreateShape stores the pointer rather than copying
-	// (src/shape.c:126), so the same rule applies. Freed in destroy_body().
+	// (src/shape.c:122), so the same rule applies. Freed in destroy_body().
 	// The child hulls and meshes handed to b3CreateCompound are a different
 	// matter: those really are copied into the blob (src/compound.c:585, :606,
 	// deduplicated by content first), so they only have to survive the create
@@ -180,7 +180,7 @@ private:
 	// results, reaches the friction/restitution mixing callbacks, and is what a
 	// Box3DContactRules table keys its rules on — so a plain body needs it as
 	// much as a Box3DCollisionShape child does. A non-empty surface_materials
-	// replaces baseMaterial wholesale (src/shape.c:202-213) and carries its own.
+	// replaces baseMaterial wholesale (src/shape.c:200-213) and carries its own.
 	int64_t user_material_id = 0;
 	// b3ShapeDef.explosionScale (types.h:479): per-shape multiplier on the
 	// impulse b3World_Explode applies. 1 is upstream's default.
@@ -193,10 +193,12 @@ private:
 	// b3ShapeDef.enableSpeculativeContact (types.h:519-522): off trades
 	// continuous collision under rotation for fewer ghost collisions.
 	bool speculative_contact = true;
-	// b3CreateBakedCompoundShape (box3d.h:831-834): collapses every
+	// b3CreateBakedCompoundShape (box3d.h:873-876): collapses every
 	// Box3DCollisionShape child into ONE baked shape with a single broad-phase
 	// proxy, instead of one runtime shape per child. Static bodies only, and
-	// never a sensor — Box3D asserts both (src/shape.c:122-127).
+	// never a sensor — Box3D refuses both: b3CreateShape returns a null id on a
+	// non-static body (src/shape.c:274-278), and b3CreateShapeInternal asserts
+	// on a sensor (src/shape.c:118-123).
 	bool baked_compound = false;
 	double linear_damping = 0.0;
 	double angular_damping = 0.05;
@@ -216,7 +218,7 @@ private:
 	// mirrored on contact_monitor's Godot-idiom name, because that is what the
 	// per-shape overrides on Box3DCollisionShape are called.
 	// sensor_events is what makes a body VISIBLE to other bodies' sensors —
-	// and, on a body that IS a sensor, what keeps that sensor alive: box3d.h:914
+	// and, on a body that IS a sensor, what keeps that sensor alive: box3d.h:956
 	// says "ignored for sensors", but src/sensor.c:208-215 drops every overlap
 	// of a sensor whose own shape lacks the flag ("this sensor is dropping all
 	// overlaps because it has been disabled"). is_sensor with sensor_events off
@@ -271,10 +273,10 @@ private:
 	// solver pose, the attached joints, the body name and every b3BodyDef
 	// property; only what belonged to the old shapes goes — their contacts and
 	// warm-start impulses, and any set_mass_data override, which upstream drops
-	// on any shape change anyway (box3d.h:638-639).
+	// on any shape change anyway (box3d.h:654-657).
 	//
 	// This is the fallback for the shape-def fields upstream gives no live
-	// setter for: isSensor (src/shape.c:236-248 assigns sensorIndex only inside
+	// setter for: isSensor (src/shape.c:234-246 assigns sensorIndex only inside
 	// b3CreateShapeInternal), explosionScale, invokeContactCreation,
 	// enableSpeculativeContact, and re-authored mesh / height-field geometry.
 	// Returns false when there is no live body, in which case nothing is due:
@@ -301,7 +303,7 @@ private:
 	// mass. No-op on a runtime compound, whose children carry their own.
 	void apply_density();
 	// Pushes the body's three event answers onto every shape it owns, through
-	// b3Shape_Enable{Contact,Sensor,Hit}Events (box3d.h:914-941). A child shape
+	// b3Shape_Enable{Contact,Sensor,Hit}Events (box3d.h:956-983). A child shape
 	// whose own EventMode is not INHERIT keeps its answer. Returns false when
 	// there is no shape to push to.
 	bool apply_shape_events();
@@ -348,7 +350,7 @@ private:
 	// The caller owns the result and must b3DestroyHeightField it.
 	b3HeightFieldData *build_height_field() const;
 	// b3ShapeDef.materials backing store for one create call: surface_materials
-	// converted to b3SurfaceMaterial. Box3D clones the array (src/shape.c:202-213),
+	// converted to b3SurfaceMaterial. Box3D clones the array (src/shape.c:200-213),
 	// so it only has to outlive the b3Create*Shape call.
 	std::vector<b3SurfaceMaterial> build_surface_materials() const;
 	// Creates/updates/removes auto_mesh_instance to match auto_visual and the
@@ -441,7 +443,7 @@ public:
 	void apply_force_at_point(const Vector3 &p_force, const Vector3 &p_point);
 	void apply_impulse_at_point(const Vector3 &p_impulse, const Vector3 &p_point);
 	void apply_angular_impulse(const Vector3 &p_impulse);
-	// The four b3Body space conversions (box3d.h:530-544). They read the
+	// The four b3Body space conversions (box3d.h:547-557). They read the
 	// SOLVER's body-origin frame, which is not the same as Node3D's to_local /
 	// to_global in two cases the binding creates: a body whose node scale is
 	// baked into its collider (Box3D's frame has no scale), and one with
@@ -475,7 +477,7 @@ public:
 	AABB get_aabb() const;
 	Vector3 get_closest_point(const Vector3 &p_target) const;
 	double get_closest_distance(const Vector3 &p_target) const;
-	// --- per-body queries (P-018, box3d.h:765-780) ---
+	// --- per-body queries (P-018, box3d.h:797-810) ---
 	// Each takes an OPTIONAL hypothetical pose for the body: pass an identity
 	// Transform3D to use where the body actually is. That is the whole point of
 	// the family — "would this fit if I moved there" without touching the world
@@ -503,7 +505,7 @@ public:
 			uint64_t p_mask = B3_DEFAULT_MASK_BITS, uint64_t p_layer = B3_DEFAULT_CATEGORY_BITS) const;
 	int get_shape_count() const;
 	int get_joint_count() const;
-	// --- introspection back into the scene tree (P-016, box3d.h:736-763) ---
+	// --- introspection back into the scene tree (P-016, box3d.h:758-779) ---
 	// The Box3DCollisionShape nodes behind this body's shapes, from
 	// b3Body_GetShapes and each shape's userData. A body's OWN shape_type shape
 	// has no node and is skipped, so this can be shorter than get_shape_count()
@@ -593,7 +595,7 @@ public:
 	// it grows along +X / +Z, because b3CreateHeightFieldShape takes no local
 	// transform — offset the body by -0.5 * this to center it.
 	Vector3 get_height_field_extent() const;
-	// b3Shape_GetHeightField (box3d.h:959-960): the terrain the SOLVER holds,
+	// b3Shape_GetHeightField (box3d.h:1001-1002): the terrain the SOLVER holds,
 	// not the properties it was authored from. Empty unless this body's live
 	// shape is a height field. Keys: size, scale, min_height, max_height, aabb,
 	// clockwise, heights, materials.

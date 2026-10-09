@@ -2,7 +2,7 @@ extends Node3D
 
 ## Live Geometry -- there is no upstream sample for this one. Upstream reaches
 ## `b3Shape_SetSphere` / `SetCapsule` / `SetHull` from the C API only
-## (box3d.h:962-1005) and its sample set never animates a shape, so this is
+## (box3d.h:1007-1020) and its sample set never animates a shape, so this is
 ## written in the spirit of one: the smallest scene that makes the capability
 ## visible, with upstream's own call semantics kept exact.
 ##
@@ -13,7 +13,7 @@ extends Node3D
 ## popped. They now go straight to `b3Shape_Set*` plus
 ## `b3Body_ApplyMassFromShapes`, so geometry can change every frame while the
 ## simulation keeps running underneath it. Box3D wakes the touching bodies
-## itself (`src/shape.c:1554-1558`, "need to wake bodies so they can react to
+## itself (`src/shape.c:1598-1601`, "need to wake bodies so they can react to
 ## the shape change"), which is why nothing here has to be nudged.
 ##
 ## Three things resize, one per route:

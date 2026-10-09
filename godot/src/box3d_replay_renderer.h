@@ -30,12 +30,12 @@ namespace godot {
 // WHY THIS EXISTS. A player exposes body transforms and nothing else, so a
 // script can move markers around but cannot know what any body LOOKS like: the
 // recording's geometry lives in the byte stream's registry, not in the scene.
-// Upstream's answer is b3RecPlayer_SetDebugShapeCallbacks (box3d.h:406-417):
+// Upstream's answer is b3RecPlayer_SetDebugShapeCallbacks (box3d.h:423-433):
 // the host hands Box3D a pair of callbacks, Box3D calls the first one the first
-// time each replayed shape is drawn (src/physics_world.c:1309-1348) and hands
+// time each replayed shape is drawn (src/physics_world.c:1314-1354) and hands
 // back a b3DebugShape carrying the real geometry, and thereafter every
 // b3World_Draw reports that shape's world transform and state colour through
-// b3DebugDraw::DrawShapeFcn (src/physics_world.c:1353).
+// b3DebugDraw::DrawShapeFcn (src/physics_world.c:1358).
 //
 // THE CHOICE, stated for the record. The alternative was to expose per-body
 // shape enumeration to GDScript and rebuild meshes there. This is the C++ route
@@ -63,7 +63,7 @@ namespace godot {
 // is why a hundred spheres of the same radius at a hundred different local
 // offsets still share one mesh, and it is REQUIRED anyway, because
 // DrawShapeFcn reports the BODY transform, not the shape's
-// (src/physics_world.c:1353).
+// (src/physics_world.c:1358).
 //
 // PLACEMENT. The MultiMesh instances are ordinary children, so this node's own
 // Transform3D places the whole replay in the scene. That is deliberately unlike
@@ -72,10 +72,12 @@ namespace godot {
 //
 // LIFETIME. The node holds a Ref to its player, so the player cannot die first.
 // Detaching, changing player, or leaving the tree uninstalls the callbacks and
-// frees every shape handle this node created — necessary, because destroying
-// the replay world does NOT run the destroy callback for shapes that are still
-// alive (upstream only calls it from b3DestroyShape, src/shape.c:1025, and from
-// snapshot restore, src/world_snapshot.c:771-773).
+// frees every shape handle this node still holds. Destroying the replay world
+// does run the destroy callback for each live shape (b3DestroyWorld,
+// src/physics_world.c:457-466, reaching src/shape.c:1057-1061; snapshot
+// restore does the same, src/world_snapshot.c:821-829), so that sweep is a
+// backstop, and destroy_shape_handle only deletes a handle still in the set,
+// so the two paths cannot free one twice.
 //
 // THREADING. b3World_Draw walks live solver state and the b3RecPlayer_* family
 // is not thread-safe, so everything here is main thread only. The replay world
@@ -488,7 +490,7 @@ private:
 	// id it got back equals the id that was recorded (b3RecCheckBodyId,
 	// :698-701). Bodies present when recording started come through the
 	// snapshot seed, which serializes the id pools themselves
-	// (src/world_snapshot.c:999-1004, :1146-1151). So (index1, generation) is
+	// (src/world_snapshot.c:1049-1054, :1193-1198). So (index1, generation) is
 	// the same number in the live world and in the replay world, and it is the
 	// only thing that is. The key packs it as (index1 << 16) | generation.
 	//
@@ -622,7 +624,7 @@ public:
 
 	// The player to draw. Setting one installs the debug-shape callbacks on it
 	// (which rewinds it to frame 0, as upstream's own contract requires:
-	// box3d.h:408-410). Set this BEFORE stepping, or the first frames replay
+	// box3d.h:425-426). Set this BEFORE stepping, or the first frames replay
 	// without the renderer watching. Passing null detaches.
 	void set_player(const Ref<Box3DReplayPlayer> &p_player);
 	Ref<Box3DReplayPlayer> get_player() const;

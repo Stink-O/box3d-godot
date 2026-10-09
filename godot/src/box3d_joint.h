@@ -166,7 +166,7 @@ public:
 	double get_torque_threshold() const;
 	// Debug-overlay size of this joint, multiplied by Box3DWorld's
 	// debug_joint_scale. Read at creation only: box3d exposes drawScale on the
-	// def and offers no b3Joint_SetDrawScale (box3d.h:1038-1110), so changing
+	// def and offers no b3Joint_SetDrawScale (box3d.h:1083-1158), so changing
 	// it on a live joint stores the value for the next create/rebuild rather
 	// than rebuilding a loaded constraint for a debug-draw knob.
 	void set_draw_scale(double p_v);
@@ -301,7 +301,7 @@ class Box3DDistanceJoint : public Box3DJoint {
 	double min_length = 0.0;
 	double max_length = 10.0;
 	// The limit and the motor only do anything while the spring is enabled; a
-	// rigid distance joint overrides both (box3d.h:1160-1161, :1184-1186).
+	// rigid distance joint overrides both (box3d.h:1208-1209, :1232-1234).
 	bool motor_enabled = false;
 	double motor_speed = 0.0; // meters / second
 	double max_motor_force = 0.0;

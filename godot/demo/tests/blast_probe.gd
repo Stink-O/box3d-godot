@@ -9,7 +9,7 @@ extends Node3D
 ##
 ## The delta is sampled IMMEDIATELY after Box3DWorld.explode, before the next
 ## step, because b3World_Explode writes straight into the solver's velocity
-## state (src/physics_world.c:3417-3421) -- so nothing else can contaminate it.
+## state (src/physics_world.c:3510-3518) -- so nothing else can contaminate it.
 
 const BLAST_RADIUS := 8.0  ## common/bomb.gd BLAST_RADIUS
 const BLAST_IMPULSE := 9.0  ## common/bomb.gd BLAST_IMPULSE

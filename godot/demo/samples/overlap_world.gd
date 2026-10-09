@@ -137,15 +137,15 @@ func _ready() -> void:
 		# the same three shapes as static, kinematic AND dynamic), and an
 		# explosion cannot survive meeting one: b3World_Explode walks the
 		# dynamic tree and calls b3MakeShapeProxy on every shape it finds
-		# (src/physics_world.c:3364), whose default branch asserts and hands
-		# back a NULL point list (src/shape.c:1062-1066) -- so a release build
+		# (src/physics_world.c:3461), whose default branch asserts and hands
+		# back a NULL point list (src/shape.c:1096-1100) -- so a release build
 		# dereferences null and the process dies. Reproduced: throw the shell's
 		# bomb anywhere near this row and Godot takes SIGSEGV.
 		#
 		# Opting the body out is upstream's own escape hatch and costs nothing
 		# physically: the callback tests explosionScale BEFORE building the
-		# proxy (:3349), and b3GetShapeProjectedArea returns 0 for a mesh
-		# anyway (src/shape.c:709-710), so this shape could never have taken
+		# proxy (:3446-3449), and b3GetShapeProjectedArea returns 0 for a mesh
+		# anyway (src/shape.c:749-750), so this shape could never have taken
 		# blast impulse. The missing guard inside b3World_Explode is upstream's
 		# to fix; see the note on SPRINT_STATE.md.
 		torus.explosion_scale = 0.0
@@ -160,7 +160,7 @@ func _ready() -> void:
 		_world.add_child(torus)
 		torus_shape.set_mesh(torus_vertices, torus_indices, TORUS_SCALE)
 
-		# Height fields are static-only (box3d.h:823-829), so upstream builds
+		# Height fields are static-only (box3d.h:866-871), so upstream builds
 		# all three of these as static bodies.
 		var field := _body("Field%d" % index, Box3DBody.STATIC, Vector3(5.0, 2.0 + 2.0 * index, 0.0),
 				Basis(Vector3.RIGHT, -0.5 * PI))

@@ -62,7 +62,7 @@ private:
 	double contact_hertz = 60.0;
 	double contact_damping = 10.0;
 	// Maximum contact push-out speed, b3World_SetContactTuning's third argument
-	// (box3d.h:181). 3 m/s is b3DefaultWorldDef's value (src/types.c:19).
+	// (box3d.h:200). 3 m/s is b3DefaultWorldDef's value (src/types.c:19).
 	double contact_speed = 3.0;
 	// Speed a collision must reach to produce a contact_hit event, and the speed
 	// below which restitution is ignored. Both default to b3DefaultWorldDef's
@@ -75,7 +75,7 @@ private:
 	// 0 passes skips the bounce solve, so nothing bounces at all.
 	int restitution_iterations = 2;
 	bool enable_restitution_propagation = false;
-	// Contact point recycling distance; 0 disables recycling (box3d.h:187-188).
+	// Contact point recycling distance; 0 disables recycling (box3d.h:202-203).
 	// The default is B3_CONTACT_RECYCLE_DISTANCE = 10 * B3_LINEAR_SLOP = 0.05 m
 	// at this binding's fixed 1 length unit per meter (constants.h:53, :88).
 	double contact_recycle_distance = 0.05;
@@ -248,7 +248,7 @@ private:
 	// Draws one convex hull collider's half-edges, in the body's frame and the
 	// body's state color. The hull Box3D hands back already has the node scale
 	// and any placement transform baked in (b3CreateTransformedHullShape bakes
-	// both at create time, src/shape.c:370-374), so the caller passes the plain
+	// both at create time, src/shape.c:375-403), so the caller passes the plain
 	// body transform. No-op for any shape that is not a live hull.
 	void push_hull_shell(b3ShapeId p_shape, const Transform3D &p_transform, const Color &p_color);
 	// Draws one height-field collider's cell grid plus each cell's collision
@@ -272,7 +272,7 @@ private:
 	bool debug_overlay_any() const;
 	// Runs b3World_Draw and rebuilds the line/label overlay from its callbacks.
 	// Main thread, post-join, after a step: b3World_Draw refuses a locked world
-	// (src/physics_world.c:1367 -> :102-106).
+	// (src/physics_world.c:1372 -> :102-107).
 	void update_debug_overlay();
 	// Hides (and clears) the overlay when every option has been switched off.
 	void refresh_debug_overlay_visibility();
@@ -371,7 +371,7 @@ public:
 	// Process-wide, not per-world (b3GetWorldCount / b3GetMaxWorldCount,
 	// box3d.h:41, :44): how many Box3D worlds exist right now, and the most
 	// that have ever existed at once. The second is a HIGH-WATER MARK, not a
-	// cap (src/physics_world.c:236, :541-544) — it reads 0 until the first
+	// cap (src/physics_world.c:237, :548-551) — it reads 0 until the first
 	// world is created.
 	static int get_world_count();
 	static int get_max_world_count();
@@ -384,7 +384,7 @@ public:
 	// only ever read together.
 	static String get_box3d_version();
 	static bool is_double_precision();
-	// b3World_DumpMemoryStats (box3d.h:237), the allocator breakdown behind
+	// b3World_DumpMemoryStats (box3d.h:257), the allocator breakdown behind
 	// upstream's Sim > Dump Mem Stats (samples/sample.cpp:1623-1626): id pools,
 	// island links, world arrays, solver sets, constraint graph, the hull
 	// database, the broad phase, the manifold allocators and a total.
@@ -582,11 +582,11 @@ public:
 	// refused nor disabled. Traced rather than assumed: upstream writes to the
 	// recording from exactly two places inside a step, both on the thread that
 	// called b3World_Step (the Step op before the world is locked,
-	// src/physics_world.c:1034-1038, and the per-step state hash after it is
-	// unlocked, :1173-1180), and every other write comes from an API mutator on
+	// src/physics_world.c:1045-1047, and the per-step state hash and world
+	// bounds fold after it is unlocked, :1178-1204), and every other write comes from an API mutator on
 	// the calling thread. Nothing records from a solver worker. The buffer also
 	// carries its own mutex (src/recording.h:141), held across each whole
-	// record (src/recording.c:698-722). So the only race a binding can create
+	// record (src/recording.c:701-726). So the only race a binding can create
 	// is reading the bytes while the step thread is writing them, and that is
 	// closed from the other side: Box3DRecording::get_data() and save_to_file()
 	// refuse outright while a session is live, because the bytes are not a
@@ -594,14 +594,14 @@ public:
 	//
 	// start_recording() and stop_recording() themselves must be at a step
 	// BOUNDARY: both go through b3GetUnlockedWorldFromId, which B3_ASSERTs on a
-	// locked world (src/physics_world.c:96-106, :2300-2320). Both join the async
+	// locked world (src/physics_world.c:102-107, :2301-2323). Both join the async
 	// step first, so script cannot trip that.
 	//
 	// Starting a second session on a buffer that already holds one is REFUSED
 	// here rather than silently resetting it: upstream's own guard makes a
 	// second b3World_StartRecording on an already-recording world a no-op
-	// (src/physics_world.c:2305), while starting on a NEW world would reset the
-	// buffer and discard the first session (box3d.h:277-278).
+	// (src/physics_world.c:2306), while starting on a NEW world would reset the
+	// buffer and discard the first session (box3d.h:294).
 	// --- Contact rules (P-007, engineer-K's table) ---------------------------
 	// The rule table driving this world's custom filter, pre-solve, friction
 	// and restitution callbacks. Setting it installs it; clearing it or

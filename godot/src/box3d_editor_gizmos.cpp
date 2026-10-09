@@ -192,7 +192,7 @@ void primitive_outline(PackedVector3Array &p_lines, int p_shape_type, const Vect
 	}
 }
 
-// Upstream's body-state palette (src/physics_world.c:1240-1305), restricted to
+// Upstream's body-state palette (src/physics_world.c:1239-1312), restricted to
 // the states an unsimulated node can actually be in. The runtime overlay picks
 // from the same list (box3d_world.cpp:2415-2436), so a collider keeps its
 // colour when you press play.

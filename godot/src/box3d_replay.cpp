@@ -17,7 +17,7 @@ using namespace godot;
 
 Box3DRecording::Box3DRecording() {
 	// 0 asks for upstream's 64 KiB default, which grows on demand
-	// (box3d.h:262-264).
+	// (box3d.h:274-277).
 	rec = b3CreateRecording(0);
 }
 
@@ -63,7 +63,7 @@ PackedByteArray Box3DRecording::get_data() const {
 		return out;
 	}
 	// Copied here and never held: upstream's pointer is only valid until the
-	// next byte is written (box3d.h:266-270).
+	// next byte is written (box3d.h:283-287).
 	out.resize(size);
 	memcpy(out.ptrw(), data, (size_t)size);
 	return out;
@@ -162,7 +162,7 @@ bool Box3DReplayPlayer::open(const PackedByteArray &p_data, int p_worker_count) 
 	++open_generation;
 	// Upstream requires the debug-shape callbacks be installed immediately
 	// after Create, because installing them rebuilds the world and rewinds to
-	// frame 0 (box3d.h:406-413). Doing it here means a renderer attached
+	// frame 0 (box3d.h:423-427). Doing it here means a renderer attached
 	// before the recording was opened does not have to sequence anything.
 	if (cb_create != nullptr || cb_destroy != nullptr) {
 		b3RecPlayer_SetDebugShapeCallbacks(player, cb_create, cb_destroy, cb_context);
@@ -321,7 +321,7 @@ void Box3DReplayPlayer::set_keyframe_policy(int64_t p_budget_bytes, int p_min_in
 			p_budget_bytes > 0 ? (size_t)p_budget_bytes : (size_t)0,
 			p_min_interval_frames);
 	// Upstream requires a Restart after a policy change, because setting one
-	// clears the existing ring (box3d.h:385-387).
+	// clears the existing ring (box3d.h:399-400).
 	b3RecPlayer_Restart(player);
 }
 
@@ -350,7 +350,7 @@ bool Box3DReplayPlayer::is_body_valid(int p_index) const {
 		return false;
 	}
 	// A null id comes back both for an out-of-range ordinal and for a hole left
-	// by a destroyed body (box3d.h:400-402); b3Body_IsValid tells them apart
+	// by a destroyed body (box3d.h:419-421); b3Body_IsValid tells them apart
 	// from a live body without asserting on either.
 	return b3Body_IsValid(b3RecPlayer_GetBodyId(player, p_index));
 }

@@ -91,7 +91,7 @@ Box3DBody::~Box3DBody() {
 
 PackedStringArray Box3DBody::_get_configuration_warnings() const {
 	PackedStringArray warnings;
-	// box3d.h:914 says enableSensorEvents is "ignored for sensors", but
+	// box3d.h:956 says enableSensorEvents is "ignored for sensors", but
 	// src/sensor.c:208-215 drops every overlap of a sensor whose own shape does
 	// not carry the flag, and says so in its own comment. So this combination
 	// is a trigger that silently never fires.
@@ -208,7 +208,7 @@ bool Box3DBody::apply_surface_material() {
 	return true;
 }
 
-// P-010: b3Shape_SetDensity (box3d.h:870-872) does this in place, so changing
+// P-010: b3Shape_SetDensity (box3d.h:911-914) does this in place, so changing
 // the density no longer costs the body its velocity, sleep state and contacts.
 // A runtime compound is the one case with nothing to push to — each
 // Box3DCollisionShape child authors its own density, which create_child_shape
@@ -238,7 +238,7 @@ void Box3DBody::apply_density() {
 // (EventMode other than INHERIT, P-019) is skipped for that one enable only —
 // which is also why hit events go through the per-shape
 // b3Shape_EnableHitEvents rather than upstream's coarser
-// b3Body_EnableHitEvents (box3d.h:731-733), whose "all shapes" would overwrite
+// b3Body_EnableHitEvents (box3d.h:754-756), whose "all shapes" would overwrite
 // a child's override.
 bool Box3DBody::apply_shape_events() {
 	std::vector<b3ShapeId> ids = own_shape_ids();
@@ -278,7 +278,7 @@ void Box3DBody::create_in_world() {
 	Quaternion rotation = xform.basis.get_rotation_quaternion();
 	// Box3D bodies have no scale: b3WorldTransform is position + rotation only.
 	// A scaled node therefore has to scale its geometry instead, which upstream
-	// supports on meshes and transformed hulls (box3d.h:805-822, collision.h:255).
+	// supports on meshes and transformed hulls (box3d.h:852-864, collision.h:255).
 	node_scale = xform.basis.get_scale();
 	node_scaled = !node_scale.is_equal_approx(Vector3(1, 1, 1));
 	if (!node_scaled) {
@@ -394,7 +394,7 @@ void Box3DBody::build_shapes() {
 	CharString shape_name = String(get_name()).utf8();
 	shape_def.name = shape_name.get_data();
 	// Per-triangle materials for mesh / height field shapes. Box3D copies the
-	// array in b3CreateShape (src/shape.c:202-213), so this local outlives it.
+	// array in b3CreateShape (src/shape.c:200-213), so this local outlives it.
 	std::vector<b3SurfaceMaterial> materials = build_surface_materials();
 	if (!materials.empty()) {
 		shape_def.materials = materials.data();
@@ -450,7 +450,7 @@ void Box3DBody::build_shapes() {
 			if (hull != nullptr) {
 				b3Transform xf;
 				// b3CreateTransformedHullShape applies the scale FIRST, so the
-				// centering offset is in already-scaled space (box3d.h:806-807).
+				// centering offset is in already-scaled space (box3d.h:852).
 				xf.p = to_b3(Vector3(0.0, -capsule_height * 0.5, 0.0) * node_scale);
 				xf.q = b3Quat_identity;
 				b3CreateTransformedHullShape(body_id, &shape_def, hull, xf, to_b3(node_scale));
@@ -473,7 +473,7 @@ void Box3DBody::build_shapes() {
 					if (hull != nullptr) {
 						if (node_scaled) {
 							// Non-uniform and mirrored scale are supported here
-							// (box3d.h:805-809).
+							// (box3d.h:852-857).
 							b3Transform xf;
 							xf.p = b3Vec3_zero;
 							xf.q = b3Quat_identity;
@@ -550,7 +550,7 @@ void Box3DBody::build_shapes() {
 				def.weldTolerance = (float)mesh_weld_tolerance;
 				def.useMedianSplit = mesh_median_split;
 				def.identifyEdges = true;
-				// Box3D keeps a pointer to mesh_data (box3d.h:816-820), so it
+				// Box3D keeps a pointer to mesh_data (box3d.h:860-864), so it
 				// must live until the body is destroyed (see destroy_body()).
 				mesh_data = b3CreateMesh(&def, nullptr, 0);
 				if (mesh_data != nullptr) {
@@ -642,7 +642,7 @@ void Box3DBody::build_shapes() {
 			}
 			height_field_data = build_height_field();
 			if (height_field_data != nullptr) {
-				// Box3D keeps a reference to the field (box3d.h:826-828), so it
+				// Box3D keeps a reference to the field (box3d.h:866-871), so it
 				// is released only in destroy_body().
 				b3CreateHeightFieldShape(body_id, &shape_def, height_field_data);
 			}
@@ -874,7 +874,7 @@ bool Box3DBody::resize_own_shape() {
 	}
 	const b3ShapeId id = ids[0];
 	// Every b3Shape_Set* interns and reallocates exactly as the matching
-	// b3Create*Shape does (b3AddHullToDatabase, src/shape.c:1608, which even
+	// b3Create*Shape does (b3AddHullToDatabase, src/shape.c:1651-1659, which even
 	// short-circuits when the shared hull is unchanged), so this is the same
 	// geometry the rebuild would have produced.
 	b3HullData *owned = nullptr;
@@ -932,7 +932,7 @@ bool Box3DBody::resize_own_shape() {
 			}
 			b3Transform xf;
 			// The scale is applied first, so the centering offset is in
-			// already-scaled space (box3d.h:806-807), as at creation.
+			// already-scaled space (box3d.h:852), as at creation.
 			xf.p = to_b3(Vector3(0.0, -capsule_height * 0.5, 0.0) * node_scale);
 			xf.q = b3Quat_identity;
 			owned = b3CloneAndTransformHull(hull, xf, to_b3(node_scale));
@@ -964,7 +964,7 @@ bool Box3DBody::resize_own_shape() {
 		// b3Shape_SetHull interned a copy, so the local one goes now.
 		b3DestroyHull(owned);
 	}
-	// The Set* family deliberately leaves mass alone (box3d.h:959-980), and the
+	// The Set* family deliberately leaves mass alone (box3d.h:1007-1025), and the
 	// rebuild this replaces recomputed it.
 	b3Body_ApplyMassFromShapes(body_id);
 	debug_mass = b3Body_GetMass(body_id);
@@ -1108,8 +1108,10 @@ void Box3DBody::create_child_shape(Box3DCollisionShape *p_shape, const Transform
 }
 
 bool Box3DBody::create_baked_compound(const Transform3D &p_body_inv) {
-	// Box3D asserts both of these inside b3CreateShape (src/shape.c:122-127),
-	// so they are checked here rather than tripped there.
+	// Box3D refuses both of these inside b3CreateShape (a null id on a
+	// non-static body, src/shape.c:274-278; an assert on a sensor, in
+	// b3CreateShapeInternal, src/shape.c:118-123), so they are checked here
+	// rather than tripped there.
 	if (body_type != STATIC) {
 		UtilityFunctions::push_warning("Box3DBody: baked_compound is only allowed on static bodies; building a runtime compound instead.");
 		return false;
@@ -1294,7 +1296,7 @@ bool Box3DBody::create_baked_compound(const Transform3D &p_body_inv) {
 			// Box3DBody is still reachable through b3Shape_GetBody.
 			CharString node_name = String(get_name()).utf8();
 			sd.name = node_name.get_data();
-			// Box3D keeps the pointer (src/shape.c:126), so compound_data is
+			// Box3D keeps the pointer (src/shape.c:122), so compound_data is
 			// released only in destroy_body().
 			b3CreateBakedCompoundShape(body_id, &sd, compound_data);
 			created = true;
@@ -1315,7 +1317,7 @@ bool Box3DBody::create_baked_compound(const Transform3D &p_body_inv) {
 		// A baked compound is a single shape with no per-child handle: handing
 		// every child the compound's id would let a child's set_friction() reach
 		// b3Shape_SetSurfaceMaterial, which asserts on a compound
-		// (src/shape.c:1258-1269). The children keep a null id, so their live
+		// (src/shape.c:1292-1304). The children keep a null id, so their live
 		// mutators are inert and the authored values (already baked in) stand.
 		for (size_t i = 0; i < children.size(); ++i) {
 			children[i]->on_shape_destroyed();
@@ -1409,7 +1411,7 @@ bool Box3DBody::resize_child_shape(Box3DCollisionShape *p_shape) {
 	if (owned != nullptr) {
 		b3DestroyHull(owned);
 	}
-	// The Set* family leaves mass alone by design (box3d.h:959-980).
+	// The Set* family leaves mass alone by design (box3d.h:1007-1025).
 	b3Body_ApplyMassFromShapes(body_id);
 	debug_mass = b3Body_GetMass(body_id);
 	debug_min_ext = debug_min_extent();
@@ -2004,7 +2006,7 @@ PackedStringArray Box3DBody::get_shape_names() const {
 	std::vector<b3ShapeId> ids = own_shape_ids();
 	for (size_t i = 0; i < ids.size(); ++i) {
 		// Upstream returns an empty string rather than null for an unnamed
-		// shape (box3d.h:856-860).
+		// shape (box3d.h:901-902).
 		out.push_back(String::utf8(b3Shape_GetName(ids[i])));
 	}
 	return out;
@@ -2021,7 +2023,7 @@ Array Box3DBody::get_joints() const {
 	}
 	std::vector<b3JointId> ids((size_t)capacity);
 	// The fill call returns the valid count, which may be lower than capacity
-	// (box3d.h:745-750).
+	// (box3d.h:771-773).
 	int count = b3Body_GetJoints(body_id, ids.data(), capacity);
 	for (int i = 0; i < count; ++i) {
 		if (!b3Joint_IsValid(ids[(size_t)i])) {
@@ -2363,7 +2365,7 @@ int Box3DBody::get_mesh_material_count() const {
 
 Dictionary Box3DBody::get_mesh_material(int p_index) const {
 	std::vector<b3ShapeId> ids = own_shape_ids();
-	// Upstream asserts on an out-of-range index (src/shape.c:1296).
+	// Upstream asserts on an out-of-range index (src/shape.c:1341).
 	if (ids.empty() || p_index < 0 || p_index >= b3Shape_GetMeshMaterialCount(ids[0])) {
 		return Dictionary();
 	}
@@ -2736,7 +2738,7 @@ bool Box3DBody::get_hit_events() const {
 // Upstream has no live sensor toggle and cannot have one cheaply: a sensor owns
 // an entry in the world's sensor array with its own overlap buffers, and
 // shape->sensorIndex is assigned exactly once, inside b3CreateShapeInternal
-// (src/shape.c:236-248). b3Shape_EnableSensorEvents (box3d.h:914-916) is about
+// (src/shape.c:234-246). b3Shape_EnableSensorEvents (box3d.h:956-958) is about
 // event delivery, not about being a sensor, and is explicitly "ignored for
 // sensors". So the shape genuinely has to be built again — but only the shape:
 // recreate_shapes() keeps the body, its velocity, its sleep state and its

@@ -30,7 +30,7 @@ public:
 		CONE = 4, // base radius capsule_radius, height capsule_height, apex up
 	};
 
-	// What the SOLVER holds, from b3Shape_GetType (box3d.h:845), in b3ShapeType's
+	// What the SOLVER holds, from b3Shape_GetType (box3d.h:887), in b3ShapeType's
 	// own order (types.h:433-454). Distinct from ShapeType above, which is what
 	// this node authors: BOX, CYLINDER and CONE all become GEOMETRY_HULL, and the
 	// mesh / height field / compound entries only ever come back from a shape
@@ -47,7 +47,7 @@ public:
 	};
 
 	// Per-shape override for the three event enables Box3D keeps on a shape
-	// (b3Shape_Enable{Contact,Sensor,Hit}Events, box3d.h:914-941). INHERIT is
+	// (b3Shape_Enable{Contact,Sensor,Hit}Events, box3d.h:956-983). INHERIT is
 	// the default and means "whatever the parent Box3DBody gives its shapes":
 	// contact events follow the body's contact_monitor, sensor and hit events
 	// are on. Anything else overrides it for this shape alone.
@@ -65,7 +65,7 @@ private:
 	Box3DBody *owner = nullptr;
 	// The mesh blob a set_mesh() call handed to the solver. Box3D stores the
 	// POINTER rather than copying (`shape->mesh.data = meshData`,
-	// src/shape.c:1664, exactly as b3CreateMeshShape does at src/shape.c:156),
+	// src/shape.c:1707, exactly as b3CreateMeshShape does at src/shape.c:152),
 	// so the blob has to outlive the shape and this node owns it — the same
 	// contract Box3DBody's own mesh_data and a baked compound's blob live
 	// under. Freed when the shape goes (on_shape_destroyed), when another
@@ -99,7 +99,7 @@ private:
 	// solver, but it rides along on query and hit-event results and reaches the
 	// friction/restitution mixing callbacks, which get no other context.
 	int64_t user_material_id = 0;
-	// --- per-shape filter override (b3Shape_SetFilter, box3d.h:907-912) ---
+	// --- per-shape filter override (b3Shape_SetFilter, box3d.h:949-954) ---
 	// Off by default: a child shape inherits the body's filter, which is what
 	// every existing scene expects. Turning it on lets one limb of a ragdoll
 	// differ from the rest.
@@ -129,7 +129,7 @@ private:
 	bool custom_filtering = false;
 	// b3ShapeDef.enablePreSolveEvents (types.h:505-507): lets a
 	// Box3DContactRules one-way rule see this shape's contacts. Live, through
-	// b3Shape_EnablePreSolveEvents (box3d.h:931). WARNING: src/solver.c:445-451
+	// b3Shape_EnablePreSolveEvents (box3d.h:973). WARNING: src/solver.c:445-451
 	// calls the world's pre-solve callback with no null check, so only turn
 	// this on for a world that has a Box3DContactRules installed.
 	bool pre_solve_events = false;
@@ -193,16 +193,16 @@ public:
 	Dictionary compute_mass_data() const; // keys: mass, center, inertia
 	void set_shape_name(const String &p_name);
 	String get_shape_name() const;
-	// b3Shape_GetBody / b3Shape_GetWorld (box3d.h:847-851), resolved back to
+	// b3Shape_GetBody / b3Shape_GetWorld (box3d.h:889-893), resolved back to
 	// the nodes behind them. Both are the answer Box3D holds, not this node's
 	// cached parentage: a shape id that came out of a query or an event is
 	// exactly what these are for.
 	Box3DBody *get_body() const;
 	Box3DWorld *get_world() const;
 
-	// --- b3Shape_GetType and the per-geometry accessors (box3d.h:845-980) ---
+	// --- b3Shape_GetType and the per-geometry accessors (box3d.h:887-1025) ---
 	// Every reader is guarded by b3Shape_GetType, because the Get* family
-	// asserts on a type mismatch (box3d.h:947-957); a mismatch returns an empty
+	// asserts on a type mismatch (box3d.h:989-999); a mismatch returns an empty
 	// Dictionary instead of tripping the assert.
 	int get_geometry_type() const;
 	Dictionary get_sphere() const; // keys: center, radius
@@ -215,14 +215,14 @@ public:
 	// with whoever authored it.
 	Dictionary get_mesh() const;
 	// The Set* family retypes the shape in place and deliberately does NOT touch
-	// the body's mass (box3d.h:959-980), so each takes an update_mass flag that
+	// the body's mass (box3d.h:1007-1025), so each takes an update_mass flag that
 	// pays for b3Body_ApplyMassFromShapes. They also bypass this node's authored
 	// shape_type / box_size / radius properties, which then no longer describe
 	// the collider; a later rebuild rebuilds from the properties.
 	void set_sphere(const Vector3 &p_center, double p_radius, bool p_update_mass);
 	void set_capsule(const Vector3 &p_center1, const Vector3 &p_center2, double p_radius, bool p_update_mass);
 	void set_hull(const PackedVector3Array &p_points, bool p_update_mass);
-	// b3Shape_SetMesh (box3d.h:976-980): retypes this shape into a triangle
+	// b3Shape_SetMesh (box3d.h:1022-1025): retypes this shape into a triangle
 	// mesh built from raw vertices and indices, at p_scale. Winding is Box3D's
 	// own (CCW by the right hand rule) and is passed through untouched, as
 	// Box3DBody.mesh_indices is; Box3D's mesh collision is ONE-SIDED, so a
@@ -230,7 +230,7 @@ public:
 	// having changed nothing, when the data does not describe a mesh.
 	//
 	// Unlike the three setters above, this one hands the solver a blob it keeps
-	// a pointer to (src/shape.c:1664), so the node owns that blob from here on.
+	// a pointer to (src/shape.c:1707), so the node owns that blob from here on.
 	// A mesh only generates contacts on a static body (or a sensor), which is
 	// why this warns on anything else. p_update_mass defaults to FALSE here,
 	// unlike the three setters above: a mesh has no volume, so recomputing the

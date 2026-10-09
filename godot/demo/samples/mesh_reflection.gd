@@ -107,7 +107,7 @@ func get_mirror_shape() -> Box3DCollisionShape:
 func _apply_scale() -> void:
 	var s: Vector3 = SCALES[_scale_index]
 	# b3Shape_SetMesh's scale argument, live: the shape keeps its triangles and
-	# is re-fitted at the new scale (src/shape.c:1640-1675).
+	# is re-fitted at the new scale (src/shape.c:1683-1718).
 	_mirror.set_mesh_scale(s)
 	# The visual is rebuilt at that scale rather than node-scaled: a mirroring
 	# scale reverses every triangle, and baking it into the surface is what

@@ -206,7 +206,7 @@ int Box3DCollisionShape::get_geometry_type() const {
 
 Dictionary Box3DCollisionShape::get_sphere() const {
 	Dictionary out;
-	// b3Shape_GetSphere asserts the type is correct (box3d.h:947-948).
+	// b3Shape_GetSphere asserts the type is correct (box3d.h:989-990).
 	if (get_geometry_type() != GEOMETRY_SPHERE) {
 		return out;
 	}
@@ -323,8 +323,9 @@ void Box3DCollisionShape::set_hull(const PackedVector3Array &p_points, bool p_up
 		UtilityFunctions::push_warning("Box3DCollisionShape.set_hull could not build a hull from those points.");
 		return;
 	}
-	// Hulls are fully cloned by the shape (box3d.h:805), so the local one is
-	// free the moment the call returns.
+	// Hulls are cloned into the world hull database (src/shape.c:1651 ->
+	// src/physics_world.c:41-60), so the local one is free the moment the call
+	// returns.
 	b3Shape_SetHull(shape_id, hull);
 	b3DestroyHull(hull);
 	// This shape's geometry is no longer the one shape_type describes, and
@@ -396,7 +397,7 @@ bool Box3DCollisionShape::set_mesh(const PackedVector3Array &p_vertices, const P
 	release_owned_mesh();
 	owned_mesh = built;
 	if (p_update_mass && owner != nullptr) {
-		// b3Shape_SetMesh leaves mass alone by design (box3d.h:976-978).
+		// b3Shape_SetMesh leaves mass alone by design (box3d.h:1022-1024).
 		owner->apply_mass_from_shapes();
 	}
 	return true;

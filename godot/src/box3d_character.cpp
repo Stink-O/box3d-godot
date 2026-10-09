@@ -199,7 +199,7 @@ Vector3 Box3DCharacterBody::move_and_slide(const Vector3 &p_velocity, double p_d
 	// b3SolvePlanes turns that into a slide, while b3World_CastMover is what
 	// actually carries the capsule there — it sweeps, so a fast mover cannot
 	// pass through thin geometry, and the cast is explicitly documented as a
-	// bad source of touch information (box3d.h:107-110, :121-122). Solving
+	// bad source of touch information (box3d.h:109-111, :123-125). Solving
 	// once at the start pose (what this did before) tunnels.
 	//
 	// The loop is upstream's character mover verbatim (samples/mover.cpp:185-212):

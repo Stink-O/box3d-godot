@@ -25,7 +25,7 @@ extends RefCounted
 ##
 ## THE STEP BOUNDARY, which is a real constraint and not a style note.
 ## `b3World_StartRecording` refuses and asserts on a locked world
-## (`src/physics_world.c:2300-2305` -> `:96-106`). With the shell's async-step
+## (`src/physics_world.c:2303-2309` -> `:102-107`). With the shell's async-step
 ## toggle on, the step runs off the main thread and the world IS locked for part
 ## of every frame. Nothing here has to deal with that: the binding joins the
 ## step itself before both calls (`godot/src/box3d_world.cpp:1231` in
@@ -38,7 +38,7 @@ extends RefCounted
 ## PATHS. Saving goes through `Box3DRecording.save_to_file`, i.e. Godot's
 ## `FileAccess`, so `user://` works identically in the editor, in an exported
 ## desktop game, on Android and in the browser. Upstream's own
-## `b3SaveRecordingToFile` is plain `fopen` (`src/recording.c:1113-1177`) and is
+## `b3SaveRecordingToFile` is plain `fopen` (`src/recording.c:1079-1095`) and is
 ## deliberately unbound.
 ##
 ## WHY STOPPING IS NOT ONE FUNCTION ANY MORE (F-048). "Stop and save" used to do
@@ -222,7 +222,7 @@ const LAYOUT_KEY := "last_recording"
 
 ## The live session, or null. Held as a Ref so the buffer outlives the world:
 ## a world being freed stops its own session (`b3DestroyWorld` ->
-## `b3StopRecordingInternal`, `src/physics_world.c:414-415`), which leaves the
+## `b3StopRecordingInternal`, `src/physics_world.c:420-421`), which leaves the
 ## bytes complete and saveable even though the world is gone.
 var recording: Box3DRecording = null
 ## The world being recorded. May go invalid under us (sample switch, Reset);
@@ -330,7 +330,7 @@ func start(p_world: Node, p_sample_name: String, p_step: int) -> bool:
 ## What still HAS to happen here, on the main thread, and why:
 ##   - `stop_recording()` on the world, because that is what appends the
 ##     geometry registry and backpatches the header, i.e. what makes the bytes
-##     loadable at all (`src/recording.c:1069-1108`) -- and `get_data()` /
+##     loadable at all (`src/recording.c:1035-1075`) -- and `get_data()` /
 ##     `save_to_file()` refuse until it has (`godot/src/box3d_replay.cpp:53-58`).
 ##     It costs 0.01 ms and it must not race the world.
 ##   - the capture sweep, because it touches the SCENE TREE, which is main-

@@ -80,7 +80,7 @@ extends PanelContainer
 ## dialog and never an error, and nothing here claims a clean pass proves
 ## bit-exactness -- determinism on the wasm build is unverified, and a matching
 ## hash covers body transforms and velocities only (`b3HashWorldState`,
-## `src/recording.c:1223-1266`).
+## `src/recording.c:1177-1221`).
 ##
 ## THE PLAYER NEVER TOUCHES THE LIVE WORLD. `b3RecPlayer_Create` stands up a
 ## private world and retargets every recorded id onto it, so the paused sample
@@ -580,7 +580,7 @@ func open_recording(path: String, host: Node3D) -> bool:
 	if host != null:
 		host.add_child(_renderer)
 	# Attaching installs the debug-shape callbacks, which rebuilds the replay
-	# world and rewinds to frame 0 -- upstream's contract (box3d.h:408-410), not
+	# world and rewinds to frame 0 -- upstream's contract (box3d.h:425-426), not
 	# a side effect to work around.
 	_renderer.player = _player
 	_renderer.frame_cache_budget = FRAME_CACHE_WEB if OS.has_feature("web") else FRAME_CACHE_DESKTOP
@@ -657,9 +657,12 @@ func close_recording() -> void:
 	_pregen = false
 	if _renderer != null and is_instance_valid(_renderer):
 		# Detach first: the renderer owns the shape handles it was given and
-		# frees them on detach, and destroying the replay world would NOT run
-		# the destroy callback for shapes still alive (upstream calls it only
-		# from b3DestroyShape, src/shape.c:1025, and from snapshot restore).
+		# frees them on detach, and destroying the replay world DOES run the
+		# destroy callback for every shape still alive (b3DestroyWorld ->
+		# b3DestroyShapeAllocations, src/physics_world.c:457-466, reaching it
+		# at src/shape.c:1057-1061). Detaching does that teardown while the
+		# renderer is still alive and leaves a world with no callbacks, so the
+		# player's close() below cannot call into a freed node.
 		_renderer.player = null
 		if _renderer.get_parent() != null:
 			_renderer.get_parent().remove_child(_renderer)

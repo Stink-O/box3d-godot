@@ -3063,7 +3063,7 @@ func _restore_overlay_state() -> void:
 ## Quitting mid-recording still writes the file, which is upstream's behaviour
 ## (`Sample::~Sample()` finishes the recording before destroying the world,
 ## `samples/sample.cpp:343-348`). The buffer survives its world either way --
-## `b3DestroyWorld` stops the session itself (`src/physics_world.c:414-415`) --
+## `b3DestroyWorld` stops the session itself (`src/physics_world.c:420-421`) --
 ## so this is safe however the tree comes down around it.
 func _exit_tree() -> void:
 	var saved := _stop_recording()

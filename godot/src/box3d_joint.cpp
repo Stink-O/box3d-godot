@@ -217,7 +217,7 @@ void Box3DJoint::apply_base_settings() {
 
 // Base-def fields with no live setter. b3JointDef.drawScale is copied into the
 // joint at creation (src/joint.c:186) and read only by the debug draw
-// (src/joint.c:1670); box3d.h:1038-1110 has no b3Joint_SetDrawScale, so this is
+// (src/joint.c:1670); box3d.h:1083-1158 has no b3Joint_SetDrawScale, so this is
 // the one and only place it can be authored.
 void Box3DJoint::apply_base_def(b3JointDef &p_base) const {
 	p_base.drawScale = (float)draw_scale;
@@ -993,7 +993,7 @@ b3JointId Box3DDistanceJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b
 void Box3DDistanceJoint::collect_type_warnings(PackedStringArray &p_warnings) const {
 	// Both the limit and the motor live inside the `if (enableSpring)` branch of
 	// the solver (distance_joint.c:480); without the spring the joint is rigid
-	// and overrides them. box3d.h says the same about the limit at :1187.
+	// and overrides them. box3d.h says the same about the limit at :1232.
 	if (!spring_enabled && (motor_enabled || limit_enabled)) {
 		p_warnings.push_back(
 				"Spring Enabled is off, so this joint is rigid at Length and the "
@@ -1351,7 +1351,7 @@ void Box3DBallJoint::apply_motor_state() {
 	if (!joint_live()) {
 		return;
 	}
-	// Mirrors create_specific exactly (box3d.h:1550-1565).
+	// Mirrors create_specific exactly (box3d.h:1598-1615).
 	const bool use_friction = !motor_enabled && friction_torque > 0.0;
 	b3SphericalJoint_EnableMotor(joint_id, motor_enabled || use_friction);
 	b3SphericalJoint_SetMotorVelocity(joint_id, use_friction ? b3Vec3_zero : to_b3(motor_velocity));

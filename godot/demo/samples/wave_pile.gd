@@ -16,7 +16,7 @@ extends Node3D
 ## itself from its first tick, and once the pile sleeps the recorded bytes are
 ## replayed -- at one worker, and then at two, four and eight. Box3D embeds a
 ## state hash of every body's transform and velocity after each step
-## (src/physics_world.c:1173-1180) and the player recomputes and compares them,
+## (src/physics_world.c:1180-1184) and the player recomputes and compares them,
 ## so `has_diverged()` is the verdict. A different worker count re-partitions
 ## the constraint graph and solves the same island in a different order, so a
 ## clean replay at 8 workers is a live cross-thread determinism check on the
@@ -24,7 +24,7 @@ extends Node3D
 ##
 ## What that does NOT prove, so nobody over-reads a green verdict:
 ## `b3HashWorldState` covers body transforms and velocities only
-## (src/recording.c:1223-1266) -- contacts, joints, impulses and sleep flags are
+## (src/recording.c:1177-1221) -- contacts, joints, impulses and sleep flags are
 ## not hashed. And the verdict is about THIS build on THIS machine: it says the
 ## same bytes reproduce the same simulation across worker counts, not that two
 ## different platforms agree.

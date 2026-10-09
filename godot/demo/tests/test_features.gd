@@ -3263,7 +3263,7 @@ func _test_live_density_and_sensor() -> void:
 	var world := Box3DWorld.new()
 	add_child(world)
 
-	# P-010's tail. density goes through b3Shape_SetDensity (box3d.h:870-872),
+	# P-010's tail. density goes through b3Shape_SetDensity (box3d.h:911-914),
 	# so the body that owns the shape survives the change: no gravity and a
 	# running velocity means a destroy-and-recreate would show up as a stop.
 	var body := Box3DBody.new()
@@ -3327,7 +3327,7 @@ func _test_live_density_and_sensor() -> void:
 		and compound.get_linear_velocity().distance_to(cvel) < 0.001)
 
 	# is_sensor has no live setter upstream — shape->sensorIndex is assigned
-	# once, inside b3CreateShapeInternal (src/shape.c:236-248) — so the SHAPE is
+	# once, inside b3CreateShapeInternal (src/shape.c:234-246) — so the SHAPE is
 	# built again. The BODY is not: velocity, spin and identity all survive.
 	var ghost := Box3DBody.new()
 	ghost.box_size = Vector3(1, 1, 1)
@@ -4485,7 +4485,7 @@ func _test_recording_replay() -> void:
 	# --- THE PRIZE: replay at a DIFFERENT worker count ----------------------
 	# A different worker count re-partitions the constraint graph, so the
 	# embedded state hashes become a cross-thread determinism test
-	# (box3d.h:322-327). The count MUST be passed to open(): raising it with
+	# (box3d.h:339-341). The count MUST be passed to open(): raising it with
 	# set_worker_count() afterwards never creates a scheduler, so the replay
 	# would still run serially and the test would be vacuous.
 	for wc in [2, 4, 8]:
@@ -4533,7 +4533,7 @@ func _test_recording_replay() -> void:
 
 	# --- F-R1: the replay draws real geometry -------------------------------
 	# Box3DReplayRenderer installs upstream's debug-shape callbacks
-	# (b3RecPlayer_SetDebugShapeCallbacks, box3d.h:406-417) on the player and
+	# (b3RecPlayer_SetDebugShapeCallbacks, box3d.h:423-433) on the player and
 	# turns every replayed shape into a MultiMesh instance. A class that is
 	# never registered is invisible to GDScript however complete its bindings
 	# are, so that assertion comes first.
@@ -4549,7 +4549,7 @@ func _test_recording_replay() -> void:
 	_check("the renderer holds its player", rr.get_player() == pr)
 	_check("nothing is drawn before an update", rr.get_instance_count() == 0)
 	# Installing the callbacks rebuilds the replay world and rewinds to frame 0
-	# (box3d.h:408-410) — that is upstream's contract, not a bug.
+	# (box3d.h:425-426) — that is upstream's contract, not a bug.
 	_check("attaching a renderer rewinds the player to 0 (%d)" % pr.get_frame(), pr.get_frame() == 0)
 
 	pr.step_frame()
@@ -4578,7 +4578,7 @@ func _test_recording_replay() -> void:
 	_check("an out-of-range geometry index is empty", rr.get_geometry_info(9999).is_empty())
 
 	# Seeking rebuilds the replay world under the same callbacks; upstream
-	# releases the old handles as it restores (src/world_snapshot.c:765-777),
+	# releases the old handles as it restores (src/world_snapshot.c:819-832),
 	# so the handle count must come back to where it was, not grow.
 	var shapes_before: int = rr.get_shape_count()
 	pr.seek_frame(40)
@@ -4939,7 +4939,7 @@ func _test_shell_recorder() -> void:
 	_check("discard wrote nothing", not FileAccess.file_exists(throwaway))
 
 	# A world freed under a live session still leaves a complete buffer:
-	# b3DestroyWorld stops the recording itself (src/physics_world.c:414-415),
+	# b3DestroyWorld stops the recording itself (src/physics_world.c:420-421),
 	# which is what makes "switch sample while recording" saveable at all.
 	_check("the recorder arms one last time", rec.start(world, "Cube Pile", 0))
 	for i in range(20):

@@ -4,7 +4,7 @@
 // P-007: Box3D's four solver callbacks, reached WITHOUT a script callback.
 //
 // Upstream lets an application override four decisions the solver makes about a
-// contact pair (box3d.h:159-163, :224-228):
+// contact pair (box3d.h:175-179, :244-248):
 //
 //   bool  b3CustomFilterFcn ( b3ShapeId a, b3ShapeId b, void* context );
 //   bool  b3PreSolveFcn     ( b3ShapeId a, b3ShapeId b, b3Pos point, b3Vec3 n, void* context );
@@ -31,7 +31,7 @@
 // The key is userMaterialId because it is the ONLY thing the mixing callbacks
 // receive (they get no shape and no context at all), and because the filter and
 // pre-solve callbacks can read it back off a shape with b3Shape_GetSurfaceMaterial
-// (a pure array read, src/shape.c:19-25, :1102-1107). One key space serves all
+// (a pure array read, src/shape.c:19-25, :1306-1311). One key space serves all
 // four callbacks.
 //
 // See "Threading and memory ordering" on Box3DContactRules below for why the
@@ -177,13 +177,13 @@ public:
 	bool get_collision_rule(int64_t p_material_a, int64_t p_material_b) const;
 
 	// Replaces upstream's sqrtf(frictionA * frictionB) for this pair
-	// (src/physics_world.c:154-158). Clamped at 0: a mesh contact asserts the
+	// (src/physics_world.c:155-159). Clamped at 0: a mesh contact asserts the
 	// mixed value is finite and non-negative (src/mesh_contact.c:1152-1153).
 	void set_friction_rule(int64_t p_material_a, int64_t p_material_b, double p_friction);
 	void clear_friction_rule(int64_t p_material_a, int64_t p_material_b);
 
 	// Replaces upstream's max(restitutionA, restitutionB) for this pair
-	// (src/physics_world.c:160-164). Clamped at 0, same assert.
+	// (src/physics_world.c:161-165). Clamped at 0, same assert.
 	void set_restitution_rule(int64_t p_material_a, int64_t p_material_b, double p_restitution);
 	void clear_restitution_rule(int64_t p_material_a, int64_t p_material_b);
 
@@ -237,7 +237,7 @@ public:
 	void install(Box3DWorld *p_world);
 	// Restores upstream's defaults on p_world: no filter, no pre-solve, and the
 	// stock mixing functions (upstream resets to those when handed NULL,
-	// src/physics_world.c:2257, :2268).
+	// src/physics_world.c:2258, :2269).
 	void uninstall(Box3DWorld *p_world);
 	bool is_installed(Box3DWorld *p_world) const;
 

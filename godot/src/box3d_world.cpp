@@ -449,7 +449,7 @@ void Box3DWorld::ensure_world() {
 	b3World_SetUserData(world_id, this);
 	apply_contact_tuning();
 	// Not a b3WorldDef field: the world seeds it from B3_CONTACT_RECYCLE_DISTANCE
-	// at creation (src/physics_world.c:332), so it can only be set afterwards.
+	// at creation (src/physics_world.c:338), so it can only be set afterwards.
 	b3World_SetContactRecycleDistance(world_id, (float)contact_recycle_distance);
 	b3World_EnableWarmStarting(world_id, enable_warm_starting);
 	// Last: a world that was destroyed and recreated gets its solver callbacks
@@ -1000,7 +1000,7 @@ void Box3DWorld::set_worker_count(int p_count) {
 	worker_count = 1;
 #endif
 	// Live: b3World_SetWorkerCount tears down and rebuilds the worker contexts
-	// (src/physics_world.c:2271-2287), so this no longer waits for a world
+	// (src/physics_world.c:2272-2288), so this no longer waits for a world
 	// rebuild. It clamps to [1, B3_MAX_WORKERS] itself.
 	if (b3World_IsValid(world_id)) {
 		join_async_step();
@@ -1140,7 +1140,7 @@ struct RayAllContext {
 // Collects every shape along the ray. Upstream's return protocol decides that:
 // 1 means "do not clip the ray, keep going" (types.h:99-113), where the closest
 // -hit query returns the fraction instead. Shapes can arrive in any order
-// (box3d.h:85), so the caller sorts.
+// (box3d.h:86), so the caller sorts.
 float ray_all_result_cb(b3ShapeId p_shape, b3Pos p_point, b3Vec3 p_normal, float p_fraction, uint64_t p_material,
 		int p_triangle, int p_child, void *p_context) {
 	RayAllContext *ctx = static_cast<RayAllContext *>(p_context);
@@ -1272,7 +1272,7 @@ bool Box3DWorld::start_recording(const Ref<Box3DRecording> &p_recording) {
 	if (p_recording->is_recording()) {
 		// Not upstream's rule but this binding's: b3World_StartRecording resets
 		// the buffer, so letting a second world start on it would silently
-		// discard the first world's session (box3d.h:277-278).
+		// discard the first world's session (box3d.h:294).
 		ERR_PRINT("Box3DWorld.start_recording: that buffer is already recording another world.");
 		return false;
 	}
@@ -1281,7 +1281,7 @@ bool Box3DWorld::start_recording(const Ref<Box3DRecording> &p_recording) {
 		return false;
 	}
 	// b3World_StartRecording refuses a locked world and asserts on one
-	// (src/physics_world.c:2300-2305 -> :96-106), so land on a step boundary.
+	// (src/physics_world.c:2301-2304 -> :102-107), so land on a step boundary.
 	join_async_step();
 	b3World_StartRecording(world_id, p_recording->get_handle());
 	active_recording = p_recording;
@@ -1296,12 +1296,12 @@ bool Box3DWorld::stop_recording() {
 	if (b3World_IsValid(world_id)) {
 		join_async_step();
 		// This is what appends the geometry registry and backpatches the
-		// header, i.e. what makes the buffer loadable (src/recording.c:1069-
-		// 1108). Safe when the world is not recording.
+		// header, i.e. what makes the buffer loadable (src/recording.c:1035-
+		// 1075). Safe when the world is not recording.
 		b3World_StopRecording(world_id);
 	}
 	// A dead world already stopped the session itself: b3DestroyWorld calls
-	// b3StopRecordingInternal before teardown (src/physics_world.c:414-415), so
+	// b3StopRecordingInternal before teardown (src/physics_world.c:420-421), so
 	// the buffer is complete either way and only the bookkeeping is left.
 	active_recording->detach_world();
 	active_recording = Ref<Box3DRecording>();
@@ -1336,7 +1336,7 @@ Array Box3DWorld::raycast_all(const Vector3 &p_from, const Vector3 &p_to, uint64
 	filter.maskBits = p_mask;
 	filter.categoryBits = p_layer;
 	last_query_stats = b3World_CastRay(world_id, to_b3_pos(p_from), to_b3(p_to - p_from), filter, ray_all_result_cb, &ctx);
-	// Nearest first: the traversal order is unspecified (box3d.h:85), and
+	// Nearest first: the traversal order is unspecified (box3d.h:86), and
 	// nearest-first is what every caller of an all-hits ray wants.
 	std::stable_sort(ctx.hits.begin(), ctx.hits.end(), [](const Dictionary &a, const Dictionary &b) {
 		return (double)a["fraction"] < (double)b["fraction"];
@@ -1546,7 +1546,7 @@ Dictionary Box3DWorld::get_contact_data(const Vector3i &p_contact) const {
 	// Not optional: b3Contact_GetData indexes the contact array and
 	// dereferences the shapes without a check (src/contact.c:62-66), so a stale
 	// handle is an assert in a debug build of Box3D and garbage in a release
-	// one. b3Contact_IsValid is the documented guard (box3d.h:1745-1746).
+	// one. b3Contact_IsValid is the documented guard (box3d.h:1795-1796).
 	if (!b3Contact_IsValid(id)) {
 		return out;
 	}
@@ -1596,7 +1596,7 @@ Dictionary Box3DWorld::get_contact_data(const Vector3i &p_contact) const {
 		}
 	}
 	// A valid contact with no points is a registered pair that is not touching
-	// this step — upstream says so at box3d.h:1748-1749.
+	// this step — upstream says so at box3d.h:1798-1799.
 	out["touching"] = !points.is_empty();
 	out["normal"] = first_normal;
 	out["impulse"] = impulse;
@@ -1681,15 +1681,15 @@ void Box3DWorld::explode(const Vector3 &p_center, double p_radius, double p_impu
 // b3World_Draw is a pull API: it walks the broad phase and calls back into the
 // host once per thing it wants drawn (types.h:2973-3057). Every callback runs
 // SYNCHRONOUSLY on the thread that called b3World_Draw — the function fans out
-// to nothing and does its own single-threaded walk (src/physics_world.c:1365-
-// 1710) — so the callbacks below are main-thread Godot code by construction.
+// to nothing and does its own single-threaded walk (src/physics_world.c:1370-
+// 1712) — so the callbacks below are main-thread Godot code by construction.
 // b3World_Draw also refuses a locked world (b3GetUnlockedWorldFromId,
-// src/physics_world.c:102-106), which is why update_debug_overlay() joins any
+// src/physics_world.c:102-107), which is why update_debug_overlay() joins any
 // in-flight async step before calling it.
 //
 // Shapes are NOT drawn through this path: DrawShapeFcn only fires for shapes
-// the host built with b3CreateDebugShapeCallback (src/physics_world.c:1308-
-// 1353), which this binding never registers. The MultiMesh shells above remain
+// the host built with b3CreateDebugShapeCallback (src/physics_world.c:1314-
+// 1359), which this binding never registers. The MultiMesh shells above remain
 // the shape renderer and this overlay supplies what they cannot: joints,
 // contact points/normals/forces, islands, graph colors, mass, sleep state,
 // body names and shape bounds.
@@ -1757,7 +1757,7 @@ void ov_draw_segment(b3Pos p_p1, b3Pos p_p2, b3HexColor p_color, void *p_context
 void ov_draw_transform(b3WorldTransform p_transform, void *p_context) {
 	OverlayContext *c = static_cast<OverlayContext *>(p_context);
 	// Upstream's own axis length at 1 length unit per meter
-	// (src/physics_world.c:1376).
+	// (src/physics_world.c:1381).
 	const float AXIS = 0.3f;
 	const Basis basis(to_gd(p_transform.q));
 	const Vector3 o = to_gd_pos(p_transform.p);
@@ -1769,7 +1769,7 @@ void ov_draw_transform(b3WorldTransform p_transform, void *p_context) {
 void ov_draw_point(b3Pos p_p, float p_size, b3HexColor p_color, void *p_context) {
 	OverlayContext *c = static_cast<OverlayContext *>(p_context);
 	// Deviation: upstream's size is a screen-space point size in pixels (the
-	// callers pass 4..20, src/physics_world.c:1581-1615). Lines have no point
+	// callers pass 5..20, src/physics_world.c:1585-1620). Lines have no point
 	// size, so it is mapped to a world-space cross a millimetre per pixel
 	// across — the relative sizes upstream uses to rank contact states still
 	// read, but they do not stay constant on screen.
@@ -1973,7 +1973,7 @@ void fragment() {
 	debug_overlay_mesh->clear_surfaces();
 	debug_overlay_mesh->surface_begin(Mesh::PRIMITIVE_LINES);
 	// maskBits selects which collision categories are visited by the broad
-	// phase query (src/physics_world.c:1406-1409); the overlay never hides a
+	// phase query (src/physics_world.c:1411-1414); the overlay never hides a
 	// category, so every bit is set.
 	b3World_Draw(world_id, &draw, UINT64_MAX);
 	debug_overlay_mesh->surface_end();
@@ -2106,7 +2106,7 @@ void Box3DWorld::push_hull_shell(b3ShapeId p_shape, const Transform3D &p_transfo
 		return;
 	}
 	DebugMeshShell &shell = acquire_geom_shell(p_shape);
-	// b3Shape_SetHull swaps the whole blob (src/shape.c:1511-1517 hands back
+	// b3Shape_SetHull swaps the whole blob (src/shape.c:1546-1552 hands back
 	// whatever the shape holds), so the pointer and the half-edge count are the
 	// whole rebuild key. There is no separate scale: the node scale was baked
 	// into these points at create time.
@@ -3062,7 +3062,7 @@ void Box3DWorld::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "contact_damping", PROPERTY_HINT_RANGE, "0,20,0.01,or_greater"), "set_contact_damping", "get_contact_damping");
 	// Maximum speed the solver may push overlapping shapes apart with.
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "contact_speed", PROPERTY_HINT_RANGE, "0,20,0.01,or_greater,suffix:m/s"), "set_contact_speed", "get_contact_speed");
-	// 0 disables contact point recycling entirely (box3d.h:187-188).
+	// 0 disables contact point recycling entirely (box3d.h:202-203).
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "contact_recycle_distance", PROPERTY_HINT_RANGE, "0,1,0.001,or_greater,suffix:m"), "set_contact_recycle_distance", "get_contact_recycle_distance");
 	// Gates the contact_hit signal: below this closing speed no hit event is
 	// produced at all, so raising it is how an impact sound stops firing on

@@ -20,7 +20,7 @@
 // Colours follow upstream's own debug palette so the editor and the runtime
 // overlay agree: b3HexColor constants from include/box3d/types.h:2773-2941,
 // picked the way upstream's own draw code picks them (bodies:
-// src/physics_world.c:1240-1305; joints: src/joint.c:1655-1720 plus the
+// src/physics_world.c:1239-1312; joints: src/joint.c:1655-1720 plus the
 // per-type b3Draw*Joint functions cited at each call site below).
 
 #include <godot_cpp/classes/editor_node3d_gizmo.hpp>

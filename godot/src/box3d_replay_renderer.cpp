@@ -519,7 +519,7 @@ void *Box3DReplayRenderer::create_shape_handle(const b3DebugShape *p_shape) {
 		default:
 			// A shape type this build does not know. Returning null leaves
 			// shape->userShape null upstream, which simply retries next draw
-			// (src/physics_world.c:1309) — no leak, nothing drawn.
+			// (src/physics_world.c:1314) — no leak, nothing drawn.
 			return nullptr;
 	}
 
@@ -531,14 +531,14 @@ void *Box3DReplayRenderer::create_shape_handle(const b3DebugShape *p_shape) {
 	handle->local = local;
 	// The slot, assigned once and never reused. Appending it to the geometry's
 	// list here — inside the create callback, which upstream fires before the
-	// first draw of this shape (src/physics_world.c:1309-1348) — is what keeps
+	// first draw of this shape (src/physics_world.c:1314-1354) — is what keeps
 	// the list ascending and the row order reproducible.
 	handle->slot = slot_count++;
 	ensure_slot(handle->slot);
 	geometries[geometry].slots.push_back(handle->slot);
 	// The owning body's identity, resolved once. b3Shape_GetBody is valid here:
 	// upstream fills debugShape.shapeId before calling us
-	// (src/physics_world.c:1312-1316), and a shape's body never changes.
+	// (src/physics_world.c:1316-1321), and a shape's body never changes.
 	const b3BodyId body = b3Shape_GetBody(p_shape->shapeId);
 	handle->body_key = ((uint64_t)(uint32_t)body.index1 << 16) | (uint64_t)body.generation;
 	resolve_override(handle);
@@ -733,7 +733,7 @@ void Box3DReplayRenderer::push_instance(ShapeHandle *p_handle, const Transform3D
 	if (p_handle->slot < 0) {
 		return;
 	}
-	// DrawShapeFcn reports the BODY transform (src/physics_world.c:1353), so
+	// DrawShapeFcn reports the BODY transform (src/physics_world.c:1358), so
 	// the shape's own offset is applied here.
 	const Transform3D t = p_body * p_handle->local;
 
@@ -1226,10 +1226,13 @@ void Box3DReplayRenderer::uninstall() {
 	if (player.is_null()) {
 		return;
 	}
-	// Nulls first: this destroys the replay world under the old callbacks, and
-	// upstream sets the function pointers to null BEFORE it does
-	// (src/replay.c:3615-3625), so nothing calls back into a node
-	// that may be halfway through being torn down.
+	// Installing nulls destroys the replay world (src/replay.c:3622-3625),
+	// and upstream only nulls the PLAYER's pointers first (:3615-3617): the
+	// old world keeps the callbacks it was created with
+	// (src/physics_world.c:400-402), so b3DestroyWorld still calls
+	// destroy_shape_handle for every live shape (:457-466). That is safe
+	// because this runs while the renderer's members are alive and
+	// destroy_shape_handle only frees a handle still in `handles`.
 	player->install_debug_shape_callbacks(nullptr, nullptr, nullptr);
 }
 
@@ -1329,7 +1332,7 @@ bool Box3DReplayRenderer::draw_walk() {
 	draw.context = this;
 
 	// maskBits selects the collision categories the broad phase visits
-	// (src/physics_world.c:1406-1409); a replay view never hides one.
+	// (src/physics_world.c:1411-1414); a replay view never hides one.
 	// Every other b3DebugDraw function pointer is left at b3DefaultDebugDraw's
 	// no-ops, which matters: b3World_Draw dereferences them unconditionally.
 	b3World_Draw(world_id, &draw, UINT64_MAX);

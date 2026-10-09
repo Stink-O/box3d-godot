@@ -13,7 +13,7 @@ extends Node3D
 ## Upstream's drag 1.0 / lift 0.75 / max speed 10 are kept verbatim, as is
 ## the wandering noise it adds to the wind direction: a random unit-ish
 ## vector eased in at 5% per step, which is what makes the flutter irregular.
-## Wind only acts on sphere, capsule and hull shapes (src/shape.c:1863) --
+## Wind only acts on sphere, capsule and hull shapes (src/shape.c:1906) --
 ## a Box3D "box" is a hull, so these plates qualify.
 ##
 ## Press the top-bar toggle to cut the wind and watch the ribbon fall limp.

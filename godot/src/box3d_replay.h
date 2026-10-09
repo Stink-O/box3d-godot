@@ -16,22 +16,22 @@ namespace godot {
 
 class Box3DWorld;
 
-// Upstream's recording and replay system (box3d.h:255-468), which writes every
+// Upstream's recording and replay system (box3d.h:265-487), which writes every
 // world mutation and every step to a byte stream and can stand that stream back
 // up in a fresh world.
 //
 // WHAT THIS IS FOR. A recording is not a savegame and not an animation: it is a
 // determinism instrument. Recording embeds a state hash of the world after
-// every step (src/physics_world.c:1173-1180, plus an anchor hash at session
-// start, src/recording.c:1062-1066), and replay recomputes that hash and
+// every step (src/physics_world.c:1180-1184, plus an anchor hash at session
+// start, src/recording.c:1028-1032), and replay recomputes that hash and
 // compares. Because the player can stand the recording up at a DIFFERENT worker
 // count than it was recorded at, and a different worker count re-partitions the
 // constraint graph, a replay that reports no divergence is a live cross-thread
 // determinism check on the very property this repo's red lines protect
-// (box3d.h:322-327).
+// (box3d.h:339-341).
 //
 // WHAT IS HASHED, exactly, so nobody over-reads a passing replay:
-// b3HashWorldState (src/recording.c:1223-1266) is an FNV-1a over every live
+// b3HashWorldState (src/recording.c:1177-1221) is an FNV-1a over every live
 // body's transform (position + quaternion) and, when the body has a solver
 // state, its linear and angular velocity. Contacts, joints, impulses and sleep
 // flags are NOT hashed. A matching replay proves the bodies ended up in the
@@ -39,14 +39,14 @@ class Box3DWorld;
 // identical along the way.
 //
 // PATHS. Upstream's b3SaveRecordingToFile / b3LoadRecordingFromFile are plain
-// fopen on an OS path (src/recording.c:1113-1177), so they cannot see res://
+// fopen on an OS path (src/recording.c:1079-1146), so they cannot see res://
 // (which is inside the .pck of an exported game and is not a file at all) and
 // they cannot see user:// on the platforms where it is not a plain directory.
 // Neither is bound. Everything here moves bytes through PackedByteArray and
 // Godot's own FileAccess instead, which works identically in the editor, in an
 // exported desktop game, on Android and in the browser. That is also why the
 // player opens from bytes: b3CreatePlayer takes a raw buffer
-// (box3d.h:319-324), so no b3Recording ever has to be reconstructed to replay
+// (box3d.h:336-343), so no b3Recording ever has to be reconstructed to replay
 // one.
 //
 // The conventional extension is .b3rec (the repo's .gitignore carries it).
@@ -57,12 +57,12 @@ class Box3DWorld;
 // LIFETIME AND THE ONE CONTRACT THAT BITES. The bytes are only a complete,
 // loadable recording after the session is stopped: stopping is what appends the
 // geometry registry and backpatches the header's registry offset
-// (src/recording.c:1069-1108). Reading the bytes mid-session would therefore
+// (src/recording.c:1058-1074). Reading the bytes mid-session would therefore
 // hand out a file that b3CreatePlayer rejects, so get_data() and
 // save_to_file() REFUSE while a session is live and say so. Stop first.
 //
 // A world being destroyed stops its recording for you (b3DestroyWorld ->
-// b3StopRecordingInternal, src/physics_world.c:414-415), so a scene that quits
+// b3StopRecordingInternal, src/physics_world.c:420-421), so a scene that quits
 // mid-recording still leaves a complete buffer; Box3DWorld does it explicitly
 // so this object's own is_recording() cannot go stale.
 class Box3DRecording : public RefCounted {
@@ -83,7 +83,7 @@ public:
 	Box3DRecording();
 	~Box3DRecording();
 
-	// b3CreateRecording's byteCapacity (box3d.h:262-264). The default buffer is
+	// b3CreateRecording's byteCapacity (box3d.h:274-277). The default buffer is
 	// 64 KiB and grows on demand, so this is a reallocation optimisation, not a
 	// cap: a long recording of a heavy scene is tens of megabytes either way.
 	static Ref<Box3DRecording> create(int p_byte_capacity);
@@ -92,7 +92,7 @@ public:
 	// progress readout while recording.
 	int get_size() const;
 
-	// A copy of the buffer (b3Recording_GetData, box3d.h:266-270). Copied at
+	// A copy of the buffer (b3Recording_GetData, box3d.h:283-287). Copied at
 	// the moment of the call and never held, because upstream's pointer is only
 	// valid until the next byte is written. Empty, with an error, while a
 	// session is still running.
@@ -120,8 +120,8 @@ public:
 	// the id it got back has the recorded index1 and generation
 	// (b3RecCheckBodyId, :698-701, via b3RecCheckId :688-696). Bodies that
 	// already existed when recording started arrive through the snapshot seed
-	// (src/recording.c:1050-1058), which serializes the id pools themselves
-	// (src/world_snapshot.c:999-1004 / :1146-1151), so their ids are preserved
+	// (src/recording.c:1017-1026), which serializes the id pools themselves
+	// (src/world_snapshot.c:1049-1054 / :1193-1198), so their ids are preserved
 	// too. Node paths, names and instance indices survive none of that.
 	//
 	// The generation is part of the key on purpose: index1 is a slot and a slot
@@ -154,7 +154,7 @@ public:
 // a raw world id would be the one way to break that guarantee.
 //
 // ONE PROCESS-WIDE SIDE EFFECT, so budget for it. A recording carries the
-// length scale it was made at (src/recording.c:1043) and opening one INSTALLS
+// length scale it was made at (src/recording.c:1011) and opening one INSTALLS
 // that scale globally (b3SetLengthUnitsPerMeter, src/replay.c:2782-
 // 2785), restoring the previous value when the player is closed
 // (src/replay.c:2931-2932). While a player is open, every other Box3D
@@ -182,7 +182,7 @@ public:
 // through install_debug_shape_callbacks() below — Box3DReplayRenderer is its
 // one caller. Upstream requires it be called immediately after
 // b3CreatePlayer, because it destroys and rebuilds the replay world under
-// the new callbacks and rewinds to frame 0 (box3d.h:406-413,
+// the new callbacks and rewinds to frame 0 (box3d.h:423-427,
 // src/replay.c:3607-3645). This class therefore REMEMBERS the
 // callback triple and re-applies it inside open(), right after Create, so a
 // renderer that was attached before a recording was opened gets the ordering
@@ -219,9 +219,9 @@ public:
 	// b3WorldDef.workerCount = this argument (src/replay.c:2695),
 	// and b3CreateWorld only builds the internal scheduler — the thing that
 	// actually spawns threads — when that def asks for more than one worker
-	// (src/physics_world.c:367-386). b3World_SetWorkerCount afterwards
+	// (src/physics_world.c:366-392). b3World_SetWorkerCount afterwards
 	// rebuilds the worker CONTEXTS and never creates a scheduler
-	// (src/physics_world.c:2271-2287), and the player never rebuilds its world
+	// (src/physics_world.c:2272-2288), and the player never rebuilds its world
 	// on Restart or a seek (b3RecPlayer_Restart deserializes in place,
 	// src/replay.c:3088-3118). So a player opened at 1 and raised to
 	// 8 afterwards re-partitions the graph but still executes serially: it is a
@@ -266,7 +266,7 @@ public:
 	bool has_diverged() const;
 	int get_diverge_frame() const;
 
-	// b3RecPlayer_GetInfo (b3RecPlayerInfo, box3d.h:307-315), keys spelled as
+	// b3RecPlayer_GetInfo (b3RecPlayerInfo, box3d.h:325-334), keys spelled as
 	// upstream's fields: frameCount, workerCount, timeStep, subStepCount,
 	// lengthScale, bounds. Note that workerCount is the count REQUESTED for the
 	// replay, not one read from the file: the header has no worker-count field
@@ -281,7 +281,7 @@ public:
 	int get_worker_count() const;
 
 	// The keyframe ring that makes backward seeking cheap
-	// (b3RecPlayer_SetKeyframePolicy, box3d.h:379-387). A zero budget or a
+	// (b3RecPlayer_SetKeyframePolicy, box3d.h:394-401). A zero budget or a
 	// non-positive interval keeps that value. Setting a policy clears the ring,
 	// so this restarts the player, as upstream requires.
 	void set_keyframe_policy(int64_t p_budget_bytes, int p_min_interval_frames);
@@ -293,7 +293,7 @@ public:
 	int64_t get_keyframe_bytes() const;
 
 	// Bodies in creation order, INCLUDING holes where a body was destroyed
-	// (box3d.h:398-402), so the count is not the live body count and an index
+	// (box3d.h:416-421), so the count is not the live body count and an index
 	// can legitimately resolve to nothing. is_body_valid() is how you tell.
 	// Enough to render a replay from script without any draw plumbing.
 	int get_body_count() const;
@@ -302,22 +302,27 @@ public:
 
 	// --- C++ only, not bound. Box3DReplayRenderer's private door. ---
 
-	// b3RecPlayer_SetDebugShapeCallbacks (box3d.h:406-417). Applied at once if
+	// b3RecPlayer_SetDebugShapeCallbacks (box3d.h:423-433). Applied at once if
 	// a recording is open, and remembered so the next open() applies it
 	// immediately after b3CreatePlayer. Passing three nulls uninstalls.
 	//
-	// THE CALLER OWNS THE SHAPE HANDLES IT RETURNS AND MUST FREE THEM ITSELF
-	// when it uninstalls: destroying the replay world does NOT run the destroy
-	// callback for shapes that are still alive (upstream only calls it from
-	// b3DestroyShape, src/shape.c:1025, and from snapshot restore,
-	// src/world_snapshot.c:771-773), and this call destroys the world
-	// (src/replay.c:3622-3625).
+	// THE CALLER OWNS THE SHAPE HANDLES IT RETURNS. Upstream hands each one
+	// back through the destroy callback when its shape's draw data goes
+	// (src/shape.c:1057-1061, reached from shape and body destruction, a
+	// geometry change and b3DestroyWorld itself, src/physics_world.c:457-466;
+	// snapshot restore does the same, src/world_snapshot.c:821-829). This call
+	// destroys the world (src/replay.c:3622-3625) under the callbacks it was
+	// CREATED with, so the outgoing destroy callback still fires for every
+	// live shape even when nulls are being installed: it must stay safe to
+	// run until this returns, and the caller should still sweep anything left.
 	void install_debug_shape_callbacks(b3CreateDebugShapeCallback *p_create,
 			b3DestroyDebugShapeCallback *p_destroy, void *p_context);
 
 	// b3RecPlayer_GetWorldId, for b3World_Draw only. Never bound: see above.
-	// Re-read on every call rather than cached, because Restart and backward
-	// seeks recreate the world under the player.
+	// Re-read on every call rather than cached: Restart and backward seeks
+	// restore in place and keep the id (box3d.h:357), but
+	// install_debug_shape_callbacks recreates the world under the player
+	// (src/replay.c:3622-3626).
 	b3WorldId get_replay_world_id() const;
 
 	// Changes on every successful open(); a renderer compares it to know its

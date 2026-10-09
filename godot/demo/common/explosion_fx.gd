@@ -29,7 +29,7 @@ static func burst(parent: Node, at: Vector3, radius := 3.0, tint := Color(1.0, 0
 
 ## Impulse-per-area is NOT scale free, and that is why the shell's one bomb
 ## could not move half the sample library. b3World_Explode gives a body
-## `impulsePerArea * projectedArea` of impulse (src/physics_world.c:3403-3417),
+## `impulsePerArea * projectedArea` of impulse (src/physics_world.c:3500-3508),
 ## and its mass is density * volume, so the velocity a blast imparts falls off
 ## as 1/density. Samples that keep upstream's b3DefaultShapeDef density of 1000
 ## (src/types.c:72-73) -- Gear Lift, Wave Pile, Top Down Friction, Spinning
@@ -96,8 +96,8 @@ static func blast(world: Node, at: Vector3, blast_radius := 8.0,
 static func _box3d_explode(world: Box3DWorld, at: Vector3, radius: float,
 		impulse: float) -> void:
 	# Bodies the blast can reach, by the same surface-distance test the
-	# explosion callback uses (src/physics_world.c:3374). Only dynamic ones:
-	# b3World_Explode queries the dynamic tree alone (:3457), so a static or
+	# explosion callback uses (src/physics_world.c:3471). Only dynamic ones:
+	# b3World_Explode queries the dynamic tree alone (:3554), so a static or
 	# kinematic body in the ball would read as a zero and skew the median.
 	var reachable: Array = []
 	var before: Array = []
@@ -113,10 +113,10 @@ static func _box3d_explode(world: Box3DWorld, at: Vector3, radius: float,
 	if reachable.is_empty() or is_zero_approx(impulse):
 		return
 	# b3World_Explode writes straight into the solver's velocity state
-	# (:3417-3421), so reading back now measures the blast and nothing else.
+	# (:3510-3518), so reading back now measures the blast and nothing else.
 	# Only bodies that moved count: b3GetShapeProjectedArea is 0 for anything
-	# that is not a sphere, capsule or hull (src/shape.c:689-712) and a shape
-	# with explosionScale 0 opts out (:3349), and neither of those is a units
+	# that is not a sphere, capsule or hull (src/shape.c:729-752) and a shape
+	# with explosionScale 0 opts out (:3446-3449), and neither of those is a units
 	# problem -- letting them into the median would just mask a real one.
 	var kicks := PackedFloat64Array()
 	for i in reachable.size():

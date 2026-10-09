@@ -9,7 +9,7 @@ extends Node3D
 ## broad-phase proxies to keep, refit and query; `b3CreateBakedCompoundShape`
 ## packs them into one blob with its own internal tree, so the world sees a
 ## single proxy and the compound's tree resolves the child underneath
-## (box3d.h:831-834). It is what you want for static level geometry that is
+## (box3d.h:873-876). It is what you want for static level geometry that is
 ## authored as pieces. Static, non-sensor bodies only -- Box3D asserts on both.
 ##
 ## Here that is `Box3DBody.baked_compound = true` (P-022) plus one
