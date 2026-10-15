@@ -19,7 +19,7 @@
 		<method name="get_current_cone_angles" qualifiers="const">
 			<return type="Vector2" />
 			<description>
-				The current swing as two angles in radians: how far the joint axis is tilted towards the node's local X axis ([code]x[/code]) and towards its local Y axis ([code]y[/code]). Their length is [method get_current_cone_angle]. This is the reading the elliptical cone limits: the joint is inside it while [code](x / cone_angle_x)² + (y / cone_angle_y)² <= 1[/code].
+				The current swing as two angles in radians: how far the joint axis is tilted towards the node's local X axis ([code]x[/code]) and towards its local Y axis ([code]y[/code]). Their length is [method get_current_cone_angle]. This is the reading the elliptical cone limits: the joint is inside it while [code](x / cone_angle_x)² + (y / cone_angle_y)² &lt;= 1[/code].
 			</description>
 		</method>
 		<method name="get_current_twist_angle" qualifiers="const">
@@ -39,20 +39,29 @@
 		<member name="armature" type="float" setter="set_armature" getter="get_armature" default="0.0">
 			Extra rotational inertia of the relative rotation itself, in kg·m², that is not due to the mass of either body. It resists angular acceleration of the joint about all three axes, so a light body on the end of a chain is not whipped about, and is stable at any substep count. 0 (the default) is none. Applies live.
 		</member>
+		<member name="asymmetric_cone_enabled" type="bool" setter="set_asymmetric_cone_enabled" getter="get_asymmetric_cone_enabled" default="false">
+			Gives the elliptical cone a separate limit in each direction: [member cone_angle_x] towards the node's local +X axis, [member cone_angle_negative_x] towards -X, [member cone_angle_y] towards +Y and [member cone_angle_negative_y] towards -Y. Each quadrant between two of those axes is bounded by the quarter-ellipse through its two limits, so the boundary is smooth (the quarter-ellipses meet with a common tangent) and a range that reaches much further one way than the other, such as a hip that flexes 115 degrees but extends 15, needs no rotated node: the node's Z axis can stay on the rest pose. The joint is inside while [code](x / ax)² + (y / ay)² &lt;= 1[/code], with [code]x, y[/code] from [method get_current_cone_angles] and [code]ax, ay[/code] the limits on the side each one is on. Only used while [member elliptical_cone_enabled] and [member cone_limit_enabled] are on. Off (the default) leaves the elliptical cone symmetric, exactly as it was. Applies live.
+		</member>
 		<member name="cone_angle" type="float" setter="set_cone_angle" getter="get_cone_angle" default="0.5">
 			Half-angle of the allowed cone, in radians. 0 pins the axis, larger values open it up. Box3D accepts 0 to 90 degrees only: this is a half-angle, so 90 is already a full hemisphere of swing, and a larger value trips an assert in a debug build of Box3D. Ignored while [member elliptical_cone_enabled] is on.
 		</member>
 		<member name="cone_angle_x" type="float" setter="set_cone_angle_x" getter="get_cone_angle_x" default="0.0">
-			Elliptical cone: the largest tilt of the joint axis towards the node's local X axis, in radians (either way). 0 to 162 degrees (0.9 π); Box3D clamps there. Used while [member elliptical_cone_enabled] is on. Applies live, so a limit can follow another joint (for example hip flexion following the knee).
+			Elliptical cone: the largest tilt of the joint axis towards the node's local X axis, in radians (either way, or towards +X only while [member asymmetric_cone_enabled] is on). 0 to 162 degrees (0.9 π); Box3D clamps there. Used while [member elliptical_cone_enabled] is on. Applies live, so a limit can follow another joint (for example hip flexion following the knee).
 		</member>
 		<member name="cone_angle_y" type="float" setter="set_cone_angle_y" getter="get_cone_angle_y" default="0.0">
-			Elliptical cone: the largest tilt of the joint axis towards the node's local Y axis, in radians (either way). 0 to 162 degrees (0.9 π). Used while [member elliptical_cone_enabled] is on. Applies live.
+			Elliptical cone: the largest tilt of the joint axis towards the node's local Y axis, in radians (either way, or towards +Y only while [member asymmetric_cone_enabled] is on). 0 to 162 degrees (0.9 π). Used while [member elliptical_cone_enabled] is on. Applies live.
+		</member>
+		<member name="cone_angle_negative_x" type="float" setter="set_cone_angle_negative_x" getter="get_cone_angle_negative_x" default="0.0">
+			Asymmetric cone: the largest tilt of the joint axis towards the node's local -X axis, in radians. 0 to 162 degrees (0.9 π). Used while [member asymmetric_cone_enabled] is on, when [member cone_angle_x] is the limit towards +X. Applies live, so one side of a range can follow another joint without moving the node.
+		</member>
+		<member name="cone_angle_negative_y" type="float" setter="set_cone_angle_negative_y" getter="get_cone_angle_negative_y" default="0.0">
+			Asymmetric cone: the largest tilt of the joint axis towards the node's local -Y axis, in radians. 0 to 162 degrees (0.9 π). Used while [member asymmetric_cone_enabled] is on, when [member cone_angle_y] is the limit towards +Y. Applies live.
 		</member>
 		<member name="cone_limit_enabled" type="bool" setter="set_cone_limit_enabled" getter="get_cone_limit_enabled" default="false">
 			Restricts how far the joint axis may swing away from its rest direction.
 		</member>
 		<member name="elliptical_cone_enabled" type="bool" setter="set_elliptical_cone_enabled" getter="get_elliptical_cone_enabled" default="false">
-			Makes the cone limit elliptical: the joint axis may tilt up to [member cone_angle_x] towards the node's local X axis and up to [member cone_angle_y] towards its local Y axis, along an ellipse in between ([method get_current_cone_angles] reads the tilt), instead of one circular [member cone_angle]. Each angle may exceed 90 degrees. The ellipse is centred on the node's Z axis: for a range that reaches further one way than the other, turn the node so its Z axis points at the middle of the range. Only used while [member cone_limit_enabled] is on. Off (the default) leaves the circular cone exactly as it was.
+			Makes the cone limit elliptical: the joint axis may tilt up to [member cone_angle_x] towards the node's local X axis and up to [member cone_angle_y] towards its local Y axis, along an ellipse in between ([method get_current_cone_angles] reads the tilt), instead of one circular [member cone_angle]. Each angle may exceed 90 degrees. The ellipse is centred on the node's Z axis: for a range that reaches further one way than the other, turn on [member asymmetric_cone_enabled] (or turn the node so its Z axis points at the middle of the range). Only used while [member cone_limit_enabled] is on. Off (the default) leaves the circular cone exactly as it was.
 		</member>
 		<member name="friction_torque" type="float" setter="set_friction_torque" getter="get_friction_torque" default="0.0">
 			Dry friction in the joint, in newton-metres: a torque that resists any rotation, so a ragdoll limb settles instead of swinging forever. 0 is frictionless.

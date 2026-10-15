@@ -366,6 +366,13 @@ class Box3DBallJoint : public Box3DJoint {
 	bool elliptical_cone_enabled = false;
 	double cone_angle_x = 0.0;
 	double cone_angle_y = 0.0;
+	// Asymmetric cone (b3SphericalJointDef.enableAsymmetricCone): when on, the
+	// elliptical cone_angle_x / cone_angle_y bound the swing towards the node's
+	// local +X / +Y axis and the two angles below towards -X / -Y, a
+	// quarter-ellipse per quadrant. Radians.
+	bool asymmetric_cone_enabled = false;
+	double cone_angle_negative_x = 0.0;
+	double cone_angle_negative_y = 0.0;
 	bool twist_limit_enabled = false;
 	double twist_lower = 0.0; // radians
 	double twist_upper = 0.0; // radians
@@ -414,6 +421,12 @@ public:
 	double get_cone_angle_x() const;
 	void set_cone_angle_y(double p_v);
 	double get_cone_angle_y() const;
+	void set_asymmetric_cone_enabled(bool p_v);
+	bool get_asymmetric_cone_enabled() const;
+	void set_cone_angle_negative_x(double p_v);
+	double get_cone_angle_negative_x() const;
+	void set_cone_angle_negative_y(double p_v);
+	double get_cone_angle_negative_y() const;
 	void set_twist_limit_enabled(bool p_v);
 	bool get_twist_limit_enabled() const;
 	void set_twist_lower(double p_v);

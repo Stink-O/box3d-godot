@@ -1210,6 +1210,9 @@ b3JointId Box3DBallJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3Bod
 	def.enableEllipticalCone = elliptical_cone_enabled;
 	def.coneAngleX = (float)cone_angle_x;
 	def.coneAngleY = (float)cone_angle_y;
+	def.enableAsymmetricCone = asymmetric_cone_enabled;
+	def.coneAngleNegativeX = (float)cone_angle_negative_x;
+	def.coneAngleNegativeY = (float)cone_angle_negative_y;
 	def.armature = (float)armature;
 	def.enableTwistLimit = twist_limit_enabled;
 	def.lowerTwistAngle = (float)twist_lower;
@@ -1316,6 +1319,32 @@ void Box3DBallJoint::set_cone_angle_y(double p_v) {
 	}
 }
 double Box3DBallJoint::get_cone_angle_y() const { return cone_angle_y; }
+
+void Box3DBallJoint::set_asymmetric_cone_enabled(bool p_v) {
+	asymmetric_cone_enabled = p_v;
+	if (joint_live()) {
+		b3SphericalJoint_EnableAsymmetricCone(joint_id, p_v);
+	}
+}
+bool Box3DBallJoint::get_asymmetric_cone_enabled() const { return asymmetric_cone_enabled; }
+
+void Box3DBallJoint::set_cone_angle_negative_x(double p_v) {
+	cone_angle_negative_x = p_v;
+	if (joint_live()) {
+		b3SphericalJoint_SetAsymmetricConeLimits(joint_id, (float)cone_angle_x, (float)cone_angle_negative_x,
+				(float)cone_angle_y, (float)cone_angle_negative_y);
+	}
+}
+double Box3DBallJoint::get_cone_angle_negative_x() const { return cone_angle_negative_x; }
+
+void Box3DBallJoint::set_cone_angle_negative_y(double p_v) {
+	cone_angle_negative_y = p_v;
+	if (joint_live()) {
+		b3SphericalJoint_SetAsymmetricConeLimits(joint_id, (float)cone_angle_x, (float)cone_angle_negative_x,
+				(float)cone_angle_y, (float)cone_angle_negative_y);
+	}
+}
+double Box3DBallJoint::get_cone_angle_negative_y() const { return cone_angle_negative_y; }
 
 void Box3DBallJoint::set_twist_limit_enabled(bool p_v) {
 	twist_limit_enabled = p_v;
@@ -1505,6 +1534,12 @@ void Box3DBallJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_cone_angle_x"), &Box3DBallJoint::get_cone_angle_x);
 	ClassDB::bind_method(D_METHOD("set_cone_angle_y", "radians"), &Box3DBallJoint::set_cone_angle_y);
 	ClassDB::bind_method(D_METHOD("get_cone_angle_y"), &Box3DBallJoint::get_cone_angle_y);
+	ClassDB::bind_method(D_METHOD("set_asymmetric_cone_enabled", "enabled"), &Box3DBallJoint::set_asymmetric_cone_enabled);
+	ClassDB::bind_method(D_METHOD("get_asymmetric_cone_enabled"), &Box3DBallJoint::get_asymmetric_cone_enabled);
+	ClassDB::bind_method(D_METHOD("set_cone_angle_negative_x", "radians"), &Box3DBallJoint::set_cone_angle_negative_x);
+	ClassDB::bind_method(D_METHOD("get_cone_angle_negative_x"), &Box3DBallJoint::get_cone_angle_negative_x);
+	ClassDB::bind_method(D_METHOD("set_cone_angle_negative_y", "radians"), &Box3DBallJoint::set_cone_angle_negative_y);
+	ClassDB::bind_method(D_METHOD("get_cone_angle_negative_y"), &Box3DBallJoint::get_cone_angle_negative_y);
 	ClassDB::bind_method(D_METHOD("set_twist_limit_enabled", "enabled"), &Box3DBallJoint::set_twist_limit_enabled);
 	ClassDB::bind_method(D_METHOD("get_twist_limit_enabled"), &Box3DBallJoint::get_twist_limit_enabled);
 	ClassDB::bind_method(D_METHOD("set_twist_lower", "radians"), &Box3DBallJoint::set_twist_lower);
@@ -1549,6 +1584,10 @@ void Box3DBallJoint::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "elliptical_cone_enabled"), "set_elliptical_cone_enabled", "get_elliptical_cone_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cone_angle_x", PROPERTY_HINT_RANGE, "0,162,0.1,radians_as_degrees"), "set_cone_angle_x", "get_cone_angle_x");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cone_angle_y", PROPERTY_HINT_RANGE, "0,162,0.1,radians_as_degrees"), "set_cone_angle_y", "get_cone_angle_y");
+	// Asymmetric cone: cone_angle_x / _y become the +X / +Y limits, these the -X / -Y ones.
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "asymmetric_cone_enabled"), "set_asymmetric_cone_enabled", "get_asymmetric_cone_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cone_angle_negative_x", PROPERTY_HINT_RANGE, "0,162,0.1,radians_as_degrees"), "set_cone_angle_negative_x", "get_cone_angle_negative_x");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cone_angle_negative_y", PROPERTY_HINT_RANGE, "0,162,0.1,radians_as_degrees"), "set_cone_angle_negative_y", "get_cone_angle_negative_y");
 	ADD_GROUP("Twist Limit", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "twist_limit_enabled"), "set_twist_limit_enabled", "get_twist_limit_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "twist_lower", PROPERTY_HINT_RANGE, "-180,180,0.1,radians_as_degrees"), "set_twist_lower", "get_twist_lower");
