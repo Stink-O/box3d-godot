@@ -224,6 +224,28 @@ float b3RevoluteJoint_GetMotorTorque( b3JointId jointId )
 	return world->inv_h * base->revoluteJoint.motorImpulse;
 }
 
+void b3RevoluteJoint_SetArmature( b3JointId jointId, float armature )
+{
+	B3_ASSERT( b3IsValidFloat( armature ) && armature >= 0.0f );
+	b3World* world = b3GetWorld( jointId.world0 );
+	B3_REC( world, RevoluteJointSetArmature, jointId, armature );
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_revoluteJoint );
+	if ( armature != base->revoluteJoint.armature )
+	{
+		// The armature turns with the hinge, so it starts at the current hinge speed
+		b3WorldTransform transformA = b3GetBodyTransform( world, base->bodyIdA );
+		b3Vec3 axis = b3RotateVector( b3MulQuat( transformA.q, base->localFrameA.q ), b3Vec3_axisZ );
+		base->revoluteJoint.armatureVelocity = b3Dot( b3GetJointRelativeAngularVelocity( world, base ), axis );
+	}
+	base->revoluteJoint.armature = armature;
+}
+
+float b3RevoluteJoint_GetArmature( b3JointId jointId )
+{
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_revoluteJoint );
+	return base->revoluteJoint.armature;
+}
+
 b3Vec3 b3GetRevoluteJointForce( b3World* world, b3JointSim* base )
 {
 	b3Vec3 force = b3MulSV( world->inv_h, base->revoluteJoint.linearImpulse );
@@ -245,14 +267,14 @@ b3Vec3 b3GetRevoluteJointTorque( b3World* world, b3JointSim* base )
 	joint->perpAxisY = b3MulSV(
 		0.5f, b3RotateVector( joint->frameA.q, b3Add( b3MulSV( relQ.s, b3Vec3_axisY ), b3Cross( relQ.v, b3Vec3_axisY ) ) ) );
 
-	float axialImpulse = joint->springImpulse + joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
+	float axialImpulse =
+		joint->springImpulse + joint->motorImpulse + joint->armatureImpulse + joint->lowerImpulse - joint->upperImpulse;
 	b3Vec3 angularImpulse =
 		b3Add( b3MulSV( joint->perpImpulse.x, joint->perpAxisX ), b3MulSV( joint->perpImpulse.y, joint->perpAxisY ) );
 	angularImpulse = b3MulAdd( angularImpulse, axialImpulse, joint->rotationAxisZ );
 
 	// todo add pivot torque
-	b3Vec3 impulse = b3MulAdd( angularImpulse,
-							   joint->springImpulse + joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse, axis );
+	b3Vec3 impulse = b3MulAdd( angularImpulse, axialImpulse, axis );
 	b3Vec3 torque = b3MulSV( world->inv_h, impulse );
 	return torque;
 }
@@ -306,6 +328,12 @@ void b3PrepareRevoluteJoint( b3JointSim* base, b3StepContext* context )
 		float k = b3Dot( rotationAxisZ, b3MulMV( invInertiaSum, rotationAxisZ ) );
 		joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
 		joint->rotationAxisZ = rotationAxisZ;
+
+		if ( joint->armature > 0.0f )
+		{
+			// 1 / (k + 1 / armature), see the armature in b3SolveRevoluteJoint
+			joint->armatureMass = 1.0f / ( k + 1.0f / joint->armature );
+		}
 	}
 
 	b3Quat relQ = b3InvMulQuat( joint->frameA.q, joint->frameB.q );
@@ -355,6 +383,9 @@ void b3WarmStartRevoluteJoint( b3JointSim* base, b3StepContext* context )
 
 	b3Vec3 rA = b3RotateVector( stateA->deltaRotation, joint->frameA.p );
 	b3Vec3 rB = b3RotateVector( stateB->deltaRotation, joint->frameB.p );
+
+	// The armature is not warm started. Its momentum is carried by the armature velocity.
+	joint->armatureImpulse = 0.0f;
 
 	float axialImpulse = joint->springImpulse + joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
 	b3Vec3 angularImpulse =
@@ -410,6 +441,27 @@ void b3SolveRevoluteJoint( b3JointSim* base, b3StepContext* context, bool useBia
 	}
 
 	b3Quat relQ = b3InvMulQuat( quatA, quatB );
+
+	// Solve armature
+	if ( joint->armature > 0.0f && fixedRotation == false && useBias == false )
+	{
+		// The armature is a rotor with inertia armature that turns with the hinge and keeps its speed
+		// between sub-steps. It is coupled rigidly to the hinge speed: a perfectly inelastic exchange of
+		// momentum, so it resists angular acceleration about the hinge axis and cannot add energy.
+		// It is only solved in the relax iterations, so it never exchanges momentum with the velocity
+		// the position bias adds. The relax iterations remove that velocity from the bodies but would
+		// leave it in the rotor.
+		// impulse = -(cdot - armatureVelocity) / (k + 1 / armature)
+		float cdot = b3Dot( b3Sub( wB, wA ), joint->rotationAxisZ );
+		float impulse = -joint->armatureMass * ( cdot - joint->armatureVelocity );
+		joint->armatureImpulse += impulse;
+
+		// The rotor receives the opposite impulse
+		joint->armatureVelocity -= impulse / joint->armature;
+
+		wA = b3MulSub( wA, impulse, b3MulMV( iA, joint->rotationAxisZ ) );
+		wB = b3MulAdd( wB, impulse, b3MulMV( iB, joint->rotationAxisZ ) );
+	}
 
 	// Solve spring
 	if ( joint->enableSpring && fixedRotation == false )

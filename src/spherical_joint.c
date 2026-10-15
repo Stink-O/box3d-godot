@@ -67,6 +67,62 @@ float b3SphericalJoint_GetConeAngle( b3JointId jointId )
 	return b3GetSwingAngle( relQ );
 }
 
+void b3SphericalJoint_EnableEllipticalCone( b3JointId jointId, bool enableElliptical )
+{
+	b3World* world = b3GetWorld( jointId.world0 );
+	B3_REC( world, SphericalJointEnableEllipticalCone, jointId, enableElliptical );
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+	if ( enableElliptical != base->sphericalJoint.enableEllipticalCone )
+	{
+		base->sphericalJoint.swingImpulse = 0.0f;
+	}
+	base->sphericalJoint.enableEllipticalCone = enableElliptical;
+}
+
+bool b3SphericalJoint_IsEllipticalConeEnabled( b3JointId jointId )
+{
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+	return base->sphericalJoint.enableEllipticalCone;
+}
+
+void b3SphericalJoint_SetEllipticalConeLimits( b3JointId jointId, float angleXRadians, float angleYRadians )
+{
+	B3_ASSERT( b3IsValidFloat( angleXRadians ) && b3IsValidFloat( angleYRadians ) );
+	b3World* world = b3GetWorld( jointId.world0 );
+	B3_REC( world, SphericalJointSetEllipticalConeLimits, jointId, angleXRadians, angleYRadians );
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+
+	// The tilt parameterization is singular at a swing of pi
+	base->sphericalJoint.coneAngleX = b3ClampFloat( angleXRadians, 0.0f, 0.9f * B3_PI );
+	base->sphericalJoint.coneAngleY = b3ClampFloat( angleYRadians, 0.0f, 0.9f * B3_PI );
+}
+
+float b3SphericalJoint_GetConeLimitX( b3JointId jointId )
+{
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+	return base->sphericalJoint.coneAngleX;
+}
+
+float b3SphericalJoint_GetConeLimitY( b3JointId jointId )
+{
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+	return base->sphericalJoint.coneAngleY;
+}
+
+b3Vec2 b3SphericalJoint_GetConeAngles( b3JointId jointId )
+{
+	b3World* world = b3GetWorld( jointId.world0 );
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+	b3WorldTransform transformA = b3GetBodyTransform( world, base->bodyIdA );
+	b3WorldTransform transformB = b3GetBodyTransform( world, base->bodyIdB );
+
+	b3Quat quatA = b3MulQuat( transformA.q, base->localFrameA.q );
+	b3Quat quatB = b3MulQuat( transformB.q, base->localFrameB.q );
+	b3Quat relQ = b3InvMulQuat( quatA, quatB );
+
+	return b3GetSwingTilt( relQ );
+}
+
 void b3SphericalJoint_EnableTwistLimit( b3JointId jointId, bool enableLimit )
 {
 	b3World* world = b3GetWorld( jointId.world0 );
@@ -244,6 +300,26 @@ float b3SphericalJoint_GetMaxMotorTorque( b3JointId jointId )
 	return base->sphericalJoint.maxMotorTorque;
 }
 
+void b3SphericalJoint_SetArmature( b3JointId jointId, float armature )
+{
+	B3_ASSERT( b3IsValidFloat( armature ) && armature >= 0.0f );
+	b3World* world = b3GetWorld( jointId.world0 );
+	B3_REC( world, SphericalJointSetArmature, jointId, armature );
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+	if ( armature != base->sphericalJoint.armature )
+	{
+		// The armature turns with the joint, so it starts at the current relative angular velocity
+		base->sphericalJoint.armatureVelocity = b3GetJointRelativeAngularVelocity( world, base );
+	}
+	base->sphericalJoint.armature = armature;
+}
+
+float b3SphericalJoint_GetArmature( b3JointId jointId )
+{
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+	return base->sphericalJoint.armature;
+}
+
 b3Vec3 b3SphericalJoint_GetMotorTorque( b3JointId jointId )
 {
 	b3World* world = b3GetWorld( jointId.world0 );
@@ -270,11 +346,112 @@ b3Vec3 b3GetSphericalJointTorque( b3World* world, b3JointSim* base )
 	b3Vec3 swingAxis = b3Normalize( b3Cross( coneAxis, twistAxis ) );
 
 	b3SphericalJoint* joint = &base->sphericalJoint;
+	if ( joint->enableEllipticalCone )
+	{
+		// The elliptical cone pushes along its stored Jacobian
+		swingAxis = joint->swingAxis;
+	}
+
 	b3Vec3 impulse = b3Add( joint->springImpulse, joint->motorImpulse );
+	impulse = b3Add( impulse, joint->armatureImpulse );
 	impulse = b3MulAdd( impulse, joint->lowerTwistImpulse - joint->upperTwistImpulse, twistAxis );
 	impulse = b3MulAdd( impulse, joint->swingImpulse, swingAxis );
 	b3Vec3 torque = b3MulSV( world->inv_h, impulse );
 	return torque;
+}
+
+b3Vec2 b3GetSwingTilt( b3Quat relQ )
+{
+	// Remove the twist about z: relQ = swingQ * twistQ with swingQ = (sx, sy, 0, sw)
+	float sw = sqrtf( relQ.v.z * relQ.v.z + relQ.s * relQ.s );
+	float sinHalfSwing = sqrtf( relQ.v.x * relQ.v.x + relQ.v.y * relQ.v.y );
+	if ( sinHalfSwing < FLT_EPSILON || sw < FLT_EPSILON )
+	{
+		// No swing, or a swing of pi with no defined direction
+		return (b3Vec2){ 0.0f, 0.0f };
+	}
+
+	// Cosine and sine of half the twist angle. The polarity of relQ cancels.
+	float c = relQ.s / sw;
+	float s = relQ.v.z / sw;
+	float sx = c * relQ.v.x - s * relQ.v.y;
+	float sy = s * relQ.v.x + c * relQ.v.y;
+
+	// The frameB z-axis tips towards e = (ay, -ax), where (ax, ay) is the swing axis
+	float swingAngle = 2.0f * b3Atan2( sinHalfSwing, sw );
+	float scale = swingAngle / sinHalfSwing;
+	return (b3Vec2){ scale * sy, -scale * sx };
+}
+
+// Elliptical cone limit
+// The swing is the minimal rotation taking the frameA z-axis onto the frameB z-axis: an angle theta about
+// the swing axis a, which lies in the frameA xy-plane. The frameB z-axis then tips towards e = cross(a, z)
+// and the swing is described by its tilt p = theta * e. The limit is the ellipse
+//   (p.x / angleX)^2 + (p.y / angleY)^2 <= 1
+// which is the circular cone of half-angle theta when angleX == angleY. The tilt is well defined for any
+// swing below pi, so the cone may be wider than a hemisphere.
+//
+// With g = sqrt((p.x / angleX)^2 + (p.y / angleY)^2) the constraint is the first order distance to the
+// ellipse along its normal n = grad(g) / |grad(g)|:
+//   C = (1 - g) / |grad(g)|
+// positive inside, in radians. It is exact on the ellipse, and for a circle it is angle - theta.
+//
+// Rates, with w the relative angular velocity in frameA coordinates and phi the azimuth of e:
+//   dtheta/dt = dot(w, a)
+//   dphi/dt = dot(w, z - cot(theta) * e)
+//   dp/dt = dtheta/dt * e + theta * dphi/dt * a
+// so dC/dt = -dot(n, dp/dt) = -dot(w, J) with the Jacobian
+//   J = dot(n, e) * a + dot(n, a) * (theta * z - theta * cot(theta) * e)
+// For a circle n = e and J = a, the swing axis of the circular cone.
+float b3GetEllipticalConeConstraint( b3Quat relQ, float angleX, float angleY, b3Vec3* jacobian )
+{
+	*jacobian = b3Vec3_zero;
+
+	float sw = sqrtf( relQ.v.z * relQ.v.z + relQ.s * relQ.s );
+	float sinHalfSwing = sqrtf( relQ.v.x * relQ.v.x + relQ.v.y * relQ.v.y );
+	if ( sinHalfSwing < FLT_EPSILON )
+	{
+		// No swing: inside by at least the smaller angle
+		return b3MinFloat( angleX, angleY );
+	}
+
+	if ( sw < FLT_EPSILON )
+	{
+		// A swing of pi has no direction to push along
+		return b3MinFloat( angleX, angleY ) - B3_PI;
+	}
+
+	// A zero angle locks the swing in that direction
+	float limitX = b3MaxFloat( angleX, 0.001f );
+	float limitY = b3MaxFloat( angleY, 0.001f );
+
+	float c = relQ.s / sw;
+	float s = relQ.v.z / sw;
+	b3Vec2 axis = { ( c * relQ.v.x - s * relQ.v.y ) / sinHalfSwing, ( s * relQ.v.x + c * relQ.v.y ) / sinHalfSwing };
+	b3Vec2 tip = { axis.y, -axis.x };
+
+	float swingAngle = 2.0f * b3Atan2( sinHalfSwing, sw );
+	float u = swingAngle * tip.x / limitX;
+	float v = swingAngle * tip.y / limitY;
+	float g = sqrtf( u * u + v * v );
+
+	b3Vec2 gradient = { u / ( g * limitX ), v / ( g * limitY ) };
+	float gradientLength = sqrtf( gradient.x * gradient.x + gradient.y * gradient.y );
+	b3Vec2 normal = { gradient.x / gradientLength, gradient.y / gradientLength };
+
+	float normalTip = normal.x * tip.x + normal.y * tip.y;
+	float normalAxis = normal.x * axis.x + normal.y * axis.y;
+
+	// theta * cot(theta) from the half angle, which tends to 1 for a small swing
+	float sinSwing = 2.0f * sinHalfSwing * sw;
+	float cosSwing = sw * sw - sinHalfSwing * sinHalfSwing;
+	float thetaCot = swingAngle * cosSwing / sinSwing;
+
+	jacobian->x = normalTip * axis.x - normalAxis * thetaCot * tip.x;
+	jacobian->y = normalTip * axis.y - normalAxis * thetaCot * tip.y;
+	jacobian->z = normalAxis * swingAngle;
+
+	return ( 1.0f - g ) / gradientLength;
 }
 
 // Point-to-point constraint
@@ -336,7 +513,19 @@ void b3PrepareSphericalJoint( b3JointSim* base, b3StepContext* context )
 	// Twist axis is the z-axis of body B.
 	b3Vec3 twistAxis = b3RotateVector( joint->frameB.q, b3Vec3_axisZ );
 
-	if ( joint->enableConeLimit )
+	if ( joint->enableConeLimit && joint->enableEllipticalCone )
+	{
+		b3Quat relQ = b3InvMulQuat( joint->frameA.q, joint->frameB.q );
+		b3Vec3 jacobian;
+		b3GetEllipticalConeConstraint( relQ, joint->coneAngleX, joint->coneAngleY, &jacobian );
+
+		// Jacobian may be zero
+		b3Vec3 swingAxis = b3RotateVector( joint->frameA.q, jacobian );
+		float k = b3Dot( swingAxis, b3MulMV( invInertiaSum, swingAxis ) );
+		joint->swingMass = k > 0.0f ? 1.0f / k : 0.0f;
+		joint->swingAxis = swingAxis;
+	}
+	else if ( joint->enableConeLimit )
 	{
 		// Swing axis may be zero
 		b3Vec3 swingAxis = b3Normalize( b3Cross( coneAxis, twistAxis ) );
@@ -366,6 +555,17 @@ void b3PrepareSphericalJoint( b3JointSim* base, b3StepContext* context )
 	else
 	{
 		joint->rotationMass = b3Mat3_zero;
+	}
+
+	if ( joint->armature > 0.0f && base->fixedRotation == false )
+	{
+		// K + I / armature, see the armature in b3SolveSphericalJoint
+		float invArmature = 1.0f / joint->armature;
+		b3Matrix3 k = invInertiaSum;
+		k.cx.x += invArmature;
+		k.cy.y += invArmature;
+		k.cz.z += invArmature;
+		joint->armatureMass = b3InvertMatrix( k );
 	}
 
 	joint->springSoftness = b3MakeSoft( joint->hertz, joint->dampingRatio, context->h );
@@ -405,6 +605,9 @@ void b3WarmStartSphericalJoint( b3JointSim* base, b3StepContext* context )
 
 	b3Vec3 rA = b3RotateVector( stateA->deltaRotation, joint->frameA.p );
 	b3Vec3 rB = b3RotateVector( stateB->deltaRotation, joint->frameB.p );
+
+	// The armature is not warm started. Its momentum is carried by the armature velocity.
+	joint->armatureImpulse = b3Vec3_zero;
 
 	b3Vec3 angularImpulse = b3Add( joint->springImpulse, joint->motorImpulse );
 	angularImpulse = b3MulSub( angularImpulse, joint->swingImpulse, joint->swingAxis );
@@ -453,6 +656,27 @@ void b3SolveSphericalJoint( b3JointSim* base, b3StepContext* context, bool useBi
 	b3Quat quatB = b3MulQuat( stateB->deltaRotation, joint->frameB.q );
 
 	b3Quat relQ = b3InvMulQuat( quatA, quatB );
+
+	// Solve armature
+	if ( joint->armature > 0.0f && fixedRotation == false && useBias == false )
+	{
+		// The armature is a rotor with inertia armature * I that turns with the relative rotation and
+		// keeps its velocity between sub-steps. It is coupled rigidly to the relative angular velocity:
+		// a perfectly inelastic exchange of momentum, so it resists relative angular acceleration and
+		// cannot add energy. It is only solved in the relax iterations, so it never exchanges momentum
+		// with the velocity the position bias adds. The relax iterations remove that velocity from the
+		// bodies but would leave it in the rotor.
+		// impulse = -inv(K + I / armature) * (cdot - armatureVelocity)
+		b3Vec3 cdot = b3Sub( wB, wA );
+		b3Vec3 impulse = b3Neg( b3MulMV( joint->armatureMass, b3Sub( cdot, joint->armatureVelocity ) ) );
+		joint->armatureImpulse = b3Add( joint->armatureImpulse, impulse );
+
+		// The rotor receives the opposite impulse
+		joint->armatureVelocity = b3MulSub( joint->armatureVelocity, 1.0f / joint->armature, impulse );
+
+		wA = b3Sub( wA, b3MulMV( iA, impulse ) );
+		wB = b3Add( wB, b3MulMV( iB, impulse ) );
+	}
 
 	// Solve spring
 	if ( joint->enableSpring && fixedRotation == false )
@@ -564,17 +788,38 @@ void b3SolveSphericalJoint( b3JointSim* base, b3StepContext* context, bool useBi
 
 	if ( joint->enableConeLimit && fixedRotation == false )
 	{
-		float swingAngle = b3GetSwingAngle( relQ );
+		b3Vec3 swingAxis;
+		float swingMass;
+		float c;
 
-		// todo does an updated swing axis help?
-		// b3Vec3 axisA = b3RotateVector( quatA, b3Vec3_axisZ );
-		// b3Vec3 axisB = b3RotateVector( quatB, b3Vec3_axisZ );
-		// b3Vec3 swingAxis = b3Normalize( b3Cross( axisA, axisB ) );
-		// joint->swingAxis = swingAxis;
+		if ( joint->enableEllipticalCone )
+		{
+			// The ellipse normal turns along the boundary, so the Jacobian is updated every sub-step
+			b3Vec3 jacobian;
+			c = b3GetEllipticalConeConstraint( relQ, joint->coneAngleX, joint->coneAngleY, &jacobian );
+			swingAxis = b3RotateVector( quatA, jacobian );
+			float k = b3Dot( swingAxis, b3MulMV( b3AddMM( iA, iB ), swingAxis ) );
+			swingMass = k > 0.0f ? 1.0f / k : 0.0f;
 
-		b3Vec3 swingAxis = joint->swingAxis;
+			// Needed for warm starting
+			joint->swingAxis = swingAxis;
+		}
+		else
+		{
+			float swingAngle = b3GetSwingAngle( relQ );
 
-		float c = joint->coneAngle - swingAngle;
+			// todo does an updated swing axis help?
+			// b3Vec3 axisA = b3RotateVector( quatA, b3Vec3_axisZ );
+			// b3Vec3 axisB = b3RotateVector( quatB, b3Vec3_axisZ );
+			// b3Vec3 swingAxis = b3Normalize( b3Cross( axisA, axisB ) );
+			// joint->swingAxis = swingAxis;
+
+			swingAxis = joint->swingAxis;
+			swingMass = joint->swingMass;
+
+			c = joint->coneAngle - swingAngle;
+		}
+
 		float bias = 0.0f;
 		float massScale = 1.0f;
 		float impulseScale = 0.0f;
@@ -593,7 +838,7 @@ void b3SolveSphericalJoint( b3JointSim* base, b3StepContext* context, bool useBi
 		// sign flipped on Cdot
 		float cdot = b3Dot( b3Sub( wA, wB ), swingAxis );
 		float oldImpulse = joint->swingImpulse;
-		float deltaImpulse = -massScale * joint->swingMass * ( cdot + bias ) - impulseScale * oldImpulse;
+		float deltaImpulse = -massScale * swingMass * ( cdot + bias ) - impulseScale * oldImpulse;
 		joint->swingImpulse = b3MaxFloat( oldImpulse + deltaImpulse, 0.0f );
 		deltaImpulse = joint->swingImpulse - oldImpulse;
 
@@ -724,7 +969,30 @@ void b3DrawSphericalJoint( b3DebugDraw* draw, b3JointSim* base, b3WorldTransform
 	}
 
 	// Swing limit
-	if ( joint->enableConeLimit )
+	if ( joint->enableConeLimit && joint->enableEllipticalCone )
+	{
+		const float radius = 0.1f * scale;
+		b3Vec3 vertex1 = b3Vec3_zero;
+		for ( int index = 0; index <= kSliceCount; ++index )
+		{
+			// A point on the ellipse in tilt space, then the direction of the frameB z-axis
+			float phi = 2.0f * index / kSliceCount * B3_PI;
+			float tiltX = joint->coneAngleX * b3Cos( phi );
+			float tiltY = joint->coneAngleY * b3Sin( phi );
+			float swingAngle = sqrtf( tiltX * tiltX + tiltY * tiltY );
+			float alpha = swingAngle > 0.0f ? radius * b3Sin( swingAngle ) / swingAngle : 0.0f;
+			b3Vec3 vertex2 = { alpha * tiltX, alpha * tiltY, radius * b3Cos( swingAngle ) };
+
+			draw->DrawSegmentFcn( frameA.p, b3TransformWorldPoint( frameA, vertex2 ), b3_colorCyan, draw->context );
+			if ( index > 0 )
+			{
+				draw->DrawSegmentFcn( b3TransformWorldPoint( frameA, vertex1 ), b3TransformWorldPoint( frameA, vertex2 ),
+									  b3_colorCyan, draw->context );
+			}
+			vertex1 = vertex2;
+		}
+	}
+	else if ( joint->enableConeLimit )
 	{
 		const float radius = 0.1f * scale;
 		float coneRadius = radius * b3Sin( joint->coneAngle );

@@ -334,9 +334,9 @@ _Static_assert( sizeof( void* ) != 8 || sizeof( b3MotorJointDef ) == 168,
 				"b3MotorJointDef changed: update b3RecW_MOTORJOINTDEF and its reader together" );
 _Static_assert( sizeof( void* ) != 8 || sizeof( b3PrismaticJointDef ) == 152,
 				"b3PrismaticJointDef changed: update b3RecW_PRISMATICJOINTDEF and its reader together" );
-_Static_assert( sizeof( void* ) != 8 || sizeof( b3RevoluteJointDef ) == 152,
+_Static_assert( sizeof( void* ) != 8 || sizeof( b3RevoluteJointDef ) == 160,
 				"b3RevoluteJointDef changed: update b3RecW_REVOLUTEJOINTDEF and its reader together" );
-_Static_assert( sizeof( void* ) != 8 || sizeof( b3SphericalJointDef ) == 184,
+_Static_assert( sizeof( void* ) != 8 || sizeof( b3SphericalJointDef ) == 200,
 				"b3SphericalJointDef changed: update b3RecW_SPHERICALJOINTDEF and its reader together" );
 _Static_assert( sizeof( void* ) != 8 || sizeof( b3WeldJointDef ) == 128,
 				"b3WeldJointDef changed: update b3RecW_WELDJOINTDEF and its reader together" );
@@ -498,6 +498,7 @@ void b3RecW_REVOLUTEJOINTDEF( b3RecBuffer* buf, b3RevoluteJointDef v )
 	b3RecW_BOOL( buf, v.enableMotor );
 	b3RecW_F32( buf, v.maxMotorTorque );
 	b3RecW_F32( buf, v.motorSpeed );
+	b3RecW_F32( buf, v.armature );
 }
 
 void b3RecW_SPHERICALJOINTDEF( b3RecBuffer* buf, b3SphericalJointDef v )
@@ -515,6 +516,10 @@ void b3RecW_SPHERICALJOINTDEF( b3RecBuffer* buf, b3SphericalJointDef v )
 	b3RecW_BOOL( buf, v.enableMotor );
 	b3RecW_F32( buf, v.maxMotorTorque );
 	b3RecW_VEC3( buf, v.motorVelocity );
+	b3RecW_BOOL( buf, v.enableEllipticalCone );
+	b3RecW_F32( buf, v.coneAngleX );
+	b3RecW_F32( buf, v.coneAngleY );
+	b3RecW_F32( buf, v.armature );
 }
 
 void b3RecW_WELDJOINTDEF( b3RecBuffer* buf, b3WeldJointDef v )

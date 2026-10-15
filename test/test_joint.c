@@ -1,10 +1,14 @@
 // SPDX-FileCopyrightText: 2026 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "joint.h"
 #include "test_macros.h"
 
 #include "box3d/box3d.h"
 #include "box3d/math_functions.h"
+
+#include <float.h>
+#include <math.h>
 
 // One sub-test per joint type. Each creates the joint, exercises the shared
 // b3Joint_* API plus every type-specific accessor, then steps to make sure the
@@ -394,6 +398,10 @@ static int TestRevoluteJoint( void )
 	float motorTorque = b3RevoluteJoint_GetMotorTorque( jointId );
 	MAYBE_UNUSED( motorTorque );
 
+	ENSURE( b3RevoluteJoint_GetArmature( jointId ) == 0.0f );
+	b3RevoluteJoint_SetArmature( jointId, 0.25f );
+	ENSURE( b3RevoluteJoint_GetArmature( jointId ) == 0.25f );
+
 	return FinishJoint( jointId, f.worldId );
 }
 
@@ -461,7 +469,347 @@ static int TestSphericalJoint( void )
 	b3Vec3 motorTorque = b3SphericalJoint_GetMotorTorque( jointId );
 	MAYBE_UNUSED( motorTorque );
 
+	ENSURE( b3SphericalJoint_IsEllipticalConeEnabled( jointId ) == false );
+	b3SphericalJoint_EnableEllipticalCone( jointId, true );
+	ENSURE( b3SphericalJoint_IsEllipticalConeEnabled( jointId ) == true );
+
+	b3SphericalJoint_SetEllipticalConeLimits( jointId, 0.4f, 1.8f );
+	ENSURE( b3SphericalJoint_GetConeLimitX( jointId ) == 0.4f );
+	ENSURE( b3SphericalJoint_GetConeLimitY( jointId ) == 1.8f );
+
+	// Clamped below a swing of pi, where the tilt is singular
+	b3SphericalJoint_SetEllipticalConeLimits( jointId, 3.0f, -1.0f );
+	ENSURE( b3SphericalJoint_GetConeLimitX( jointId ) == 0.9f * B3_PI );
+	ENSURE( b3SphericalJoint_GetConeLimitY( jointId ) == 0.0f );
+	b3SphericalJoint_SetEllipticalConeLimits( jointId, 0.4f, 1.8f );
+
+	b3Vec2 coneAngles = b3SphericalJoint_GetConeAngles( jointId );
+	MAYBE_UNUSED( coneAngles );
+
+	ENSURE( b3SphericalJoint_GetArmature( jointId ) == 0.0f );
+	b3SphericalJoint_SetArmature( jointId, 0.25f );
+	ENSURE( b3SphericalJoint_GetArmature( jointId ) == 0.25f );
+
 	return FinishJoint( jointId, f.worldId );
+}
+
+// A unit cube of density 1 pinned at its center: the inertia about any axis through the
+// pivot is 1/6. A constant torque spins it up at torque / (1/6 + armature), at any sub-step count.
+static int TestArmatureAcceleration( void )
+{
+	const float inertia = 1.0f / 6.0f;
+	const float armature = 0.5f;
+	const float torque = 2.0f;
+	int subStepCounts[] = { 1, 4, 8 };
+
+	for ( int typeIndex = 0; typeIndex < 2; ++typeIndex )
+	{
+		for ( int i = 0; i < 3; ++i )
+		{
+			JointFixture f = CreateJointFixture();
+
+			b3JointId jointId;
+			b3Vec3 axis;
+			if ( typeIndex == 0 )
+			{
+				b3RevoluteJointDef def = b3DefaultRevoluteJointDef();
+				SetCommonFrames( &def.base, &f );
+				def.armature = armature;
+				jointId = b3CreateRevoluteJoint( f.worldId, &def );
+				axis = b3Vec3_axisZ;
+			}
+			else
+			{
+				b3SphericalJointDef def = b3DefaultSphericalJointDef();
+				SetCommonFrames( &def.base, &f );
+				def.armature = armature;
+				jointId = b3CreateSphericalJoint( f.worldId, &def );
+				axis = b3Normalize( (b3Vec3){ 1.0f, 2.0f, 3.0f } );
+			}
+
+			float timeStep = 1.0f / 60.0f;
+			for ( int step = 0; step < 60; ++step )
+			{
+				b3Body_ApplyTorque( f.bodyId, b3MulSV( torque, axis ), true );
+				b3World_Step( f.worldId, timeStep, subStepCounts[i] );
+			}
+
+			float expected = torque * 60.0f * timeStep / ( inertia + armature );
+			b3Vec3 w = b3Body_GetAngularVelocity( f.bodyId );
+			ENSURE_SMALL( b3Dot( w, axis ) - expected, 1.0e-3f * expected );
+			ENSURE_SMALL( b3Length( b3Sub( w, b3MulSV( b3Dot( w, axis ), axis ) ) ), 1.0e-3f * expected );
+
+			// The armature torque reported by the joint balances part of the applied torque
+			b3Vec3 jointTorque = b3Joint_GetConstraintTorque( jointId );
+			MAYBE_UNUSED( jointTorque );
+
+			b3DestroyWorld( f.worldId );
+		}
+	}
+
+	return 0;
+}
+
+// Energy of a five link pendulum with armature on every hinge never rises above its start. The
+// armature stores kinetic energy 0.5 * armature * w^2 for the hinge speed w, counted from the bodies.
+static int TestArmatureEnergy( void )
+{
+	enum
+	{
+		e_count = 5
+	};
+
+	int subStepCounts[] = { 1, 4, 16 };
+	float armatures[] = { 0.2f, 2.0f };
+	for ( int a = 0; a < 2; ++a )
+	{
+		for ( int i = 0; i < 3; ++i )
+		{
+			b3WorldDef worldDef = b3DefaultWorldDef();
+			worldDef.gravity = (b3Vec3){ 0.0f, -10.0f, 0.0f };
+			b3WorldId worldId = b3CreateWorld( &worldDef );
+
+			b3BodyDef groundDef = b3DefaultBodyDef();
+			b3BodyId groundId = b3CreateBody( worldId, &groundDef );
+
+			b3ShapeDef shapeDef = b3DefaultShapeDef();
+			shapeDef.density = 1000.0f;
+			shapeDef.filter.groupIndex = -1;
+			b3Capsule capsule = { { -0.45f, 0.0f, 0.0f }, { 0.45f, 0.0f, 0.0f }, 0.05f };
+
+			float armature = armatures[a];
+			b3BodyId bodyIds[e_count];
+			b3BodyId prevId = groundId;
+			b3Vec3 prevAnchor = { 0.0f, 0.0f, 0.0f };
+			for ( int k = 0; k < e_count; ++k )
+			{
+				b3BodyDef bodyDef = b3DefaultBodyDef();
+				bodyDef.type = b3_dynamicBody;
+				bodyDef.position = (b3Pos){ 0.5f + k, 0.0f, 0.0f };
+				bodyIds[k] = b3CreateBody( worldId, &bodyDef );
+				b3CreateCapsuleShape( bodyIds[k], &shapeDef, &capsule );
+
+				b3RevoluteJointDef def = b3DefaultRevoluteJointDef();
+				def.base.bodyIdA = prevId;
+				def.base.bodyIdB = bodyIds[k];
+				def.base.localFrameA.p = prevAnchor;
+				def.base.localFrameB.p = (b3Vec3){ -0.5f, 0.0f, 0.0f };
+				def.armature = armature;
+				b3CreateRevoluteJoint( worldId, &def );
+				prevId = bodyIds[k];
+				prevAnchor = (b3Vec3){ 0.5f, 0.0f, 0.0f };
+			}
+
+			// Energy scale: the chain's weight times its length
+			float scale = 10.0f * e_count * b3Body_GetMass( bodyIds[0] ) * e_count;
+
+			float maxEnergy = -FLT_MAX;
+			float startEnergy = 0.0f;
+			for ( int step = 0; step <= 600; ++step )
+			{
+				float energy = 0.0f;
+				for ( int k = 0; k < e_count; ++k )
+				{
+					b3MassData massData = b3Body_GetMassData( bodyIds[k] );
+					b3Vec3 v = b3Body_GetLinearVelocity( bodyIds[k] );
+					b3Vec3 w = b3Body_GetAngularVelocity( bodyIds[k] );
+					b3Pos p = b3Body_GetWorldCenter( bodyIds[k] );
+					ENSURE( b3IsValidVec3( v ) && b3IsValidVec3( w ) );
+
+					// Rotation stays about z, so the inertia about z is enough
+					float wPrev = k == 0 ? 0.0f : b3Body_GetAngularVelocity( bodyIds[k - 1] ).z;
+					energy += 0.5f * massData.mass * b3Dot( v, v ) + 0.5f * massData.inertia.cz.z * w.z * w.z;
+					energy += massData.mass * 10.0f * (float)p.y;
+					energy += 0.5f * armature * ( w.z - wPrev ) * ( w.z - wPrev );
+				}
+
+				if ( step == 0 )
+				{
+					startEnergy = energy;
+				}
+				maxEnergy = b3MaxFloat( maxEnergy, energy );
+
+				b3World_Step( worldId, 1.0f / 60.0f, subStepCounts[i] );
+			}
+
+			// Without armature the solver itself drifts by up to about 0.2 % of the scale here
+			ENSURE( maxEnergy <= startEnergy + 0.005f * scale );
+
+			b3DestroyWorld( worldId );
+		}
+	}
+
+	return 0;
+}
+
+// Axis-angle rotation with the C library sine and cosine. b3MakeQuatFromAxisAngle uses a fast
+// approximation, which is too coarse for checking the constraint against finite differences.
+static b3Quat MakeExactQuat( b3Vec3 axis, float radians )
+{
+	float s = sinf( 0.5f * radians );
+	return (b3Quat){ { s * axis.x, s * axis.y, s * axis.z }, cosf( 0.5f * radians ) };
+}
+
+// Build a relative rotation from a tilt (swing angle times the direction the z-axis tips towards)
+// and a twist about z.
+static b3Quat MakeTiltTwist( float tiltX, float tiltY, float twist )
+{
+	float swingAngle = sqrtf( tiltX * tiltX + tiltY * tiltY );
+	b3Quat swing = b3Quat_identity;
+	if ( swingAngle > 0.0f )
+	{
+		b3Vec3 axis = { -tiltY / swingAngle, tiltX / swingAngle, 0.0f };
+		swing = MakeExactQuat( axis, swingAngle );
+	}
+
+	return b3MulQuat( swing, MakeExactQuat( b3Vec3_axisZ, twist ) );
+}
+
+// Checks the elliptical cone constraint against finite differences, on the ellipse and with twist,
+// including cones wider than a hemisphere, and that a circle reduces to angle - swing.
+static int TestEllipticalConeJacobian( void )
+{
+	float limits[][2] = { { 0.4f, 1.2f }, { 1.9f, 0.6f }, { 0.7f, 0.7f }, { 2.4f, 1.5f } };
+	float twists[] = { 0.0f, 0.8f, -2.0f };
+	b3Vec3 rates[] = { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.3f, -0.5f, 0.8f } };
+	const float delta = 1.0e-3f;
+
+	for ( int l = 0; l < 4; ++l )
+	{
+		float angleX = limits[l][0];
+		float angleY = limits[l][1];
+		for ( int t = 0; t < 3; ++t )
+		{
+			for ( int p = 0; p < 12; ++p )
+			{
+				float phi = 0.3f + p * 2.0f * B3_PI / 12.0f;
+				b3Quat q = MakeTiltTwist( angleX * cosf( phi ), angleY * sinf( phi ), twists[t] );
+
+				b3Vec3 jacobian;
+				float c = b3GetEllipticalConeConstraint( q, angleX, angleY, &jacobian );
+				ENSURE_SMALL( c, 1.0e-4f );
+
+				b3Vec2 tilt = b3GetSwingTilt( q );
+				ENSURE_SMALL( tilt.x - angleX * cosf( phi ), 1.0e-4f );
+				ENSURE_SMALL( tilt.y - angleY * sinf( phi ), 1.0e-4f );
+
+				for ( int r = 0; r < 4; ++r )
+				{
+					// q' = exp(w * dt) * q for a relative angular velocity w in frameA coordinates
+					b3Vec3 w = rates[r];
+					float wLength = b3Length( w );
+					b3Vec3 wAxis = b3MulSV( 1.0f / wLength, w );
+					b3Quat qPlus = b3MulQuat( MakeExactQuat( wAxis, wLength * delta ), q );
+					b3Quat qMinus = b3MulQuat( MakeExactQuat( wAxis, -wLength * delta ), q );
+
+					b3Vec3 unused;
+					float cPlus = b3GetEllipticalConeConstraint( qPlus, angleX, angleY, &unused );
+					float cMinus = b3GetEllipticalConeConstraint( qMinus, angleX, angleY, &unused );
+					float rate = ( cPlus - cMinus ) / ( 2.0f * delta );
+					ENSURE_SMALL( rate + b3Dot( jacobian, w ), 2.0e-2f * ( 1.0f + b3Length( jacobian ) ) );
+				}
+			}
+		}
+	}
+
+	// A circle is the circular cone
+	for ( int p = 0; p < 8; ++p )
+	{
+		float phi = p * 0.7f;
+		float swingAngle = 0.1f + 0.2f * p;
+		b3Quat q = MakeTiltTwist( swingAngle * cosf( phi ), swingAngle * sinf( phi ), 0.5f );
+		b3Vec3 jacobian;
+		float c = b3GetEllipticalConeConstraint( q, 0.9f, 0.9f, &jacobian );
+		ENSURE_SMALL( c - ( 0.9f - b3GetSwingAngle( q ) ), 1.0e-4f );
+		ENSURE_SMALL( b3Length( jacobian ) - 1.0f, 1.0e-4f );
+	}
+
+	return 0;
+}
+
+// A ball joint driven by a motor into its elliptical cone comes to rest on the ellipse, also for a
+// cone wider than a hemisphere, and an elliptical cone with equal angles matches the circular cone.
+static int TestEllipticalConeLimit( void )
+{
+	// motor axis (frameA = world), cone angles, expected tilt (x, y), or a negative x to check the ellipse only
+	struct
+	{
+		b3Vec3 motor;
+		float angleX, angleY;
+		float tiltX, tiltY;
+	} cases[] = {
+		{ { 0.0f, 1.0f, 0.0f }, 0.4f, 1.2f, 0.4f, 0.0f },	// tip towards +x
+		{ { -1.0f, 0.0f, 0.0f }, 0.4f, 1.2f, 0.0f, 1.2f },	// tip towards +y
+		{ { 0.0f, -1.0f, 0.0f }, 2.0f, 0.5f, -2.0f, 0.0f }, // tip towards -x, past a hemisphere
+		{ { -1.0f, 1.0f, 0.0f }, 0.4f, 1.2f, -1.0f, -1.0f },
+	};
+
+	for ( int i = 0; i < 4; ++i )
+	{
+		JointFixture f = CreateJointFixture();
+
+		b3SphericalJointDef def = b3DefaultSphericalJointDef();
+		SetCommonFrames( &def.base, &f );
+		def.enableConeLimit = true;
+		def.enableEllipticalCone = true;
+		def.coneAngleX = cases[i].angleX;
+		def.coneAngleY = cases[i].angleY;
+		def.enableMotor = true;
+		def.motorVelocity = b3MulSV( 2.0f, cases[i].motor );
+		def.maxMotorTorque = 2.0f;
+		b3JointId jointId = b3CreateSphericalJoint( f.worldId, &def );
+
+		for ( int step = 0; step < 240; ++step )
+		{
+			b3World_Step( f.worldId, 1.0f / 60.0f, 4 );
+		}
+
+		b3Vec2 tilt = b3SphericalJoint_GetConeAngles( jointId );
+		if ( cases[i].tiltX != -1.0f || cases[i].tiltY != -1.0f )
+		{
+			ENSURE_SMALL( tilt.x - cases[i].tiltX, 0.02f );
+			ENSURE_SMALL( tilt.y - cases[i].tiltY, 0.02f );
+		}
+
+		float u = tilt.x / cases[i].angleX;
+		float v = tilt.y / cases[i].angleY;
+		ENSURE_SMALL( sqrtf( u * u + v * v ) - 1.0f, 0.03f );
+		ENSURE( b3Joint_GetAngularSeparation( jointId ) < 0.02f );
+
+		b3DestroyWorld( f.worldId );
+	}
+
+	// Equal angles: same rest swing as the circular cone
+	float swing[2];
+	for ( int elliptical = 0; elliptical < 2; ++elliptical )
+	{
+		JointFixture f = CreateJointFixture();
+
+		b3SphericalJointDef def = b3DefaultSphericalJointDef();
+		SetCommonFrames( &def.base, &f );
+		def.enableConeLimit = true;
+		def.coneAngle = 0.7f;
+		def.enableEllipticalCone = elliptical == 1;
+		def.coneAngleX = 0.7f;
+		def.coneAngleY = 0.7f;
+		def.enableMotor = true;
+		def.motorVelocity = (b3Vec3){ -1.0f, 2.0f, 0.5f };
+		def.maxMotorTorque = 2.0f;
+		b3JointId jointId = b3CreateSphericalJoint( f.worldId, &def );
+
+		for ( int step = 0; step < 240; ++step )
+		{
+			b3World_Step( f.worldId, 1.0f / 60.0f, 4 );
+		}
+
+		swing[elliptical] = b3SphericalJoint_GetConeAngle( jointId );
+		b3DestroyWorld( f.worldId );
+	}
+
+	ENSURE_SMALL( swing[0] - swing[1], 0.01f );
+	ENSURE_SMALL( swing[1] - 0.7f, 0.02f );
+
+	return 0;
 }
 
 static int TestWeldJoint( void )
@@ -680,6 +1028,10 @@ int JointTest( void )
 	RUN_SUBTEST( TestWheelJoint );
 	RUN_SUBTEST( TestCreateJointClearsContacts );
 	RUN_SUBTEST( TestNonDynamicJointDisable );
+	RUN_SUBTEST( TestArmatureAcceleration );
+	RUN_SUBTEST( TestArmatureEnergy );
+	RUN_SUBTEST( TestEllipticalConeJacobian );
+	RUN_SUBTEST( TestEllipticalConeLimit );
 
 	return 0;
 }

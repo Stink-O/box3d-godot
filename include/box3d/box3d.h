@@ -1523,6 +1523,13 @@ B3_API void b3RevoluteJoint_SetMaxMotorTorque( b3JointId jointId, float torque )
 /// Get the revolute joint maximum motor torque, usually in newton-meters
 B3_API float b3RevoluteJoint_GetMaxMotorTorque( b3JointId jointId );
 
+/// Set the revolute joint armature, the rotational inertia of the hinge motion that is not due to
+/// body mass, typically kg * m^2. Non-negative.
+B3_API void b3RevoluteJoint_SetArmature( b3JointId jointId, float armature );
+
+/// Get the revolute joint armature, typically kg * m^2
+B3_API float b3RevoluteJoint_GetArmature( b3JointId jointId );
+
 /**@}*/ // revolute_joint
 
 /**
@@ -1616,6 +1623,34 @@ B3_API void b3SphericalJoint_SetMaxMotorTorque( b3JointId jointId, float torque 
 
 /// Get the spherical joint maximum motor torque, usually in newton-meters
 B3_API float b3SphericalJoint_GetMaxMotorTorque( b3JointId jointId );
+
+/// Enable/disable the elliptical cone. When enabled, the cone limit uses the two angles set with
+/// b3SphericalJoint_SetEllipticalConeLimits instead of the circular cone angle.
+B3_API void b3SphericalJoint_EnableEllipticalCone( b3JointId jointId, bool enableElliptical );
+
+/// Is the spherical joint elliptical cone enabled?
+B3_API bool b3SphericalJoint_IsEllipticalConeEnabled( b3JointId jointId );
+
+/// Set the spherical joint elliptical cone limits in radians: the largest swing of the frameB
+/// z-axis towards the frameA x-axis and towards the frameA y-axis. Valid range is [0, 0.9*pi].
+B3_API void b3SphericalJoint_SetEllipticalConeLimits( b3JointId jointId, float angleXRadians, float angleYRadians );
+
+/// Get the spherical joint elliptical cone limit towards the frameA x-axis in radians
+B3_API float b3SphericalJoint_GetConeLimitX( b3JointId jointId );
+
+/// Get the spherical joint elliptical cone limit towards the frameA y-axis in radians
+B3_API float b3SphericalJoint_GetConeLimitY( b3JointId jointId );
+
+/// Get the spherical joint current swing as two angles in radians: the swing angle times the
+/// direction the frameB z-axis tips towards, measured along the frameA x-axis and y-axis.
+B3_API b3Vec2 b3SphericalJoint_GetConeAngles( b3JointId jointId );
+
+/// Set the spherical joint armature, the rotational inertia of the relative rotation that is not
+/// due to body mass, typically kg * m^2. Non-negative.
+B3_API void b3SphericalJoint_SetArmature( b3JointId jointId, float armature );
+
+/// Get the spherical joint armature, typically kg * m^2
+B3_API float b3SphericalJoint_GetArmature( b3JointId jointId );
 
 /**@}*/ // spherical_joint
 

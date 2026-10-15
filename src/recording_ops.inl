@@ -14,6 +14,7 @@
 //   0x20-0x3F  body mutators
 //   0x40-0x4F  shape create/destroy
 //   0x50-0x6F  shape mutators
+//   0x70-0x7F  joints continued, past the 0xE7 range
 //   0x80       step
 //   0x90-0xE7  joints (create, generic, per-type)
 //   0xE8-0xEF  spatial queries
@@ -209,6 +210,12 @@ B3_REC_OP( 0xE4, WheelJointSetMaxSteeringTorque, RET_NONE, ARG( JOINTID, joint )
 B3_REC_OP( 0xE5, WheelJointEnableSteeringLimit, RET_NONE, ARG( JOINTID, joint ) ARG( BOOL, flag ) )
 B3_REC_OP( 0xE6, WheelJointSetSteeringLimits, RET_NONE, ARG( JOINTID, joint ) ARG( F32, lower ) ARG( F32, upper ) )
 B3_REC_OP( 0xE7, WheelJointSetTargetSteeringAngle, RET_NONE, ARG( JOINTID, joint ) ARG( F32, radians ) )
+
+// Joints continued, past the 0xE7 range: armature and the elliptical cone.
+B3_REC_OP( 0x70, RevoluteJointSetArmature, RET_NONE, ARG( JOINTID, joint ) ARG( F32, armature ) )
+B3_REC_OP( 0x71, SphericalJointSetArmature, RET_NONE, ARG( JOINTID, joint ) ARG( F32, armature ) )
+B3_REC_OP( 0x72, SphericalJointEnableEllipticalCone, RET_NONE, ARG( JOINTID, joint ) ARG( BOOL, enableElliptical ) )
+B3_REC_OP( 0x73, SphericalJointSetEllipticalConeLimits, RET_NONE, ARG( JOINTID, joint ) ARG( F32, angleX ) ARG( F32, angleY ) )
 
 // Spatial queries. Inputs flow through the manifest (reader side). The hit tail and result are
 // hand-written in recording.c / recording_replay.c since they are variable length.

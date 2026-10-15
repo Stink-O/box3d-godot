@@ -881,6 +881,11 @@ typedef struct b3RevoluteJointDef
 
 	/// The desired motor speed in radians per second.
 	float motorSpeed;
+
+	/// Joint armature: rotational inertia of the hinge motion that is not due to body mass, typically
+	/// kg * m^2. For example the reflected inertia of a geared motor: rotor inertia times the gear ratio
+	/// squared. It resists relative angular acceleration about the hinge axis. Non-negative. Zero by default.
+	float armature;
 } b3RevoluteJointDef;
 
 /// Use this to initialize your joint definition.
@@ -933,6 +938,23 @@ typedef struct b3SphericalJointDef
 	/// velocity between the two bodies in world space.
 	/// motorVelocity = angularVelocityB - angularVelocityA
 	b3Vec3 motorVelocity;
+
+	/// A flag to make the cone limit elliptical. When enabled, the cone limit uses coneAngleX and
+	/// coneAngleY instead of coneAngle. Only used if enableConeLimit is true.
+	bool enableEllipticalCone;
+
+	/// Elliptical cone: the largest swing of the frameB z-axis towards the frameA x-axis in radians
+	/// (a swing about the frameA y-axis). Valid range is [0, 0.9*pi].
+	float coneAngleX;
+
+	/// Elliptical cone: the largest swing of the frameB z-axis towards the frameA y-axis in radians
+	/// (a swing about the frameA x-axis). Valid range is [0, 0.9*pi].
+	float coneAngleY;
+
+	/// Joint armature: rotational inertia of the relative rotation that is not due to body mass,
+	/// typically kg * m^2. It resists relative angular acceleration about all three axes. Non-negative.
+	/// Zero by default.
+	float armature;
 } b3SphericalJointDef;
 
 /// Use this to initialize your joint definition.

@@ -592,6 +592,7 @@ b3RevoluteJointDef b3RecR_REVOLUTEJOINTDEF( b3RecReader* rdr )
 	def.enableMotor = b3RecR_BOOL( rdr );
 	def.maxMotorTorque = b3RecR_F32( rdr );
 	def.motorSpeed = b3RecR_F32( rdr );
+	def.armature = b3RecR_F32( rdr );
 	return def;
 }
 
@@ -611,6 +612,10 @@ b3SphericalJointDef b3RecR_SPHERICALJOINTDEF( b3RecReader* rdr )
 	def.enableMotor = b3RecR_BOOL( rdr );
 	def.maxMotorTorque = b3RecR_F32( rdr );
 	def.motorVelocity = b3RecR_VEC3( rdr );
+	def.enableEllipticalCone = b3RecR_BOOL( rdr );
+	def.coneAngleX = b3RecR_F32( rdr );
+	def.coneAngleY = b3RecR_F32( rdr );
+	def.armature = b3RecR_F32( rdr );
 	return def;
 }
 
@@ -1508,6 +1513,11 @@ static void b3RecDispatch_RevoluteJointSetMaxMotorTorque( const b3RecArgs_Revolu
 	b3RevoluteJoint_SetMaxMotorTorque( b3RecMakeJointId( rdr, a->joint ), a->torque );
 }
 
+static void b3RecDispatch_RevoluteJointSetArmature( const b3RecArgs_RevoluteJointSetArmature* a, b3RecReader* rdr )
+{
+	b3RevoluteJoint_SetArmature( b3RecMakeJointId( rdr, a->joint ), a->armature );
+}
+
 static void b3RecDispatch_SphericalJointEnableConeLimit( const b3RecArgs_SphericalJointEnableConeLimit* a, b3RecReader* rdr )
 {
 	b3SphericalJoint_EnableConeLimit( b3RecMakeJointId( rdr, a->joint ), a->enableLimit );
@@ -1562,6 +1572,23 @@ static void b3RecDispatch_SphericalJointSetMotorVelocity( const b3RecArgs_Spheri
 static void b3RecDispatch_SphericalJointSetMaxMotorTorque( const b3RecArgs_SphericalJointSetMaxMotorTorque* a, b3RecReader* rdr )
 {
 	b3SphericalJoint_SetMaxMotorTorque( b3RecMakeJointId( rdr, a->joint ), a->torque );
+}
+
+static void b3RecDispatch_SphericalJointSetArmature( const b3RecArgs_SphericalJointSetArmature* a, b3RecReader* rdr )
+{
+	b3SphericalJoint_SetArmature( b3RecMakeJointId( rdr, a->joint ), a->armature );
+}
+
+static void b3RecDispatch_SphericalJointEnableEllipticalCone( const b3RecArgs_SphericalJointEnableEllipticalCone* a,
+															  b3RecReader* rdr )
+{
+	b3SphericalJoint_EnableEllipticalCone( b3RecMakeJointId( rdr, a->joint ), a->enableElliptical );
+}
+
+static void b3RecDispatch_SphericalJointSetEllipticalConeLimits( const b3RecArgs_SphericalJointSetEllipticalConeLimits* a,
+																 b3RecReader* rdr )
+{
+	b3SphericalJoint_SetEllipticalConeLimits( b3RecMakeJointId( rdr, a->joint ), a->angleX, a->angleY );
 }
 
 static void b3RecDispatch_WeldJointSetLinearHertz( const b3RecArgs_WeldJointSetLinearHertz* a, b3RecReader* rdr )

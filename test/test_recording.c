@@ -1129,6 +1129,32 @@ static int EmptyWorldRoundTrip( void )
 }
 
 // Safety factor of the named body in a replay world, or -1 if the body is not in the list
+// Find the first joint of a type in a replay world
+static b3JointId ReplayJoint( b3RecPlayer* player, b3JointType type )
+{
+	int count = b3RecPlayer_GetBodyCount( player );
+	for ( int i = 0; i < count; ++i )
+	{
+		b3BodyId bodyId = b3RecPlayer_GetBodyId( player, i );
+		if ( b3Body_IsValid( bodyId ) == false )
+		{
+			continue;
+		}
+
+		b3JointId joints[8];
+		int jointCount = b3Body_GetJoints( bodyId, joints, 8 );
+		for ( int j = 0; j < jointCount; ++j )
+		{
+			if ( b3Joint_GetType( joints[j] ) == type )
+			{
+				return joints[j];
+			}
+		}
+	}
+
+	return (b3JointId){ 0 };
+}
+
 static float ReplaySafetyFactor( b3RecPlayer* player, const char* name )
 {
 	int count = b3RecPlayer_GetBodyCount( player );
@@ -1431,6 +1457,7 @@ static int AllOps( void )
 	revDef.base.bodyIdB = jb[1];
 	revDef.base.localFrameA.p = (b3Vec3){ 1.0f, 0.0f, 0.0f };
 	revDef.base.localFrameB.p = (b3Vec3){ -1.0f, 0.0f, 0.0f };
+	revDef.armature = 0.01f;
 	b3JointId revId = b3CreateRevoluteJoint( worldId, &revDef );
 	ENSURE( b3Joint_IsValid( revId ) );
 	b3RevoluteJoint_EnableLimit( revId, true );
@@ -1442,6 +1469,7 @@ static int AllOps( void )
 	b3RevoluteJoint_SetSpringHertz( revId, 2.0f );
 	b3RevoluteJoint_SetSpringDampingRatio( revId, 0.5f );
 	b3RevoluteJoint_SetTargetAngle( revId, 0.25f );
+	b3RevoluteJoint_SetArmature( revId, 0.02f );
 	b3Joint_SetLocalFrameA( revId, (b3Transform){ (b3Vec3){ 1.0f, 0.0f, 0.0f }, b3Quat_identity } );
 	b3Joint_SetLocalFrameB( revId, (b3Transform){ (b3Vec3){ -1.0f, 0.0f, 0.0f }, b3Quat_identity } );
 	b3Joint_SetConstraintTuning( revId, 60.0f, 2.0f );
@@ -1516,6 +1544,10 @@ static int AllOps( void )
 	b3SphericalJointDef sphDef = b3DefaultSphericalJointDef();
 	sphDef.base.bodyIdA = jb[5];
 	sphDef.base.bodyIdB = jb[6];
+	sphDef.enableEllipticalCone = true;
+	sphDef.coneAngleX = 0.3f;
+	sphDef.coneAngleY = 0.6f;
+	sphDef.armature = 0.01f;
 	b3JointId sphId = b3CreateSphericalJoint( worldId, &sphDef );
 	b3SphericalJoint_EnableConeLimit( sphId, true );
 	b3SphericalJoint_SetConeLimit( sphId, 0.5f );
@@ -1528,6 +1560,10 @@ static int AllOps( void )
 	b3SphericalJoint_EnableMotor( sphId, true );
 	b3SphericalJoint_SetMotorVelocity( sphId, (b3Vec3){ 0.0f, 0.1f, 0.0f } );
 	b3SphericalJoint_SetMaxMotorTorque( sphId, 5.0f );
+	b3SphericalJoint_EnableEllipticalCone( sphId, false );
+	b3SphericalJoint_EnableEllipticalCone( sphId, true );
+	b3SphericalJoint_SetEllipticalConeLimits( sphId, 0.4f, 0.9f );
+	b3SphericalJoint_SetArmature( sphId, 0.05f );
 
 	// Weld joint
 	b3WeldJointDef weldDef = b3DefaultWeldJointDef();
@@ -1617,6 +1653,7 @@ static int AllOps( void )
 			b3Body_ApplyLinearImpulseToCenter( capsuleBodyId, (b3Vec3){ 2.0f, 0.0f, 0.0f }, true );
 			b3Body_SetGravityScale( bodyId, 1.0f );
 			b3Body_SetSafetyFactor( fastId, 0.4f );
+			b3SphericalJoint_SetArmature( sphId, 0.1f );
 		}
 
 		// Issue queries mid-loop to exercise recording across steps
@@ -1745,6 +1782,29 @@ static int AllOps( void )
 		{
 		}
 		ENSURE( ReplaySafetyFactor( player, "fastBody" ) == 0.4f );
+
+		b3DestroyPlayer( player );
+	}
+
+	// Armature and the elliptical cone: def values on create, setters before the first step and mid-run
+	{
+		b3RecPlayer* player = b3CreatePlayer( recData, recSize, 1 );
+		ENSURE( player != NULL );
+
+		ENSURE( b3RecPlayer_StepFrame( player ) );
+		b3JointId revId = ReplayJoint( player, b3_revoluteJoint );
+		b3JointId sphId = ReplayJoint( player, b3_sphericalJoint );
+		ENSURE( b3Joint_IsValid( revId ) && b3Joint_IsValid( sphId ) );
+		ENSURE( b3RevoluteJoint_GetArmature( revId ) == 0.02f );
+		ENSURE( b3SphericalJoint_IsEllipticalConeEnabled( sphId ) );
+		ENSURE( b3SphericalJoint_GetConeLimitX( sphId ) == 0.4f );
+		ENSURE( b3SphericalJoint_GetConeLimitY( sphId ) == 0.9f );
+		ENSURE( b3SphericalJoint_GetArmature( sphId ) == 0.05f );
+
+		while ( b3RecPlayer_StepFrame( player ) )
+		{
+		}
+		ENSURE( b3SphericalJoint_GetArmature( sphId ) == 0.1f );
 
 		b3DestroyPlayer( player );
 	}

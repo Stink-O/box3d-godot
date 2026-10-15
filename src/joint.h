@@ -186,6 +186,9 @@ typedef struct b3RevoluteJoint
 	float targetAngle;
 	float lowerAngle;
 	float upperAngle;
+	float armature;
+	float armatureVelocity;
+	float armatureImpulse;
 
 	int indexA;
 	int indexB;
@@ -197,6 +200,7 @@ typedef struct b3RevoluteJoint
 	b3Vec3 deltaCenter;
 	float deltaAngle;
 	float axialMass;
+	float armatureMass;
 	b3Softness springSoftness;
 
 	bool enableSpring;
@@ -219,7 +223,12 @@ typedef struct b3SphericalJoint
 	float lowerTwistAngle;
 	float upperTwistAngle;
 	float coneAngle;
+	float coneAngleX;
+	float coneAngleY;
 	b3Quat targetRotation;
+	float armature;
+	b3Vec3 armatureVelocity;
+	b3Vec3 armatureImpulse;
 
 	int indexA;
 	int indexB;
@@ -230,6 +239,7 @@ typedef struct b3SphericalJoint
 	b3Vec3 twistJacobian;
 
 	b3Matrix3 rotationMass;
+	b3Matrix3 armatureMass;
 	float swingMass;
 	float twistMass;
 	b3Softness springSoftness;
@@ -238,6 +248,7 @@ typedef struct b3SphericalJoint
 	bool enableMotor;
 	bool enableConeLimit;
 	bool enableTwistLimit;
+	bool enableEllipticalCone;
 } b3SphericalJoint;
 
 typedef struct b3WeldJoint
@@ -360,6 +371,10 @@ void b3WarmStartJoints_Overflow( b3StepContext* context );
 void b3SolveJoints_Overflow( b3StepContext* context, bool useBias );
 
 void b3GetJointReaction( b3World* world, b3JointSim* sim, float invTimeStep, float* force, float* torque );
+b3Vec3 b3GetJointRelativeAngularVelocity( b3World* world, b3JointSim* base );
+
+b3Vec2 b3GetSwingTilt( b3Quat relQ );
+float b3GetEllipticalConeConstraint( b3Quat relQ, float angleX, float angleY, b3Vec3* jacobian );
 
 void b3DrawJoint( b3DebugDraw* draw, b3World* world, b3Joint* joint );
 
