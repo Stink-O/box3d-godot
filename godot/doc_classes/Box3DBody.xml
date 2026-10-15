@@ -589,6 +589,10 @@
 		<member name="rolling_resistance" type="float" setter="set_rolling_resistance" getter="get_rolling_resistance" default="0.0">
 			Resistance to rolling, which is what stops a ball rolling forever on a flat floor. Only spheres and capsules respond to it.
 		</member>
+		<member name="safety_factor" type="float" setter="set_safety_factor" getter="get_safety_factor" default="0.5">
+			How readily this body uses continuous collision against static geometry. With [member Box3DWorld.continuous_collision] on, a dynamic body is swept from its old pose to its new one, and moved back to the first time of impact, only in steps where it moves farther than [code]safety_factor[/code] times its smallest extent (half the thinnest box side, or a sphere or capsule radius). Matches Box3D's default of 0.5, which upstream recommends keeping in [code]0.01..0.5[/code]: smaller sweeps more often and costs more.
+			A value so large that no reachable motion exceeds it (for example [code]1e6[/code]; [code]INF[/code] is clamped to the largest float) opts the body out: it is never swept and never moved back to a time of impact, so it can tunnel through geometry thinner than its per-step motion, while every other body keeps continuous collision. Useful for jointed bodies, whose joints are not moved with them when the solver pulls one back. Applies live from the next step. Unlike [member continuous] (a bullet, swept against moving bodies too), this only changes the static sweep.
+		</member>
 		<member name="sensor_events" type="bool" setter="set_sensor_events" getter="get_sensor_events" default="true">
 			Whether this body is visible to other bodies' sensors. On by default.
 			Turn it off and the body passes through every trigger volume unnoticed -- a projectile that should not set off a checkpoint, a debris body that should not count as a player.

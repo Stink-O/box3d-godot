@@ -17,6 +17,7 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
+#include <cfloat>
 #include <cstring>
 #include <vector>
 
@@ -296,6 +297,7 @@ void Box3DBody::create_in_world() {
 	body_def.angularDamping = (float)angular_damping;
 	body_def.gravityScale = (float)gravity_scale;
 	body_def.sleepThreshold = (float)sleep_threshold;
+	body_def.safetyFactor = safety_factor_b3();
 	body_def.enableSleep = can_sleep;
 	body_def.isEnabled = enabled;
 	body_def.isBullet = continuous;
@@ -2686,6 +2688,27 @@ double Box3DBody::get_sleep_threshold() const {
 	return sleep_threshold;
 }
 
+float Box3DBody::safety_factor_b3() const {
+	// Upstream asserts a finite, non-negative factor (src/body.c:187,
+	// src/body.c:2120). Clamping into [0, FLT_MAX] keeps an INF or an
+	// out-of-float-range "never sweep this body" request legal; the default
+	// 0.5 passes through unchanged.
+	return MAX(0.0f, MIN((float)safety_factor, FLT_MAX));
+}
+
+void Box3DBody::set_safety_factor(double p_factor) {
+	safety_factor = p_factor;
+	if (body_live()) {
+		// Read by the solver every step (src/solver.c:793), so a live change
+		// takes effect from the next step.
+		b3Body_SetSafetyFactor(body_id, safety_factor_b3());
+	}
+}
+
+double Box3DBody::get_safety_factor() const {
+	return safety_factor;
+}
+
 void Box3DBody::set_enabled(bool p_enabled) {
 	enabled = p_enabled;
 	refresh_gizmos(); // slate gray when disabled, as upstream draws it
@@ -3104,6 +3127,8 @@ void Box3DBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_can_sleep"), &Box3DBody::get_can_sleep);
 	ClassDB::bind_method(D_METHOD("set_sleep_threshold", "threshold"), &Box3DBody::set_sleep_threshold);
 	ClassDB::bind_method(D_METHOD("get_sleep_threshold"), &Box3DBody::get_sleep_threshold);
+	ClassDB::bind_method(D_METHOD("set_safety_factor", "factor"), &Box3DBody::set_safety_factor);
+	ClassDB::bind_method(D_METHOD("get_safety_factor"), &Box3DBody::get_safety_factor);
 	ClassDB::bind_method(D_METHOD("set_enabled", "enabled"), &Box3DBody::set_enabled);
 	ClassDB::bind_method(D_METHOD("get_enabled"), &Box3DBody::get_enabled);
 	ClassDB::bind_method(D_METHOD("set_contact_monitor", "enabled"), &Box3DBody::set_contact_monitor);
@@ -3173,6 +3198,7 @@ void Box3DBody::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "gravity_scale", PROPERTY_HINT_RANGE, "-10,10,0.01"), "set_gravity_scale", "get_gravity_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "can_sleep"), "set_can_sleep", "get_can_sleep");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sleep_threshold", PROPERTY_HINT_RANGE, "0,1,0.001,or_greater"), "set_sleep_threshold", "get_sleep_threshold");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "safety_factor", PROPERTY_HINT_RANGE, "0,1,0.01,or_greater"), "set_safety_factor", "get_safety_factor");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled"), "set_enabled", "get_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "contact_monitor"), "set_contact_monitor", "get_contact_monitor");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sensor_events"), "set_sensor_events", "get_sensor_events");
