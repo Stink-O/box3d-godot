@@ -6,7 +6,144 @@ branches, one on top of the other; nothing is pushed anywhere (the fork owner de
 | branch | commits | touches |
 |---|---|---|
 | `crr/body-safety-factor` | 18448d4 | the Godot binding only (`godot/`) |
-| `crr/armature-elliptical-cone` | 900e0f5 (C core + tests), 1a850f3 (binding), then these notes | `src/`, `include/`, `test/`, `godot/` |
+| `crr/armature-elliptical-cone` | 900e0f5 (C core + tests), 1a850f3 (binding), 779d5a6 (notes); then e0f1211 (asymmetric cone, C core + tests), 2fa57f4 (its binding) and these notes | `src/`, `include/`, `test/`, `godot/` |
+
+---
+
+# Part 3. Asymmetric elliptical cone (branch `crr/armature-elliptical-cone`, e0f1211 + 2fa57f4)
+
+A mode of Part 2's elliptical cone with a separate limit in each direction of each swing axis, written in the
+same style (def fields with zero defaults, `B3_API` getters and setters, solver code in prepare / solve,
+recording ops, unit tests, `.clang-format` on the changed lines). Off by default; with it off, or with its
+limits in symmetric pairs, Box3D is bit-identical to before (proof below).
+
+## Why
+
+Range-of-motion data are quoted per direction (hip: flexion 115°, extension 15°, abduction 40°, adduction 25°).
+Part 2's symmetric ellipse is centred on the joint frame's z-axis, so a lopsided range needs the frame turned to
+the middle of the range and an ellipse that encloses all of it: for a hip that admits 42 % non-human swing (by
+solid angle), for a shoulder 37 %. Turning the frame also moves the swing–twist decomposition, and a limit that
+follows another joint (hip flexion following the knee) had to move the frame live. Four half-angles carry such a
+range directly, with the frame left on the rest pose.
+
+## Shape
+
+Four half-angles on Part 2's swing tilt `p = theta * e` (frame A coordinates): `angleX` towards +x,
+`angleNegativeX` towards −x, `angleY` towards +y, `angleNegativeY` towards −y, each in `[0, 0.9 pi]`. Each quadrant
+of the tilt plane is bounded by the quarter-ellipse through its two axis limits:
+
+```
+g(p) = sqrt((p.x / ax)^2 + (p.y / ay)^2),   ax = p.x >= 0 ? angleX : angleNegativeX
+                                            ay = p.y >= 0 ? angleY : angleNegativeY
+inside: g <= 1
+```
+
+That is how range-of-motion tables with four one-sided values are read (the project's ROM.md, and its soft
+limits).
+
+**The boundary is C¹, and C and J are continuous across quadrants.** g is continuous everywhere: on the x-axis
+(`p.y = 0`) both y-limits give `g = |p.x| / ax`. Its gradient is `(p.x / (g ax^2), p.y / (g ay^2))`; across the
+x-axis only `ay` changes, and the gradient's y-component `p.y / (g ay^2)` is 0 on the axis from either side, while
+its x-component does not involve `ay`. The same holds across the y-axis. So `grad g` is continuous on the plane
+minus the origin (where the row is never active: there `C` is the smallest angle, > 0), and so are the normal
+`n = grad g / |grad g|`, the constraint `C = (1 − g) / |grad g|` and Part 2's Jacobian
+`J = (n · e) a + (n · a)(theta z − theta cot(theta) e)`, which depends on p only through n, e, a and theta.
+Geometrically, adjacent quarter-ellipses meet on the axis with a common tangent perpendicular to it (each
+quarter-ellipse's normal there is the axis direction). Only the curvature jumps (from `ax / ay+^2` to `ax / ay-^2`),
+and the solver does not use curvature. On an axis, C is exactly the radial distance to that axis' limit
+(`ax − |p.x|`), from either side.
+
+**Symmetric pairs are the elliptical cone, operation for operation.** The constraint picks `ax` and `ay` by sign and
+then runs Part 2's arithmetic unchanged; with `angleNegativeX == angleX` and `angleNegativeY == angleY` the picked
+values are the same floats, and the origin case's `min` over four values equals Part 2's `min` over two. So the
+result is bit-identical, not just equal to round-off (unit test and state hash below).
+
+## API
+
+- `b3SphericalJointDef.enableAsymmetricCone` (default false), `coneAngleNegativeX`, `coneAngleNegativeY` (radians,
+  clamped to `[0, 0.9 pi]` at creation). While it is on, `coneAngleX` / `coneAngleY` are the +x / +y limits.
+- `b3SphericalJoint_EnableAsymmetricCone`, `b3SphericalJoint_IsAsymmetricConeEnabled`,
+  `b3SphericalJoint_SetAsymmetricConeLimits( jointId, angleX, angleNegativeX, angleY, angleNegativeY )` (live,
+  clamped like the elliptical cone; like upstream's other limit setters it does not wake the bodies),
+  `b3SphericalJoint_GetConeLimitNegativeX`, `b3SphericalJoint_GetConeLimitNegativeY`. Part 2's
+  `b3SphericalJoint_SetEllipticalConeLimits` keeps setting the +x / +y limits and leaves the other two.
+- Used only while `enableConeLimit` and `enableEllipticalCone` are on. Toggling it clears the swing impulse, as
+  toggling the elliptical cone does.
+- Part 2's `b3SphericalJoint_GetConeAngles` reads the tilt the limits apply to.
+
+## Solver
+
+`b3GetAsymmetricConeConstraint` (`src/spherical_joint.c`) is Part 2's constraint with the semi-axes picked by the
+sign of the tilt components (once the tilt direction is known); `b3GetEllipticalConeConstraint` now calls it with
+symmetric pairs. `b3GetSphericalJointConeConstraint` makes the asymmetric or the symmetric call for a joint;
+prepare, solve and `b3Joint_GetAngularSeparation` use it, so the row keeps exactly Part 2's form (fields,
+speculative bias inside, the joint's softness when violated, Jacobian and effective mass refreshed every solve
+call). `b3DrawSphericalJoint` draws one quarter-ellipse per quadrant.
+
+## Recording and replay
+
+The three def fields are written and read after `coneAngleY` (def-size assert 200 → 208 bytes on 64-bit), plus two
+ops in the 0x70 range: `SphericalJointEnableAsymmetricCone` (0x74) and `SphericalJointSetAsymmetricConeLimits`
+(0x75, four floats), with their dispatchers. `B3_REC_VERSION_MAJOR` 7 → 8 ("widened the spherical joint def with the
+asymmetric cone"). `test_recording.c` `AllOps` creates the joint with the new def fields, toggles the mode before the
+first step, changes one limit mid-run, and reads all of it back out of the replay world.
+
+## Unit tests (`test/test_joint.c`)
+
+- `TestSphericalJoint`: the new setters and getters, that the symmetric setter keeps the −x / −y limits, clamping.
+- `TestAsymmetricConeJacobian`: on the boundary at 16 points (every quadrant) of four cones (a hip-like
+  120 / 20 / 45 / 30°, one wider than a hemisphere, one with a 0.2 rad side), three twists: C = 0, and C's rate
+  against central finite differences of the relative rotation. Across each axis, at 0.5 / 1.0 / 1.3 × that axis'
+  limit, a hair (1e-4 rad) either side: C and J agree within 1e-3 and 1e-2, and C equals the radial distance to the
+  axis limit (continuity off the boundary too). Symmetric pairs equal Part 2 bit for bit (24 rotations).
+- `TestAsymmetricConeLimit`: a motor drives a lopsided cone (2.0 / 0.35 / 0.8 / 0.5 rad) onto each axis (it rests on
+  that axis' own limit within 0.02 rad) and into each quadrant (it stays there, on the boundary within 3 %); a full
+  turn of the motor slides the joint along the boundary through all four quadrants at 4 and 8 sub-steps (largest
+  departure from the boundary 0.04 % in g, largest per-step move 0.018 rad, no spin-up); a limit the joint rests on
+  is lowered and raised live, and changing another limit does not move it; the rest pose (tilt 0) stays put; and a
+  motor-driven joint with symmetric pairs steps bit-identically to the elliptical cone for 240 steps.
+
+All 320 Box3D sub-tests pass, Release and Debug (assertions on).
+
+## Files touched
+
+`include/box3d/types.h`, `include/box3d/box3d.h`, `src/joint.h`, `src/joint.c` (creation, angular separation),
+`src/spherical_joint.c`, `src/recording.h`, `src/recording.c`, `src/recording_ops.inl`, `src/replay.c`,
+`test/test_joint.c`, `test/test_recording.c`; binding: `godot/src/box3d_joint.h`, `godot/src/box3d_joint.cpp`,
+`godot/doc_classes/Box3DBallJoint.xml` (which also escapes a `<=` in Part 2's text that Godot's doc loader
+rejected: "Invalid tag in doc file").
+
+`.clang-format` (clang-format 19, as in Part 2) was applied to the changed lines only; the new test code keeps
+upstream's `(b3Vec3){ ... }` compound-literal spelling, which that version would rewrite as `( b3Vec3 ){ ... }`.
+
+## Binding (box3d-godot)
+
+`Box3DBallJoint.asymmetric_cone_enabled`, `cone_angle_negative_x`, `cone_angle_negative_y` (inspector group Cone
+Limit, 0–162°, applied in `create_specific` and live, class XML docs). Defaults match Box3D's.
+
+## Proof that nothing else changed
+
+1. Box3D's unit tests pass, Release and Debug, including the new ones.
+2. Per-step state hash (`tools/box3d_statehash/compare.sh` in the Clean Room Ragdoll repo, extended so it detects
+   which fork features each tree has and adds the scenes they allow):
+   - **stock (18448d4) vs this branch**, the stock scene, at 4 and 8 sub-steps: **identical at every step**, both
+     untouched and with every new setter called at its default (armature 0, elliptical cone off, asymmetric cone
+     off, all limits 0); the armature 1e-6 control run differs;
+   - **779d5a6 vs this branch**: the stock scene is identical; an "elliptical" scene (the spherical chain's five
+     cones made symmetric elliptical cones with two different angles, armature on two joints) is **identical at
+     every step**, so Part 2 is untouched; and this branch's "asympairs" run (that scene with the asymmetric cone on
+     and its limits in symmetric pairs) is **identical at every step to 779d5a6's elliptical run**: symmetric pairs
+     are the elliptical cone end to end through the solver. A control with one −y limit 0.1 % smaller differs, so
+     the comparison sees that limit act.
+
+   | sub-steps | stock scene vs 18448d4 and 779d5a6 | new setters at defaults | elliptical scene vs 779d5a6 | asymmetric pairs vs 779d5a6 elliptical |
+   |---|---|---|---|---|
+   | 4 | identical (final SHA-256 70cdaef4…) | identical | identical (595a4942…) | identical (595a4942…) |
+   | 8 | identical (6e567496…) | identical | identical (7602dac6…) | identical (7602dac6…) |
+
+## Status
+
+Candidate to upstream with Part 2. Not pushed. The project's use of it is EXPERIMENTS.md E1.9.
 
 ---
 
