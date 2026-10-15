@@ -1,8 +1,264 @@
-# Upstream notes: branch `crr/body-safety-factor`
+# Upstream notes
+
+Changes made for the Clean Room Ragdoll project, kept here so they can be offered upstream. Two local
+branches, one on top of the other; nothing is pushed anywhere (the fork owner decides).
+
+| branch | commits | touches |
+|---|---|---|
+| `crr/body-safety-factor` | 18448d4 | the Godot binding only (`godot/`) |
+| `crr/armature-elliptical-cone` | 900e0f5 (C core + tests), 1a850f3 (binding), then these notes | `src/`, `include/`, `test/`, `godot/` |
+
+---
+
+# Part 2. Joint armature and an elliptical swing cone (branch `crr/armature-elliptical-cone`)
+
+Two features in Box3D's C core, written in upstream's style (file layout, naming, def fields with
+zero defaults from `= { 0 }`, `B3_API` getters and setters, solver code in the joints' prepare /
+warm-start / solve functions, `B3_REC` recording and replay, unit tests in `test/`, `.clang-format`
+applied to the changed lines). With their defaults (armature 0, elliptical cone off) the solver is
+bit-identical to stock (proof below).
+
+## 1. Joint armature (revolute and spherical joints)
+
+**Definition.** MuJoCo's XML reference defines joint armature as "additional inertia associated with
+movement of the joint that is not due to body mass", usually the reflected inertia of a geared rotor
+(rotor inertia times the gear ratio squared). In MuJoCo's reduced coordinates it adds to the diagonal
+of the joint-space inertia matrix, i.e. a kinetic energy term `0.5 * a * qdot^2` per degree of freedom,
+and the docs note that positive armature "significantly improves simulation stability, even for small
+values".
+
+**API.**
+- `b3RevoluteJointDef.armature`, `b3RevoluteJoint_SetArmature`, `b3RevoluteJoint_GetArmature`: about
+  the hinge axis (the joint's one free axis).
+- `b3SphericalJointDef.armature`, `b3SphericalJoint_SetArmature`, `b3SphericalJoint_GetArmature`:
+  isotropic, about all three axes (the joint's three degrees of freedom).
+- Units kg·m², non-negative, default 0. The setters assert like upstream's (`b3IsValidFloat`, `>= 0`).
+
+**Formulation for a maximal-coordinate soft-step solver.** Box3D has no joint-space mass matrix, so the
+armature is modelled as what it physically is: a rotor of inertia `a` carried by the joint's relative
+rotation. The rotor has one state, its angular velocity `u_r` (a scalar about the hinge axis for the
+revolute joint, a world-space vector for the spherical joint), which persists between sub-steps and
+steps. One extra velocity row per joint couples it rigidly to the bodies' relative angular velocity
+`u = n · (wB - wA)` (revolute) or `u = wB - wA` (spherical).
+
+With `k = n · (invIA + invIB) n` (revolute) or `K = invIA + invIB` (spherical) the inverse effective
+mass of the relative rotation (the same quantity the joint's spring, motor and limit rows use), a rigid
+coupling between the bodies and the rotor gives, for one Gauss-Seidel update,
+
+```
+impulse      = -(u - u_r) / (k + 1 / a)           revolute
+             = -inv(K + I / a) * (u - u_r)        spherical
+bodies:      wA -= invIA * impulse,  wB += invIB * impulse      (as the joint's other angular rows)
+rotor:       u_r -= impulse / a                                 (equal and opposite)
+```
+
+After the update `u = u_r` exactly and the momentum `m u + a u_r` (with `m = 1 / k`) is unchanged: it is
+a perfectly inelastic collision between the relative coordinate and the rotor. So:
+- **It resists relative angular acceleration about the free axes.** A torque `tau` on the child of a
+  joint to a static body spins it up at `tau / (I + a)` exactly (unit test `TestArmatureAcceleration`,
+  to 0.1 % at 1, 4 and 8 sub-steps).
+- **It cannot add energy**: an inelastic exchange of momentum only removes kinetic energy, counting the
+  rotor's `0.5 a u_r^2`.
+- **It is stable at any sub-step count**: the update is a projection (its effective mass is at most the
+  rigid one, `1 / k`), with no stiffness or time step in it.
+- `armatureMass` (`1 / (k + 1 / a)` or `inv(K + I / a)`) is computed in prepare, next to the other
+  effective masses; the impulse applied in the current sub-step is kept in `armatureImpulse` (zeroed in
+  warm start, not warm started: the rotor velocity carries the momentum) and is included in the joint's
+  reported torque (`b3Get*JointTorque`, `b3GetJointReaction`).
+
+**Only in the relax iterations.** Box3D's soft step solves each sub-step twice: with position bias
+(soft constraint correction, then positions are integrated) and without it (relax), which removes the
+bias velocity. The armature row runs only in the relax pass (`useBias == false`). If it also ran in the
+biased pass, the rotor would absorb part of the velocity the position bias adds; the relax pass removes
+that velocity from the bodies but not from the rotor, which returns it later. Measured on 2- and 5-link
+hinge pendulums under gravity (armature 0.2 and 2.0, 1 / 4 / 16 sub-steps, 600 steps, energy counting
+the rotor), the largest rise above the starting energy was:
+
+| armature row solved in | 2 links, a = 2, 4 sub-steps | 5 links, a = 2, 4 sub-steps | any case |
+|---|---|---|---|
+| both passes | +10.4 J | +166 J | up to +166 J |
+| relax pass only (chosen) | 0.000 J | 0.000 J | never above the start |
+| re-sync `u_r` to the bodies every sub-step | +420 J | +23 000 J | unstable |
+
+Unit test `TestArmatureEnergy` keeps the chosen form honest (5-link chain, a = 0.2 and 2.0, 1/4/16
+sub-steps: energy never above the start by more than 0.5 % of the chain's weight × length, the margin
+stock Box3D itself needs without armature).
+
+**Interaction with springs, motors and limits.** The armature row is solved first in the joint's solve
+function, before the spring, motor, limits and point constraint, so the hard rows keep the last word
+(upstream's order puts the most important rows last). The other rows keep their own effective masses:
+- a spring keeps exactly its stiffness and damping (`hertz` and `dampingRatio` are converted to impulses
+  with the bodies' effective mass), and the rotor adds inertia, as in MuJoCo where `stiffness` is
+  independent of armature;
+- a limit stops the bodies at once; the rotor's remaining momentum is passed to the bodies, and thus into
+  the limit, by `a k / (1 + a k)` per pass. The limit absorbs it (no bounce: the exchange is inelastic);
+- a motor drives the bodies; the rotor follows over a few passes, and the motor's reported torque
+  includes spinning it up.
+
+**Initial and changed values.** At creation with `armature > 0`, and whenever the setter changes the
+value, the rotor velocity is set to the bodies' current relative angular velocity
+(`b3GetJointRelativeAngularVelocity`, `src/joint.c`), since the rotor turns with the joint. Rotor state
+lives in the joint sim, so world snapshots and solver-set moves carry it like the warm-start impulses.
+
+**Alternatives considered.**
+1. *Add the armature only to the effective mass of the spring / motor / limit rows.* Does nothing when
+   no row is active, so it cannot resist free relative acceleration; and it would make every spring
+   stiffer by `(m + a) / m` for the same `hertz`. Rejected.
+2. *Velocity damping toward the start-of-sub-step relative velocity, re-captured each sub-step.* The
+   re-capture gives the rotor momentum the bodies never paid for when a later row (contact, limit,
+   another joint) changes the relative velocity; measured unstable (table above). Rejected.
+3. *A rotor coupled in both solve passes.* Stores bias velocity (table above). Rejected.
+4. *Raising the child body's inertia.* Changes the body's own free rotation too (it is not joint
+   inertia), and was tried in the project (E1.6) without effect. Not an engine change.
+
+## 2. Elliptical swing cone (spherical joint)
+
+**References.** PhysX documents its spherical / D6 swing limit as an "elliptical angular cone"
+(`PxJointLimitCone`, two limit angles about the constraint frame's Y and Z axes, with a note that very
+small or highly elliptical cones may jitter; `PxD6Joint::getSwingYAngle` / `getSwingZAngle` read the two
+swings back). Jolt's `SwingTwistConstraint` has separate normal and plane half-cone angles; its
+`SwingTwistConstraintPart` header documents the limit as an ellipse in the swing quaternion,
+`(q_swing.y / sin(angleY / 2))^2 + (q_swing.z / sin(angleZ / 2))^2 <= 1`, which "roughly corresponds to
+an elliptic cone" and "starts to deform for larger swing angles". Only these public docs and headers
+were read; no code was taken from either.
+
+**API.**
+- `b3SphericalJointDef.enableEllipticalCone` (default false), `coneAngleX`, `coneAngleY` (radians,
+  `[0, 0.9 * pi]`, clamped at creation and in the setter).
+- `b3SphericalJoint_EnableEllipticalCone`, `b3SphericalJoint_IsEllipticalConeEnabled`,
+  `b3SphericalJoint_SetEllipticalConeLimits( jointId, angleX, angleY )`, `b3SphericalJoint_GetConeLimitX`,
+  `b3SphericalJoint_GetConeLimitY` (settable live, as upstream's cone and twist limits).
+- `b3SphericalJoint_GetConeAngles` returns the current swing as a `b3Vec2` (below).
+- The ellipse replaces the circular cone only while both `enableConeLimit` and `enableEllipticalCone`
+  are true. The circular cone and its `0.5 * pi` clamp are untouched.
+
+**Parameterization: the swing tilt.** Box3D's spherical joint already decomposes `relQ = swing * twist`
+with the twist about the frame-B z-axis (`b3GetSwingAngle`, `b3GetTwistAngle`). The swing is the
+minimal rotation taking the frame-A z-axis onto the frame-B z-axis: an angle `theta` about an axis `a` in
+the frame-A xy-plane. The frame-B z-axis then tips towards `e = cross(a, z)`. The limit is placed on the
+**tilt** `p = theta * e` (the log map of the swing, projected to the plane):
+
+```
+(p.x / angleX)^2 + (p.y / angleY)^2 <= 1
+```
+
+- For `angleX == angleY` it is exactly the circular cone `theta <= angle`.
+- The tilt is well defined for any swing below pi (only `theta = pi`, the frame-B axis pointing exactly
+  backwards, has no direction), so the cone may be wider than a hemisphere; the angles are clamped at
+  0.9 pi, where the twist Jacobian's `tan(theta / 2)` is still below 6.3.
+- Compared with Jolt's half-angle-sine ellipse and PhysX's tan-quarter form, the tilt measures the
+  angles in the units the limit is specified in (an ellipse of angles, not of sines), so a range quoted
+  as "flexion 120°, abduction 45°" is the ellipse with those semi-axes, at any size. That matches how
+  range-of-motion data are given, which is why it was chosen.
+- `b3GetSwingTilt` removes the twist from `relQ` without trigonometry: with `sw = |(q.z, q.s)|`, the half
+  twist's cosine and sine are `q.s / sw` and `q.z / sw`, the swing quaternion's vector part is
+  `(c q.x - s q.y, s q.x + c q.y)`, and `theta = 2 atan2(|(q.x, q.y)|, sw)`. It is polarity independent.
+
+**Constraint and Jacobian** (`b3GetEllipticalConeConstraint`, `src/spherical_joint.c`). With
+`g = sqrt((p.x / angleX)^2 + (p.y / angleY)^2)` the constraint is the first-order distance to the ellipse
+along its normal `n = grad g / |grad g|`:
+
+```
+C = (1 - g) / |grad g|          (radians, positive inside; exact on the ellipse; angle - theta for a circle)
+```
+
+The tilt's rate follows from the relative angular velocity `w` in frame-A coordinates (with `phi` the
+azimuth of `e`):
+
+```
+dtheta/dt = w · a
+dphi/dt   = w · (z - cot(theta) e)
+dp/dt     = dtheta/dt e + theta dphi/dt a
+dC/dt     = -n · dp/dt = -w · J,   J = (n · e) a + (n · a) (theta z - theta cot(theta) e)
+```
+
+`J` is rotated to world space with frame A. For a circle `n = e` and `J = a`, upstream's swing axis.
+Unit test `TestEllipticalConeJacobian` checks `C` and `J` against central finite differences for four
+ellipses (including 137° and 109° semi-axes), three twists and twelve points on each ellipse, and the
+circle reduction.
+
+**Solver.** The row reuses the circular cone's fields and form exactly (`swingImpulse`, `swingAxis`,
+`swingMass`, speculative `c * inv_h` when inside, the joint's `constraintSoftness` when violated, the
+accumulated impulse clamped at 0). Two differences: `C` comes from the ellipse, and since the ellipse
+normal turns along the boundary, `J` and its effective mass are recomputed every solve call (and stored
+in `swingAxis` for warm starting), where the circle keeps its prepare-time axis. Prepare computes the
+first `J` and mass the same way. There is no separate soft or spring mode for the cone upstream, so none
+was added: the joint's existing constraint softness applies, and the joint's spring and motor are
+unchanged.
+
+**Also updated.** `b3Joint_GetAngularSeparation` reports `max(0, -C)` for the ellipse, using the joint
+frames (upstream's circular branch uses the body rotations without the local frames; left as is, but
+noted here as a possible upstream issue); `b3GetSphericalJointTorque` and `b3GetJointReaction` use the
+stored Jacobian; `b3DrawSphericalJoint` draws the elliptical boundary.
+
+**Measured** (unit test `TestEllipticalConeLimit`): a ball joint driven by a motor into its ellipse comes
+to rest on it within 0.02 rad, along either axis and in between, including a 2.0 rad (115°) semi-axis;
+an elliptical cone with equal angles rests at the same swing as the circular cone (within 0.01 rad).
+
+## Recording and replay
+
+- Def writers / readers (`b3RecW_REVOLUTEJOINTDEF`, `b3RecW_SPHERICALJOINTDEF`, `src/recording.c`;
+  `b3RecR_*`, `src/replay.c`) carry the new fields; the def-size static asserts are updated (160 / 200
+  bytes on 64-bit).
+- Four new ops (`src/recording_ops.inl`), in the unused 0x70–0x7F range, documented in the range table as
+  "joints continued, past the 0xE7 range": `RevoluteJointSetArmature` (0x70), `SphericalJointSetArmature`
+  (0x71), `SphericalJointEnableEllipticalCone` (0x72), `SphericalJointSetEllipticalConeLimits` (0x73),
+  each with its `b3RecDispatch_*` in `src/replay.c`.
+- `B3_REC_VERSION_MAJOR` 6 → 7 ("widened the revolute and spherical joint defs"), as upstream did for the
+  body def's safety factor.
+- `test_recording.c` `AllOps` sets the new def fields and calls every new setter (before stepping and
+  mid-run), validates the replay at two worker counts and through a file, and reads the values back out
+  of the replay world.
+
+## Files touched
+
+`include/box3d/types.h` (def fields), `include/box3d/box3d.h` (API), `src/joint.h` (sim fields and
+helpers), `src/joint.c` (creation, relative velocity helper, reaction torque, angular separation),
+`src/revolute_joint.c`, `src/spherical_joint.c`, `src/recording.h`, `src/recording.c`,
+`src/recording_ops.inl`, `src/replay.c`, `test/test_joint.c`, `test/test_recording.c`; binding:
+`godot/src/box3d_joint.h`, `godot/src/box3d_joint.cpp`, `godot/doc_classes/Box3DHingeJoint.xml`,
+`godot/doc_classes/Box3DBallJoint.xml`.
+
+`.clang-format` was applied to the changed lines only (clang-format 19, which lacks the file's
+`ExceptDoubleParentheses` key, a no-op for `false`): upstream's files are not fully formatted by that
+version, so formatting whole files would rewrite unrelated code. Compound-literal casts were kept in
+upstream's `(b3Vec2){ ... }` spelling.
+
+## Binding (box3d-godot)
+
+`Box3DHingeJoint.armature`, `Box3DBallJoint.armature`, `elliptical_cone_enabled`, `cone_angle_x`,
+`cone_angle_y` (properties with setter / getter, applied in `create_specific` and live, `_bind_methods`,
+inspector groups, class XML docs) and `Box3DBallJoint.get_current_cone_angles()` (`Vector2`). Defaults
+match Box3D's. The scene-dock warning about cone angles above 90° is skipped while the elliptical cone
+is on.
+
+## Proof that stock behaviour is unchanged
+
+1. Box3D's unit tests pass, Release and Debug (assertions on), including the new ones.
+2. Per-step state hash: `tools/box3d_statehash/` in the Clean Room Ragdoll repo builds a stock scene
+   (stack of 8 boxes; a 5-capsule revolute chain with limits, springs, a velocity motor and friction
+   motors; a 5-capsule spherical chain with circular cones of 0.6–1.2 rad, twist limits, springs toward
+   a rotated target, a velocity motor and friction motors; a 60 m/s sphere and a 45 m/s box fired at a
+   3 cm static plank so continuous collision fires — the sphere ends resting on the plank; a box spinning
+   about three axes), steps it 600 times at 1/120 s and compares every body's position, rotation and
+   velocities after every step by SHA-256, Box3D built from `18448d4` against this branch, at 4 and 8
+   sub-steps: **identical at every step**, both untouched and with every new setter called at its default
+   (armature 0, elliptical cone off, limits 0). A control run with armature 1e-6 kg·m² on one joint
+   differs, so the comparison can see a change that small.
+3. The Clean Room Ragdoll default body (25 scenarios at 4 and 8 sub-steps through the binding, 2586
+   recorded values) gives identical results with the stock and the patched addon.
+
+## Status
+
+Candidate to upstream. Not pushed. The project's use of it is EXPERIMENTS.md E1.8.
+
+---
+
+# Part 1. Box3DBody.safety_factor (branch `crr/body-safety-factor`)
 
 A small change to the Godot binding only (`godot/`), made for the Clean Room Ragdoll project and
 kept here so it can be offered upstream. Box3D's C core (`src/`, `include/`, `extern/`) is
-untouched.
+untouched by this part.
 
 ## What changed
 
