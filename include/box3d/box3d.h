@@ -1645,6 +1645,26 @@ B3_API float b3SphericalJoint_GetConeLimitY( b3JointId jointId );
 /// direction the frameB z-axis tips towards, measured along the frameA x-axis and y-axis.
 B3_API b3Vec2 b3SphericalJoint_GetConeAngles( b3JointId jointId );
 
+/// Enable/disable the asymmetric cone. When enabled, the elliptical cone has a separate limit
+/// towards each of the frameA +x, -x, +y and -y axes, and each quadrant is bounded by the
+/// quarter-ellipse through its two limits. Only used while the elliptical cone is enabled.
+B3_API void b3SphericalJoint_EnableAsymmetricCone( b3JointId jointId, bool enableAsymmetric );
+
+/// Is the spherical joint asymmetric cone enabled?
+B3_API bool b3SphericalJoint_IsAsymmetricConeEnabled( b3JointId jointId );
+
+/// Set the spherical joint asymmetric cone limits in radians: the largest swing of the frameB
+/// z-axis towards the frameA +x, -x, +y and -y axes. Valid range is [0, 0.9*pi]. The +x and +y
+/// limits are the elliptical cone limits (b3SphericalJoint_GetConeLimitX, b3SphericalJoint_GetConeLimitY).
+B3_API void b3SphericalJoint_SetAsymmetricConeLimits( b3JointId jointId, float angleXRadians, float angleNegativeXRadians,
+													  float angleYRadians, float angleNegativeYRadians );
+
+/// Get the spherical joint asymmetric cone limit towards the frameA -x axis in radians
+B3_API float b3SphericalJoint_GetConeLimitNegativeX( b3JointId jointId );
+
+/// Get the spherical joint asymmetric cone limit towards the frameA -y axis in radians
+B3_API float b3SphericalJoint_GetConeLimitNegativeY( b3JointId jointId );
+
 /// Set the spherical joint armature, the rotational inertia of the relative rotation that is not
 /// due to body mass, typically kg * m^2. Non-negative.
 B3_API void b3SphericalJoint_SetArmature( b3JointId jointId, float armature );

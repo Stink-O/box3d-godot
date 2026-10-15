@@ -225,6 +225,8 @@ typedef struct b3SphericalJoint
 	float coneAngle;
 	float coneAngleX;
 	float coneAngleY;
+	float coneAngleNegativeX;
+	float coneAngleNegativeY;
 	b3Quat targetRotation;
 	float armature;
 	b3Vec3 armatureVelocity;
@@ -249,6 +251,7 @@ typedef struct b3SphericalJoint
 	bool enableConeLimit;
 	bool enableTwistLimit;
 	bool enableEllipticalCone;
+	bool enableAsymmetricCone;
 } b3SphericalJoint;
 
 typedef struct b3WeldJoint
@@ -375,6 +378,9 @@ b3Vec3 b3GetJointRelativeAngularVelocity( b3World* world, b3JointSim* base );
 
 b3Vec2 b3GetSwingTilt( b3Quat relQ );
 float b3GetEllipticalConeConstraint( b3Quat relQ, float angleX, float angleY, b3Vec3* jacobian );
+float b3GetAsymmetricConeConstraint( b3Quat relQ, float angleX, float angleNegativeX, float angleY, float angleNegativeY,
+									 b3Vec3* jacobian );
+float b3GetSphericalJointConeConstraint( const b3SphericalJoint* joint, b3Quat relQ, b3Vec3* jacobian );
 
 void b3DrawJoint( b3DebugDraw* draw, b3World* world, b3Joint* joint );
 

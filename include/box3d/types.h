@@ -951,6 +951,20 @@ typedef struct b3SphericalJointDef
 	/// (a swing about the frameA x-axis). Valid range is [0, 0.9*pi].
 	float coneAngleY;
 
+	/// A flag to make the elliptical cone asymmetric. When enabled, coneAngleX and coneAngleY bound the
+	/// swing towards the +x and +y axes of frameA, and coneAngleNegativeX and coneAngleNegativeY bound it
+	/// towards -x and -y. Each quadrant is bounded by the quarter-ellipse through its two limits.
+	/// Only used if enableConeLimit and enableEllipticalCone are true.
+	bool enableAsymmetricCone;
+
+	/// Asymmetric cone: the largest swing of the frameB z-axis towards the frameA -x axis in radians.
+	/// Valid range is [0, 0.9*pi].
+	float coneAngleNegativeX;
+
+	/// Asymmetric cone: the largest swing of the frameB z-axis towards the frameA -y axis in radians.
+	/// Valid range is [0, 0.9*pi].
+	float coneAngleNegativeY;
+
 	/// Joint armature: rotational inertia of the relative rotation that is not due to body mass,
 	/// typically kg * m^2. It resists relative angular acceleration about all three axes. Non-negative.
 	/// Zero by default.

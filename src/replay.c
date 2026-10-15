@@ -615,6 +615,9 @@ b3SphericalJointDef b3RecR_SPHERICALJOINTDEF( b3RecReader* rdr )
 	def.enableEllipticalCone = b3RecR_BOOL( rdr );
 	def.coneAngleX = b3RecR_F32( rdr );
 	def.coneAngleY = b3RecR_F32( rdr );
+	def.enableAsymmetricCone = b3RecR_BOOL( rdr );
+	def.coneAngleNegativeX = b3RecR_F32( rdr );
+	def.coneAngleNegativeY = b3RecR_F32( rdr );
 	def.armature = b3RecR_F32( rdr );
 	return def;
 }
@@ -1589,6 +1592,19 @@ static void b3RecDispatch_SphericalJointSetEllipticalConeLimits( const b3RecArgs
 																 b3RecReader* rdr )
 {
 	b3SphericalJoint_SetEllipticalConeLimits( b3RecMakeJointId( rdr, a->joint ), a->angleX, a->angleY );
+}
+
+static void b3RecDispatch_SphericalJointEnableAsymmetricCone( const b3RecArgs_SphericalJointEnableAsymmetricCone* a,
+															  b3RecReader* rdr )
+{
+	b3SphericalJoint_EnableAsymmetricCone( b3RecMakeJointId( rdr, a->joint ), a->enableAsymmetric );
+}
+
+static void b3RecDispatch_SphericalJointSetAsymmetricConeLimits( const b3RecArgs_SphericalJointSetAsymmetricConeLimits* a,
+																 b3RecReader* rdr )
+{
+	b3SphericalJoint_SetAsymmetricConeLimits( b3RecMakeJointId( rdr, a->joint ), a->angleX, a->angleNegativeX, a->angleY,
+											  a->angleNegativeY );
 }
 
 static void b3RecDispatch_WeldJointSetLinearHertz( const b3RecArgs_WeldJointSetLinearHertz* a, b3RecReader* rdr )

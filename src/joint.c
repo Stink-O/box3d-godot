@@ -639,6 +639,7 @@ b3JointId b3CreateSphericalJoint( b3WorldId worldId, const b3SphericalJointDef* 
 	B3_ASSERT( 0.0f <= def->coneAngle && def->coneAngle <= 0.99f * B3_PI );
 	B3_ASSERT( b3IsValidQuat( def->targetRotation ) );
 	B3_ASSERT( b3IsValidFloat( def->coneAngleX ) && b3IsValidFloat( def->coneAngleY ) );
+	B3_ASSERT( b3IsValidFloat( def->coneAngleNegativeX ) && b3IsValidFloat( def->coneAngleNegativeY ) );
 	B3_ASSERT( b3IsValidFloat( def->armature ) && def->armature >= 0.0f );
 
 	b3World* world = b3GetUnlockedWorldFromId( worldId );
@@ -673,6 +674,9 @@ b3JointId b3CreateSphericalJoint( b3WorldId worldId, const b3SphericalJointDef* 
 	joint->sphericalJoint.enableEllipticalCone = def->enableEllipticalCone;
 	joint->sphericalJoint.coneAngleX = b3ClampFloat( def->coneAngleX, 0.0f, 0.9f * B3_PI );
 	joint->sphericalJoint.coneAngleY = b3ClampFloat( def->coneAngleY, 0.0f, 0.9f * B3_PI );
+	joint->sphericalJoint.enableAsymmetricCone = def->enableAsymmetricCone;
+	joint->sphericalJoint.coneAngleNegativeX = b3ClampFloat( def->coneAngleNegativeX, 0.0f, 0.9f * B3_PI );
+	joint->sphericalJoint.coneAngleNegativeY = b3ClampFloat( def->coneAngleNegativeY, 0.0f, 0.9f * B3_PI );
 
 	joint->sphericalJoint.armature = def->armature;
 	if ( def->armature > 0.0f )
@@ -1448,8 +1452,7 @@ float b3Joint_GetAngularSeparation( b3JointId jointId )
 				// The ellipse is not symmetric about the cone axis, so this uses the joint frames
 				b3Quat frameQ = b3InvMulQuat( b3MulQuat( xfA.q, base->localFrameA.q ), b3MulQuat( xfB.q, base->localFrameB.q ) );
 				b3Vec3 jacobian;
-				float c =
-					b3GetEllipticalConeConstraint( frameQ, sphericalJoint->coneAngleX, sphericalJoint->coneAngleY, &jacobian );
+				float c = b3GetSphericalJointConeConstraint( sphericalJoint, frameQ, &jacobian );
 				sum += b3MaxFloat( 0.0f, -c );
 			}
 			else if ( sphericalJoint->enableConeLimit )

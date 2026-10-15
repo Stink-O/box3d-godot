@@ -336,7 +336,7 @@ _Static_assert( sizeof( void* ) != 8 || sizeof( b3PrismaticJointDef ) == 152,
 				"b3PrismaticJointDef changed: update b3RecW_PRISMATICJOINTDEF and its reader together" );
 _Static_assert( sizeof( void* ) != 8 || sizeof( b3RevoluteJointDef ) == 160,
 				"b3RevoluteJointDef changed: update b3RecW_REVOLUTEJOINTDEF and its reader together" );
-_Static_assert( sizeof( void* ) != 8 || sizeof( b3SphericalJointDef ) == 200,
+_Static_assert( sizeof( void* ) != 8 || sizeof( b3SphericalJointDef ) == 208,
 				"b3SphericalJointDef changed: update b3RecW_SPHERICALJOINTDEF and its reader together" );
 _Static_assert( sizeof( void* ) != 8 || sizeof( b3WeldJointDef ) == 128,
 				"b3WeldJointDef changed: update b3RecW_WELDJOINTDEF and its reader together" );
@@ -519,6 +519,9 @@ void b3RecW_SPHERICALJOINTDEF( b3RecBuffer* buf, b3SphericalJointDef v )
 	b3RecW_BOOL( buf, v.enableEllipticalCone );
 	b3RecW_F32( buf, v.coneAngleX );
 	b3RecW_F32( buf, v.coneAngleY );
+	b3RecW_BOOL( buf, v.enableAsymmetricCone );
+	b3RecW_F32( buf, v.coneAngleNegativeX );
+	b3RecW_F32( buf, v.coneAngleNegativeY );
 	b3RecW_F32( buf, v.armature );
 }
 

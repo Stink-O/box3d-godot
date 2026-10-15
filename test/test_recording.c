@@ -1547,6 +1547,9 @@ static int AllOps( void )
 	sphDef.enableEllipticalCone = true;
 	sphDef.coneAngleX = 0.3f;
 	sphDef.coneAngleY = 0.6f;
+	sphDef.enableAsymmetricCone = true;
+	sphDef.coneAngleNegativeX = 0.25f;
+	sphDef.coneAngleNegativeY = 0.75f;
 	sphDef.armature = 0.01f;
 	b3JointId sphId = b3CreateSphericalJoint( worldId, &sphDef );
 	b3SphericalJoint_EnableConeLimit( sphId, true );
@@ -1563,6 +1566,8 @@ static int AllOps( void )
 	b3SphericalJoint_EnableEllipticalCone( sphId, false );
 	b3SphericalJoint_EnableEllipticalCone( sphId, true );
 	b3SphericalJoint_SetEllipticalConeLimits( sphId, 0.4f, 0.9f );
+	b3SphericalJoint_EnableAsymmetricCone( sphId, false );
+	b3SphericalJoint_EnableAsymmetricCone( sphId, true );
 	b3SphericalJoint_SetArmature( sphId, 0.05f );
 
 	// Weld joint
@@ -1654,6 +1659,7 @@ static int AllOps( void )
 			b3Body_SetGravityScale( bodyId, 1.0f );
 			b3Body_SetSafetyFactor( fastId, 0.4f );
 			b3SphericalJoint_SetArmature( sphId, 0.1f );
+			b3SphericalJoint_SetAsymmetricConeLimits( sphId, 0.4f, 0.35f, 0.9f, 0.75f );
 		}
 
 		// Issue queries mid-loop to exercise recording across steps
@@ -1786,7 +1792,7 @@ static int AllOps( void )
 		b3DestroyPlayer( player );
 	}
 
-	// Armature and the elliptical cone: def values on create, setters before the first step and mid-run
+	// Armature, the elliptical and the asymmetric cone: def values on create, setters before the first step and mid-run
 	{
 		b3RecPlayer* player = b3CreatePlayer( recData, recSize, 1 );
 		ENSURE( player != NULL );
@@ -1799,12 +1805,17 @@ static int AllOps( void )
 		ENSURE( b3SphericalJoint_IsEllipticalConeEnabled( sphId ) );
 		ENSURE( b3SphericalJoint_GetConeLimitX( sphId ) == 0.4f );
 		ENSURE( b3SphericalJoint_GetConeLimitY( sphId ) == 0.9f );
+		ENSURE( b3SphericalJoint_IsAsymmetricConeEnabled( sphId ) );
+		ENSURE( b3SphericalJoint_GetConeLimitNegativeX( sphId ) == 0.25f );
+		ENSURE( b3SphericalJoint_GetConeLimitNegativeY( sphId ) == 0.75f );
 		ENSURE( b3SphericalJoint_GetArmature( sphId ) == 0.05f );
 
 		while ( b3RecPlayer_StepFrame( player ) )
 		{
 		}
 		ENSURE( b3SphericalJoint_GetArmature( sphId ) == 0.1f );
+		ENSURE( b3SphericalJoint_GetConeLimitNegativeX( sphId ) == 0.35f );
+		ENSURE( b3SphericalJoint_GetConeLimitNegativeY( sphId ) == 0.75f );
 
 		b3DestroyPlayer( player );
 	}

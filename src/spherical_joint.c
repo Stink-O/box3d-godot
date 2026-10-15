@@ -109,6 +109,53 @@ float b3SphericalJoint_GetConeLimitY( b3JointId jointId )
 	return base->sphericalJoint.coneAngleY;
 }
 
+void b3SphericalJoint_EnableAsymmetricCone( b3JointId jointId, bool enableAsymmetric )
+{
+	b3World* world = b3GetWorld( jointId.world0 );
+	B3_REC( world, SphericalJointEnableAsymmetricCone, jointId, enableAsymmetric );
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+	if ( enableAsymmetric != base->sphericalJoint.enableAsymmetricCone )
+	{
+		base->sphericalJoint.swingImpulse = 0.0f;
+	}
+	base->sphericalJoint.enableAsymmetricCone = enableAsymmetric;
+}
+
+bool b3SphericalJoint_IsAsymmetricConeEnabled( b3JointId jointId )
+{
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+	return base->sphericalJoint.enableAsymmetricCone;
+}
+
+void b3SphericalJoint_SetAsymmetricConeLimits( b3JointId jointId, float angleXRadians, float angleNegativeXRadians,
+											   float angleYRadians, float angleNegativeYRadians )
+{
+	B3_ASSERT( b3IsValidFloat( angleXRadians ) && b3IsValidFloat( angleNegativeXRadians ) );
+	B3_ASSERT( b3IsValidFloat( angleYRadians ) && b3IsValidFloat( angleNegativeYRadians ) );
+	b3World* world = b3GetWorld( jointId.world0 );
+	B3_REC( world, SphericalJointSetAsymmetricConeLimits, jointId, angleXRadians, angleNegativeXRadians, angleYRadians,
+			angleNegativeYRadians );
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+
+	// The tilt parameterization is singular at a swing of pi
+	base->sphericalJoint.coneAngleX = b3ClampFloat( angleXRadians, 0.0f, 0.9f * B3_PI );
+	base->sphericalJoint.coneAngleNegativeX = b3ClampFloat( angleNegativeXRadians, 0.0f, 0.9f * B3_PI );
+	base->sphericalJoint.coneAngleY = b3ClampFloat( angleYRadians, 0.0f, 0.9f * B3_PI );
+	base->sphericalJoint.coneAngleNegativeY = b3ClampFloat( angleNegativeYRadians, 0.0f, 0.9f * B3_PI );
+}
+
+float b3SphericalJoint_GetConeLimitNegativeX( b3JointId jointId )
+{
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+	return base->sphericalJoint.coneAngleNegativeX;
+}
+
+float b3SphericalJoint_GetConeLimitNegativeY( b3JointId jointId )
+{
+	b3JointSim* base = b3GetJointSimCheckType( jointId, b3_sphericalJoint );
+	return base->sphericalJoint.coneAngleNegativeY;
+}
+
 b3Vec2 b3SphericalJoint_GetConeAngles( b3JointId jointId )
 {
 	b3World* world = b3GetWorld( jointId.world0 );
@@ -405,30 +452,47 @@ b3Vec2 b3GetSwingTilt( b3Quat relQ )
 // For a circle n = e and J = a, the swing axis of the circular cone.
 float b3GetEllipticalConeConstraint( b3Quat relQ, float angleX, float angleY, b3Vec3* jacobian )
 {
+	return b3GetAsymmetricConeConstraint( relQ, angleX, angleX, angleY, angleY, jacobian );
+}
+
+// Asymmetric cone limit
+// The elliptical cone with a separate limit towards each of +x, -x, +y and -y. Each quadrant of the tilt plane
+// is bounded by the quarter-ellipse through its two limits, with g using the semi-axes of the quadrant the tilt
+// is in:
+//   g = sqrt((p.x / angleX±)^2 + (p.y / angleY±)^2)
+// On the x-axis (p.y = 0) g = |p.x| / angleX± does not depend on the y limits, and dg/dp.y = p.y / (g angleY±^2)
+// is zero from both sides; the same holds on the y-axis. So g and grad(g) are continuous across the axes (the
+// boundary is C1: adjacent quarter-ellipses meet with a common tangent perpendicular to the axis), and so are
+// the normal, C and the Jacobian below. Only the curvature jumps. With angleX- == angleX+ and angleY- == angleY+
+// this is the elliptical cone, operation for operation.
+float b3GetAsymmetricConeConstraint( b3Quat relQ, float angleX, float angleNegativeX, float angleY, float angleNegativeY,
+									 b3Vec3* jacobian )
+{
 	*jacobian = b3Vec3_zero;
 
 	float sw = sqrtf( relQ.v.z * relQ.v.z + relQ.s * relQ.s );
 	float sinHalfSwing = sqrtf( relQ.v.x * relQ.v.x + relQ.v.y * relQ.v.y );
+	float smallestAngle = b3MinFloat( b3MinFloat( angleX, angleY ), b3MinFloat( angleNegativeX, angleNegativeY ) );
 	if ( sinHalfSwing < FLT_EPSILON )
 	{
-		// No swing: inside by at least the smaller angle
-		return b3MinFloat( angleX, angleY );
+		// No swing: inside by at least the smallest angle
+		return smallestAngle;
 	}
 
 	if ( sw < FLT_EPSILON )
 	{
 		// A swing of pi has no direction to push along
-		return b3MinFloat( angleX, angleY ) - B3_PI;
+		return smallestAngle - B3_PI;
 	}
-
-	// A zero angle locks the swing in that direction
-	float limitX = b3MaxFloat( angleX, 0.001f );
-	float limitY = b3MaxFloat( angleY, 0.001f );
 
 	float c = relQ.s / sw;
 	float s = relQ.v.z / sw;
 	b3Vec2 axis = { ( c * relQ.v.x - s * relQ.v.y ) / sinHalfSwing, ( s * relQ.v.x + c * relQ.v.y ) / sinHalfSwing };
 	b3Vec2 tip = { axis.y, -axis.x };
+
+	// The semi-axes of the quadrant the tilt is in. A zero angle locks the swing in that direction.
+	float limitX = b3MaxFloat( tip.x >= 0.0f ? angleX : angleNegativeX, 0.001f );
+	float limitY = b3MaxFloat( tip.y >= 0.0f ? angleY : angleNegativeY, 0.001f );
 
 	float swingAngle = 2.0f * b3Atan2( sinHalfSwing, sw );
 	float u = swingAngle * tip.x / limitX;
@@ -452,6 +516,18 @@ float b3GetEllipticalConeConstraint( b3Quat relQ, float angleX, float angleY, b3
 	jacobian->z = normalAxis * swingAngle;
 
 	return ( 1.0f - g ) / gradientLength;
+}
+
+// The cone constraint of a spherical joint with the elliptical cone enabled, asymmetric or not
+float b3GetSphericalJointConeConstraint( const b3SphericalJoint* joint, b3Quat relQ, b3Vec3* jacobian )
+{
+	if ( joint->enableAsymmetricCone )
+	{
+		return b3GetAsymmetricConeConstraint( relQ, joint->coneAngleX, joint->coneAngleNegativeX, joint->coneAngleY,
+											  joint->coneAngleNegativeY, jacobian );
+	}
+
+	return b3GetEllipticalConeConstraint( relQ, joint->coneAngleX, joint->coneAngleY, jacobian );
 }
 
 // Point-to-point constraint
@@ -517,7 +593,7 @@ void b3PrepareSphericalJoint( b3JointSim* base, b3StepContext* context )
 	{
 		b3Quat relQ = b3InvMulQuat( joint->frameA.q, joint->frameB.q );
 		b3Vec3 jacobian;
-		b3GetEllipticalConeConstraint( relQ, joint->coneAngleX, joint->coneAngleY, &jacobian );
+		b3GetSphericalJointConeConstraint( joint, relQ, &jacobian );
 
 		// Jacobian may be zero
 		b3Vec3 swingAxis = b3RotateVector( joint->frameA.q, jacobian );
@@ -796,7 +872,7 @@ void b3SolveSphericalJoint( b3JointSim* base, b3StepContext* context, bool useBi
 		{
 			// The ellipse normal turns along the boundary, so the Jacobian is updated every sub-step
 			b3Vec3 jacobian;
-			c = b3GetEllipticalConeConstraint( relQ, joint->coneAngleX, joint->coneAngleY, &jacobian );
+			c = b3GetSphericalJointConeConstraint( joint, relQ, &jacobian );
 			swingAxis = b3RotateVector( quatA, jacobian );
 			float k = b3Dot( swingAxis, b3MulMV( b3AddMM( iA, iB ), swingAxis ) );
 			swingMass = k > 0.0f ? 1.0f / k : 0.0f;
@@ -977,8 +1053,18 @@ void b3DrawSphericalJoint( b3DebugDraw* draw, b3JointSim* base, b3WorldTransform
 		{
 			// A point on the ellipse in tilt space, then the direction of the frameB z-axis
 			float phi = 2.0f * index / kSliceCount * B3_PI;
-			float tiltX = joint->coneAngleX * b3Cos( phi );
-			float tiltY = joint->coneAngleY * b3Sin( phi );
+			float cosPhi = b3Cos( phi );
+			float sinPhi = b3Sin( phi );
+			float angleX = joint->coneAngleX;
+			float angleY = joint->coneAngleY;
+			if ( joint->enableAsymmetricCone )
+			{
+				// The quarter-ellipse of this quadrant
+				angleX = cosPhi >= 0.0f ? joint->coneAngleX : joint->coneAngleNegativeX;
+				angleY = sinPhi >= 0.0f ? joint->coneAngleY : joint->coneAngleNegativeY;
+			}
+			float tiltX = angleX * cosPhi;
+			float tiltY = angleY * sinPhi;
 			float swingAngle = sqrtf( tiltX * tiltX + tiltY * tiltY );
 			float alpha = swingAngle > 0.0f ? radius * b3Sin( swingAngle ) / swingAngle : 0.0f;
 			b3Vec3 vertex2 = { alpha * tiltX, alpha * tiltY, radius * b3Cos( swingAngle ) };

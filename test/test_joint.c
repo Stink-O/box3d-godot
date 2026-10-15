@@ -486,6 +486,27 @@ static int TestSphericalJoint( void )
 	b3Vec2 coneAngles = b3SphericalJoint_GetConeAngles( jointId );
 	MAYBE_UNUSED( coneAngles );
 
+	ENSURE( b3SphericalJoint_IsAsymmetricConeEnabled( jointId ) == false );
+	b3SphericalJoint_EnableAsymmetricCone( jointId, true );
+	ENSURE( b3SphericalJoint_IsAsymmetricConeEnabled( jointId ) == true );
+
+	b3SphericalJoint_SetAsymmetricConeLimits( jointId, 2.0f, 0.3f, 0.7f, 0.45f );
+	ENSURE( b3SphericalJoint_GetConeLimitX( jointId ) == 2.0f );
+	ENSURE( b3SphericalJoint_GetConeLimitNegativeX( jointId ) == 0.3f );
+	ENSURE( b3SphericalJoint_GetConeLimitY( jointId ) == 0.7f );
+	ENSURE( b3SphericalJoint_GetConeLimitNegativeY( jointId ) == 0.45f );
+
+	// The symmetric setter keeps the -x and -y limits
+	b3SphericalJoint_SetEllipticalConeLimits( jointId, 0.4f, 1.8f );
+	ENSURE( b3SphericalJoint_GetConeLimitNegativeX( jointId ) == 0.3f );
+	ENSURE( b3SphericalJoint_GetConeLimitNegativeY( jointId ) == 0.45f );
+
+	// Clamped like the elliptical cone
+	b3SphericalJoint_SetAsymmetricConeLimits( jointId, 0.4f, 3.0f, 1.8f, -1.0f );
+	ENSURE( b3SphericalJoint_GetConeLimitNegativeX( jointId ) == 0.9f * B3_PI );
+	ENSURE( b3SphericalJoint_GetConeLimitNegativeY( jointId ) == 0.0f );
+	b3SphericalJoint_SetAsymmetricConeLimits( jointId, 0.4f, 0.3f, 1.8f, 0.45f );
+
 	ENSURE( b3SphericalJoint_GetArmature( jointId ) == 0.0f );
 	b3SphericalJoint_SetArmature( jointId, 0.25f );
 	ENSURE( b3SphericalJoint_GetArmature( jointId ) == 0.25f );
@@ -812,6 +833,363 @@ static int TestEllipticalConeLimit( void )
 	return 0;
 }
 
+// The semi-axes of the quarter-ellipse of an asymmetric cone for a tilt direction (limits: +x, -x, +y, -y)
+static float AsymmetricConeG( const float* limits, float tiltX, float tiltY )
+{
+	float u = tiltX / ( tiltX >= 0.0f ? limits[0] : limits[1] );
+	float v = tiltY / ( tiltY >= 0.0f ? limits[2] : limits[3] );
+	return sqrtf( u * u + v * v );
+}
+
+// Checks the asymmetric cone constraint against finite differences in all four quadrants, including lopsided
+// cones wider than a hemisphere; that the constraint and its Jacobian are continuous across the axes, where two
+// quarter-ellipses meet; and that symmetric pairs give the elliptical cone exactly.
+static int TestAsymmetricConeJacobian( void )
+{
+	// +x, -x, +y, -y
+	float limits[][4] = {
+		{ 2.09f, 0.35f, 0.79f, 0.52f },
+		{ 0.4f, 1.2f, 1.5f, 0.3f },
+		{ 2.6f, 2.2f, 0.9f, 2.5f },
+		{ 0.7f, 0.2f, 0.7f, 0.2f },
+	};
+	float twists[] = { 0.0f, 0.8f, -2.0f };
+	b3Vec3 rates[] = { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.3f, -0.5f, 0.8f } };
+	const float delta = 1.0e-3f;
+
+	for ( int l = 0; l < 4; ++l )
+	{
+		const float* lim = limits[l];
+		for ( int t = 0; t < 3; ++t )
+		{
+			// On the boundary, in every quadrant
+			for ( int p = 0; p < 16; ++p )
+			{
+				float phi = 0.2f + p * 2.0f * B3_PI / 16.0f;
+				float cosPhi = cosf( phi );
+				float sinPhi = sinf( phi );
+				float tiltX = ( cosPhi >= 0.0f ? lim[0] : lim[1] ) * cosPhi;
+				float tiltY = ( sinPhi >= 0.0f ? lim[2] : lim[3] ) * sinPhi;
+				b3Quat q = MakeTiltTwist( tiltX, tiltY, twists[t] );
+
+				b3Vec3 jacobian;
+				float c = b3GetAsymmetricConeConstraint( q, lim[0], lim[1], lim[2], lim[3], &jacobian );
+				ENSURE_SMALL( c, 1.0e-4f );
+
+				b3Vec2 tilt = b3GetSwingTilt( q );
+				ENSURE_SMALL( tilt.x - tiltX, 1.0e-4f );
+				ENSURE_SMALL( tilt.y - tiltY, 1.0e-4f );
+
+				for ( int r = 0; r < 4; ++r )
+				{
+					b3Vec3 w = rates[r];
+					float wLength = b3Length( w );
+					b3Vec3 wAxis = b3MulSV( 1.0f / wLength, w );
+					b3Quat qPlus = b3MulQuat( MakeExactQuat( wAxis, wLength * delta ), q );
+					b3Quat qMinus = b3MulQuat( MakeExactQuat( wAxis, -wLength * delta ), q );
+
+					b3Vec3 unused;
+					float cPlus = b3GetAsymmetricConeConstraint( qPlus, lim[0], lim[1], lim[2], lim[3], &unused );
+					float cMinus = b3GetAsymmetricConeConstraint( qMinus, lim[0], lim[1], lim[2], lim[3], &unused );
+					float rate = ( cPlus - cMinus ) / ( 2.0f * delta );
+					ENSURE_SMALL( rate + b3Dot( jacobian, w ), 2.0e-2f * ( 1.0f + b3Length( jacobian ) ) );
+				}
+			}
+
+			// Across each axis: on the boundary, and inside and outside it, a hair either side of the axis
+			for ( int k = 0; k < 4; ++k )
+			{
+				float axisX = k == 0 ? 1.0f : ( k == 2 ? -1.0f : 0.0f );
+				float axisY = k == 1 ? 1.0f : ( k == 3 ? -1.0f : 0.0f );
+				float axisLimit = lim[k == 0 ? 0 : ( k == 1 ? 2 : ( k == 2 ? 1 : 3 ) )];
+				float scales[] = { 0.5f, 1.0f, 1.3f };
+				for ( int sc = 0; sc < 3; ++sc )
+				{
+					// Below a swing of pi, where the tilt wraps around
+					float radius = b3MinFloat( scales[sc] * axisLimit, 2.8f );
+					float side = 1.0e-4f;
+					b3Quat qA = MakeTiltTwist( radius * axisX - side * axisY, radius * axisY + side * axisX, twists[t] );
+					b3Quat qB = MakeTiltTwist( radius * axisX + side * axisY, radius * axisY - side * axisX, twists[t] );
+
+					b3Vec3 jacobianA, jacobianB;
+					float cA = b3GetAsymmetricConeConstraint( qA, lim[0], lim[1], lim[2], lim[3], &jacobianA );
+					float cB = b3GetAsymmetricConeConstraint( qB, lim[0], lim[1], lim[2], lim[3], &jacobianB );
+					ENSURE_SMALL( cA - cB, 1.0e-3f );
+					ENSURE_SMALL( b3Length( b3Sub( jacobianA, jacobianB ) ), 1.0e-2f );
+
+					// On the axis the constraint is the radial distance to that axis limit
+					ENSURE_SMALL( cA - ( axisLimit - radius ), 1.0e-3f );
+				}
+			}
+		}
+	}
+
+	// Symmetric pairs: the elliptical cone, bit for bit
+	for ( int p = 0; p < 24; ++p )
+	{
+		float phi = 0.13f + p * 0.71f;
+		float swingAngle = 0.05f + 0.11f * p;
+		b3Quat q = MakeTiltTwist( swingAngle * cosf( phi ), swingAngle * sinf( phi ), 0.3f * p - 3.0f );
+		b3Vec3 jacobianE, jacobianA;
+		float cE = b3GetEllipticalConeConstraint( q, 0.6f, 1.7f, &jacobianE );
+		float cA = b3GetAsymmetricConeConstraint( q, 0.6f, 0.6f, 1.7f, 1.7f, &jacobianA );
+		ENSURE( cE == cA );
+		ENSURE( jacobianE.x == jacobianA.x && jacobianE.y == jacobianA.y && jacobianE.z == jacobianA.z );
+	}
+
+	return 0;
+}
+
+// A ball joint driven by a motor into its asymmetric cone holds on the boundary in every quadrant and on
+// every axis (each axis at its own limit), slides smoothly along the boundary across all four axes when
+// the motor turns, follows a limit changed live, and with symmetric pairs steps exactly like the
+// elliptical cone. The rest pose (tilt 0) is inside, so an undriven joint does not move.
+static int TestAsymmetricConeLimit( void )
+{
+	// A lopsided cone like a hip: +x, -x, +y, -y
+	const float limits[4] = { 2.0f, 0.35f, 0.8f, 0.5f };
+
+	// Boundary hold: tilt directions on the axes (even) and in each quadrant (odd), counterclockwise from +x
+	for ( int i = 0; i < 8; ++i )
+	{
+		float angle = 0.25f * B3_PI * i;
+		b3Vec2 direction = { cosf( angle ), sinf( angle ) };
+		if ( i % 2 == 0 )
+		{
+			// Exactly on the axis
+			direction.x = b3AbsFloat( direction.x ) < 0.5f ? 0.0f : direction.x;
+			direction.y = b3AbsFloat( direction.y ) < 0.5f ? 0.0f : direction.y;
+		}
+
+		JointFixture f = CreateJointFixture();
+
+		b3SphericalJointDef def = b3DefaultSphericalJointDef();
+		SetCommonFrames( &def.base, &f );
+		def.enableConeLimit = true;
+		def.enableEllipticalCone = true;
+		def.enableAsymmetricCone = true;
+		def.coneAngleX = limits[0];
+		def.coneAngleNegativeX = limits[1];
+		def.coneAngleY = limits[2];
+		def.coneAngleNegativeY = limits[3];
+		def.enableMotor = true;
+
+		// A twist limit, or the part of the motor rotation the cone blocks becomes twist
+		def.enableTwistLimit = true;
+		def.lowerTwistAngle = -0.1f;
+		def.upperTwistAngle = 0.1f;
+
+		// A rotation about (-dy, dx, 0) tips the frameB z-axis towards (dx, dy)
+		def.motorVelocity = (b3Vec3){ -2.0f * direction.y, 2.0f * direction.x, 0.0f };
+		def.maxMotorTorque = 2.0f;
+		b3JointId jointId = b3CreateSphericalJoint( f.worldId, &def );
+
+		for ( int step = 0; step < 240; ++step )
+		{
+			b3World_Step( f.worldId, 1.0f / 60.0f, 4 );
+		}
+
+		b3Vec2 tilt = b3SphericalJoint_GetConeAngles( jointId );
+		if ( i % 2 == 0 )
+		{
+			// On an axis: exactly that axis limit
+			float axisLimit = direction.x > 0.5f
+								  ? limits[0]
+								  : ( direction.x < -0.5f ? limits[1] : ( direction.y > 0.5f ? limits[2] : limits[3] ) );
+			ENSURE_SMALL( tilt.x - axisLimit * direction.x, 0.02f );
+			ENSURE_SMALL( tilt.y - axisLimit * direction.y, 0.02f );
+		}
+		else
+		{
+			// Still in its quadrant
+			ENSURE( tilt.x * direction.x > 0.0f && tilt.y * direction.y > 0.0f );
+		}
+
+		ENSURE_SMALL( AsymmetricConeG( limits, tilt.x, tilt.y ) - 1.0f, 0.03f );
+		ENSURE( b3Joint_GetAngularSeparation( jointId ) < 0.02f );
+
+		b3DestroyWorld( f.worldId );
+	}
+
+	// Quadrant crossing: the motor turns once around, the tilt slides along the boundary through all four
+	// quadrants without leaving it or jumping
+	for ( int subStep = 4; subStep <= 8; subStep += 4 )
+	{
+		JointFixture f = CreateJointFixture();
+
+		b3SphericalJointDef def = b3DefaultSphericalJointDef();
+		SetCommonFrames( &def.base, &f );
+		def.enableConeLimit = true;
+		def.enableEllipticalCone = true;
+		def.enableAsymmetricCone = true;
+		def.coneAngleX = limits[0];
+		def.coneAngleNegativeX = limits[1];
+		def.coneAngleY = limits[2];
+		def.coneAngleNegativeY = limits[3];
+		def.enableMotor = true;
+		def.motorVelocity = (b3Vec3){ 0.0f, 2.0f, 0.0f };
+		def.maxMotorTorque = 2.0f;
+		def.enableTwistLimit = true;
+		def.lowerTwistAngle = -0.1f;
+		def.upperTwistAngle = 0.1f;
+		b3JointId jointId = b3CreateSphericalJoint( f.worldId, &def );
+
+		// Setting the motor velocity does not wake the body
+		b3Body_EnableSleep( f.bodyId, false );
+
+		const int settleSteps = 120;
+		const int turnSteps = 1440;
+		int quadrants = 0;
+		float maxDeviation = 0.0f;
+		float maxJump = 0.0f;
+		b3Vec2 previous = { 0.0f, 0.0f };
+		for ( int step = 0; step < settleSteps + turnSteps; ++step )
+		{
+			if ( step >= settleSteps )
+			{
+				float angle = 2.0f * B3_PI * ( step - settleSteps ) / turnSteps;
+				b3Vec2 direction = { cosf( angle ), sinf( angle ) };
+				b3SphericalJoint_SetMotorVelocity( jointId, (b3Vec3){ -2.0f * direction.y, 2.0f * direction.x, 0.0f } );
+			}
+
+			b3World_Step( f.worldId, 1.0f / 60.0f, subStep );
+
+			b3Vec2 tilt = b3SphericalJoint_GetConeAngles( jointId );
+			ENSURE( b3IsValidFloat( tilt.x ) && b3IsValidFloat( tilt.y ) );
+			if ( step >= settleSteps )
+			{
+				maxDeviation = b3MaxFloat( maxDeviation, b3AbsFloat( AsymmetricConeG( limits, tilt.x, tilt.y ) - 1.0f ) );
+				float jumpX = tilt.x - previous.x;
+				float jumpY = tilt.y - previous.y;
+				maxJump = b3MaxFloat( maxJump, sqrtf( jumpX * jumpX + jumpY * jumpY ) );
+				quadrants |= 1 << ( ( tilt.x >= 0.0f ? 0 : 1 ) + ( tilt.y >= 0.0f ? 0 : 2 ) );
+			}
+			previous = tilt;
+		}
+
+		ENSURE( quadrants == 15 );
+		ENSURE( maxDeviation < 0.05f );
+
+		// The boundary is about 6.5 radians around and one turn takes 1440 steps
+		ENSURE( maxJump < 0.05f );
+		ENSURE( b3Length( b3Body_GetAngularVelocity( f.bodyId ) ) < 5.0f );
+
+		b3DestroyWorld( f.worldId );
+	}
+
+	// Live change: the limit the joint rests on is lowered and raised; changing another limit does not move it
+	{
+		JointFixture f = CreateJointFixture();
+
+		b3SphericalJointDef def = b3DefaultSphericalJointDef();
+		SetCommonFrames( &def.base, &f );
+		def.enableConeLimit = true;
+		def.enableEllipticalCone = true;
+		def.enableAsymmetricCone = true;
+		def.coneAngleX = 1.2f;
+		def.coneAngleNegativeX = 0.5f;
+		def.coneAngleY = 0.8f;
+		def.coneAngleNegativeY = 0.6f;
+		def.enableMotor = true;
+		def.motorVelocity = (b3Vec3){ 0.0f, 2.0f, 0.0f };
+		def.maxMotorTorque = 2.0f;
+		b3JointId jointId = b3CreateSphericalJoint( f.worldId, &def );
+
+		// Changing a limit does not wake the body, like the other joint limits
+		b3Body_EnableSleep( f.bodyId, false );
+
+		float targets[] = { 1.2f, 0.6f, 0.6f, 1.0f };
+		float negativeX[] = { 0.5f, 0.5f, 0.3f, 0.3f };
+		for ( int phase = 0; phase < 4; ++phase )
+		{
+			b3SphericalJoint_SetAsymmetricConeLimits( jointId, targets[phase], negativeX[phase], 0.8f, 0.6f );
+			float maxSpeed = 0.0f;
+			for ( int step = 0; step < 180; ++step )
+			{
+				b3World_Step( f.worldId, 1.0f / 60.0f, 4 );
+				maxSpeed = b3MaxFloat( maxSpeed, b3Length( b3Body_GetAngularVelocity( f.bodyId ) ) );
+			}
+
+			b3Vec2 tilt = b3SphericalJoint_GetConeAngles( jointId );
+			ENSURE_SMALL( tilt.x - targets[phase], 0.02f );
+			ENSURE_SMALL( tilt.y, 0.02f );
+			ENSURE( maxSpeed < 10.0f );
+		}
+
+		b3DestroyWorld( f.worldId );
+	}
+
+	// The rest pose is inside the cone: an undriven joint stays at tilt 0
+	{
+		JointFixture f = CreateJointFixture();
+
+		b3SphericalJointDef def = b3DefaultSphericalJointDef();
+		SetCommonFrames( &def.base, &f );
+		def.enableConeLimit = true;
+		def.enableEllipticalCone = true;
+		def.enableAsymmetricCone = true;
+		def.coneAngleX = limits[0];
+		def.coneAngleNegativeX = limits[1];
+		def.coneAngleY = limits[2];
+		def.coneAngleNegativeY = limits[3];
+		b3JointId jointId = b3CreateSphericalJoint( f.worldId, &def );
+
+		for ( int step = 0; step < 60; ++step )
+		{
+			b3World_Step( f.worldId, 1.0f / 60.0f, 4 );
+		}
+
+		b3Vec2 tilt = b3SphericalJoint_GetConeAngles( jointId );
+		ENSURE( tilt.x == 0.0f && tilt.y == 0.0f );
+		ENSURE( b3Length( b3Joint_GetConstraintTorque( jointId ) ) == 0.0f );
+
+		b3DestroyWorld( f.worldId );
+	}
+
+	// Symmetric pairs step exactly like the elliptical cone
+	b3WorldTransform transforms[2];
+	for ( int asymmetric = 0; asymmetric < 2; ++asymmetric )
+	{
+		JointFixture f = CreateJointFixture();
+
+		b3SphericalJointDef def = b3DefaultSphericalJointDef();
+		SetCommonFrames( &def.base, &f );
+		def.enableConeLimit = true;
+		def.enableEllipticalCone = true;
+		def.enableAsymmetricCone = asymmetric == 1;
+		def.coneAngleX = 0.5f;
+		def.coneAngleY = 1.1f;
+		def.coneAngleNegativeX = 0.5f;
+		def.coneAngleNegativeY = 1.1f;
+		def.enableTwistLimit = true;
+		def.lowerTwistAngle = -0.3f;
+		def.upperTwistAngle = 0.4f;
+		def.enableMotor = true;
+		def.motorVelocity = (b3Vec3){ -1.0f, 2.0f, 0.5f };
+		def.maxMotorTorque = 2.0f;
+		b3JointId jointId = b3CreateSphericalJoint( f.worldId, &def );
+
+		for ( int step = 0; step < 240; ++step )
+		{
+			if ( step == 120 )
+			{
+				b3SphericalJoint_SetMotorVelocity( jointId, (b3Vec3){ 2.0f, -1.0f, -0.5f } );
+			}
+			b3World_Step( f.worldId, 1.0f / 60.0f, 4 );
+		}
+
+		transforms[asymmetric] = b3Body_GetTransform( f.bodyId );
+		b3DestroyWorld( f.worldId );
+	}
+
+	ENSURE( transforms[0].p.x == transforms[1].p.x && transforms[0].p.y == transforms[1].p.y &&
+			transforms[0].p.z == transforms[1].p.z );
+	ENSURE( transforms[0].q.v.x == transforms[1].q.v.x && transforms[0].q.v.y == transforms[1].q.v.y &&
+			transforms[0].q.v.z == transforms[1].q.v.z && transforms[0].q.s == transforms[1].q.s );
+
+	return 0;
+}
+
 static int TestWeldJoint( void )
 {
 	JointFixture f = CreateJointFixture();
@@ -1032,6 +1410,8 @@ int JointTest( void )
 	RUN_SUBTEST( TestArmatureEnergy );
 	RUN_SUBTEST( TestEllipticalConeJacobian );
 	RUN_SUBTEST( TestEllipticalConeLimit );
+	RUN_SUBTEST( TestAsymmetricConeJacobian );
+	RUN_SUBTEST( TestAsymmetricConeLimit );
 
 	return 0;
 }
