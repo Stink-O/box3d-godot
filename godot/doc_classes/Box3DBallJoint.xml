@@ -16,6 +16,12 @@
 				How far the joint axis is currently tilted from its rest direction, in radians. Compare with [member cone_angle], which is the limit rather than the reading.
 			</description>
 		</method>
+		<method name="get_current_cone_angles" qualifiers="const">
+			<return type="Vector2" />
+			<description>
+				The current swing as two angles in radians: how far the joint axis is tilted towards the node's local X axis ([code]x[/code]) and towards its local Y axis ([code]y[/code]). Their length is [method get_current_cone_angle]. This is the reading the elliptical cone limits: the joint is inside it while [code](x / cone_angle_x)² + (y / cone_angle_y)² <= 1[/code].
+			</description>
+		</method>
 		<method name="get_current_twist_angle" qualifiers="const">
 			<return type="float" />
 			<description>
@@ -30,11 +36,23 @@
 		</method>
 	</methods>
 	<members>
+		<member name="armature" type="float" setter="set_armature" getter="get_armature" default="0.0">
+			Extra rotational inertia of the relative rotation itself, in kg·m², that is not due to the mass of either body. It resists angular acceleration of the joint about all three axes, so a light body on the end of a chain is not whipped about, and is stable at any substep count. 0 (the default) is none. Applies live.
+		</member>
 		<member name="cone_angle" type="float" setter="set_cone_angle" getter="get_cone_angle" default="0.5">
-			Half-angle of the allowed cone, in radians. 0 pins the axis, larger values open it up. Box3D accepts 0 to 90 degrees only: this is a half-angle, so 90 is already a full hemisphere of swing, and a larger value trips an assert in a debug build of Box3D.
+			Half-angle of the allowed cone, in radians. 0 pins the axis, larger values open it up. Box3D accepts 0 to 90 degrees only: this is a half-angle, so 90 is already a full hemisphere of swing, and a larger value trips an assert in a debug build of Box3D. Ignored while [member elliptical_cone_enabled] is on.
+		</member>
+		<member name="cone_angle_x" type="float" setter="set_cone_angle_x" getter="get_cone_angle_x" default="0.0">
+			Elliptical cone: the largest tilt of the joint axis towards the node's local X axis, in radians (either way). 0 to 162 degrees (0.9 π); Box3D clamps there. Used while [member elliptical_cone_enabled] is on. Applies live, so a limit can follow another joint (for example hip flexion following the knee).
+		</member>
+		<member name="cone_angle_y" type="float" setter="set_cone_angle_y" getter="get_cone_angle_y" default="0.0">
+			Elliptical cone: the largest tilt of the joint axis towards the node's local Y axis, in radians (either way). 0 to 162 degrees (0.9 π). Used while [member elliptical_cone_enabled] is on. Applies live.
 		</member>
 		<member name="cone_limit_enabled" type="bool" setter="set_cone_limit_enabled" getter="get_cone_limit_enabled" default="false">
 			Restricts how far the joint axis may swing away from its rest direction.
+		</member>
+		<member name="elliptical_cone_enabled" type="bool" setter="set_elliptical_cone_enabled" getter="get_elliptical_cone_enabled" default="false">
+			Makes the cone limit elliptical: the joint axis may tilt up to [member cone_angle_x] towards the node's local X axis and up to [member cone_angle_y] towards its local Y axis, along an ellipse in between ([method get_current_cone_angles] reads the tilt), instead of one circular [member cone_angle]. Each angle may exceed 90 degrees. The ellipse is centred on the node's Z axis: for a range that reaches further one way than the other, turn the node so its Z axis points at the middle of the range. Only used while [member cone_limit_enabled] is on. Off (the default) leaves the circular cone exactly as it was.
 		</member>
 		<member name="friction_torque" type="float" setter="set_friction_torque" getter="get_friction_torque" default="0.0">
 			Dry friction in the joint, in newton-metres: a torque that resists any rotation, so a ragdoll limb settles instead of swinging forever. 0 is frictionless.

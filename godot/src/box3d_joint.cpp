@@ -558,6 +558,7 @@ b3JointId Box3DHingeJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3Bo
 	def.hertz = (float)spring_hertz;
 	def.dampingRatio = (float)spring_damping;
 	def.targetAngle = (float)target_angle;
+	def.armature = (float)armature;
 	return b3CreateRevoluteJoint(p_world, &def);
 }
 
@@ -713,6 +714,15 @@ void Box3DHingeJoint::set_max_spring_torque(double p_v) {
 }
 double Box3DHingeJoint::get_max_spring_torque() const { return max_spring_torque; }
 
+void Box3DHingeJoint::set_armature(double p_v) {
+	// b3RevoluteJoint_SetArmature asserts a non-negative value.
+	armature = MAX(p_v, 0.0);
+	if (joint_live()) {
+		b3RevoluteJoint_SetArmature(joint_id, (float)armature);
+	}
+}
+double Box3DHingeJoint::get_armature() const { return armature; }
+
 double Box3DHingeJoint::get_angle() const {
 	return joint_live() ? b3RevoluteJoint_GetAngle(joint_id) : 0.0;
 }
@@ -744,6 +754,8 @@ void Box3DHingeJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_target_angle"), &Box3DHingeJoint::get_target_angle);
 	ClassDB::bind_method(D_METHOD("set_max_spring_torque", "torque"), &Box3DHingeJoint::set_max_spring_torque);
 	ClassDB::bind_method(D_METHOD("get_max_spring_torque"), &Box3DHingeJoint::get_max_spring_torque);
+	ClassDB::bind_method(D_METHOD("set_armature", "inertia"), &Box3DHingeJoint::set_armature);
+	ClassDB::bind_method(D_METHOD("get_armature"), &Box3DHingeJoint::get_armature);
 	ClassDB::bind_method(D_METHOD("get_angle"), &Box3DHingeJoint::get_angle);
 	ClassDB::bind_method(D_METHOD("get_motor_torque"), &Box3DHingeJoint::get_motor_torque);
 
@@ -767,6 +779,10 @@ void Box3DHingeJoint::_bind_methods() {
 	// 0 = the native unclamped spring; > 0 re-seats the spring with a solver-
 	// level torque ceiling (a muscle can only pull so hard).
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_spring_torque", PROPERTY_HINT_RANGE, torque_range("0,10000,1,or_greater")), "set_max_spring_torque", "get_max_spring_torque");
+	// Extra inertia of the hinge motion itself (a geared motor's rotor, or
+	// tissue moving with the joint); 0 = none.
+	ADD_GROUP("Armature", "");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "armature", PROPERTY_HINT_RANGE, "0,1,0.0001,or_greater,suffix:kg·m²"), "set_armature", "get_armature");
 }
 
 // ---------------------------------------------------------------------------
@@ -1191,6 +1207,10 @@ b3JointId Box3DBallJoint::create_specific(b3WorldId p_world, b3BodyId p_a, b3Bod
 	apply_base_def(def.base);
 	def.enableConeLimit = cone_limit_enabled;
 	def.coneAngle = (float)cone_angle;
+	def.enableEllipticalCone = elliptical_cone_enabled;
+	def.coneAngleX = (float)cone_angle_x;
+	def.coneAngleY = (float)cone_angle_y;
+	def.armature = (float)armature;
 	def.enableTwistLimit = twist_limit_enabled;
 	def.lowerTwistAngle = (float)twist_lower;
 	def.upperTwistAngle = (float)twist_upper;
@@ -1230,7 +1250,8 @@ void Box3DBallJoint::collect_type_warnings(PackedStringArray &p_warnings) const 
 	}
 	// b3SphericalJoint_SetConeLimit asserts 0 <= angle <= PI/2 (spherical_joint.c:42):
 	// the cone is a half-angle, so 90 degrees is already a full hemisphere.
-	if (cone_limit_enabled && cone_angle > 0.5 * (double)B3_PI) {
+	// The elliptical cone has no such limit (up to 0.9 PI), and ignores cone_angle.
+	if (cone_limit_enabled && !elliptical_cone_enabled && cone_angle > 0.5 * (double)B3_PI) {
 		p_warnings.push_back(
 				"Cone Angle is above 90 degrees. It is a half-angle, and Box3D only "
 				"supports 0 to 90 (90 is already a full hemisphere of freedom); a "
@@ -1270,6 +1291,31 @@ void Box3DBallJoint::set_cone_angle(double p_v) {
 	refresh_warnings();
 }
 double Box3DBallJoint::get_cone_angle() const { return cone_angle; }
+
+void Box3DBallJoint::set_elliptical_cone_enabled(bool p_v) {
+	elliptical_cone_enabled = p_v;
+	if (joint_live()) {
+		b3SphericalJoint_EnableEllipticalCone(joint_id, p_v);
+	}
+	refresh_warnings();
+}
+bool Box3DBallJoint::get_elliptical_cone_enabled() const { return elliptical_cone_enabled; }
+
+void Box3DBallJoint::set_cone_angle_x(double p_v) {
+	cone_angle_x = p_v;
+	if (joint_live()) {
+		b3SphericalJoint_SetEllipticalConeLimits(joint_id, (float)cone_angle_x, (float)cone_angle_y);
+	}
+}
+double Box3DBallJoint::get_cone_angle_x() const { return cone_angle_x; }
+
+void Box3DBallJoint::set_cone_angle_y(double p_v) {
+	cone_angle_y = p_v;
+	if (joint_live()) {
+		b3SphericalJoint_SetEllipticalConeLimits(joint_id, (float)cone_angle_x, (float)cone_angle_y);
+	}
+}
+double Box3DBallJoint::get_cone_angle_y() const { return cone_angle_y; }
 
 void Box3DBallJoint::set_twist_limit_enabled(bool p_v) {
 	twist_limit_enabled = p_v;
@@ -1427,15 +1473,38 @@ double Box3DBallJoint::get_current_twist_angle() const {
 	return joint_live() ? b3SphericalJoint_GetTwistAngle(joint_id) : 0.0;
 }
 
+Vector2 Box3DBallJoint::get_current_cone_angles() const {
+	if (!joint_live()) {
+		return Vector2();
+	}
+	const b3Vec2 angles = b3SphericalJoint_GetConeAngles(joint_id);
+	return Vector2(angles.x, angles.y);
+}
+
 Vector3 Box3DBallJoint::get_motor_torque() const {
 	return joint_live() ? to_gd(b3SphericalJoint_GetMotorTorque(joint_id)) : Vector3();
 }
+
+void Box3DBallJoint::set_armature(double p_v) {
+	// b3SphericalJoint_SetArmature asserts a non-negative value.
+	armature = MAX(p_v, 0.0);
+	if (joint_live()) {
+		b3SphericalJoint_SetArmature(joint_id, (float)armature);
+	}
+}
+double Box3DBallJoint::get_armature() const { return armature; }
 
 void Box3DBallJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_cone_limit_enabled", "enabled"), &Box3DBallJoint::set_cone_limit_enabled);
 	ClassDB::bind_method(D_METHOD("get_cone_limit_enabled"), &Box3DBallJoint::get_cone_limit_enabled);
 	ClassDB::bind_method(D_METHOD("set_cone_angle", "radians"), &Box3DBallJoint::set_cone_angle);
 	ClassDB::bind_method(D_METHOD("get_cone_angle"), &Box3DBallJoint::get_cone_angle);
+	ClassDB::bind_method(D_METHOD("set_elliptical_cone_enabled", "enabled"), &Box3DBallJoint::set_elliptical_cone_enabled);
+	ClassDB::bind_method(D_METHOD("get_elliptical_cone_enabled"), &Box3DBallJoint::get_elliptical_cone_enabled);
+	ClassDB::bind_method(D_METHOD("set_cone_angle_x", "radians"), &Box3DBallJoint::set_cone_angle_x);
+	ClassDB::bind_method(D_METHOD("get_cone_angle_x"), &Box3DBallJoint::get_cone_angle_x);
+	ClassDB::bind_method(D_METHOD("set_cone_angle_y", "radians"), &Box3DBallJoint::set_cone_angle_y);
+	ClassDB::bind_method(D_METHOD("get_cone_angle_y"), &Box3DBallJoint::get_cone_angle_y);
 	ClassDB::bind_method(D_METHOD("set_twist_limit_enabled", "enabled"), &Box3DBallJoint::set_twist_limit_enabled);
 	ClassDB::bind_method(D_METHOD("get_twist_limit_enabled"), &Box3DBallJoint::get_twist_limit_enabled);
 	ClassDB::bind_method(D_METHOD("set_twist_lower", "radians"), &Box3DBallJoint::set_twist_lower);
@@ -1462,7 +1531,10 @@ void Box3DBallJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_max_spring_torque"), &Box3DBallJoint::get_max_spring_torque);
 	ClassDB::bind_method(D_METHOD("get_current_cone_angle"), &Box3DBallJoint::get_current_cone_angle);
 	ClassDB::bind_method(D_METHOD("get_current_twist_angle"), &Box3DBallJoint::get_current_twist_angle);
+	ClassDB::bind_method(D_METHOD("get_current_cone_angles"), &Box3DBallJoint::get_current_cone_angles);
 	ClassDB::bind_method(D_METHOD("get_motor_torque"), &Box3DBallJoint::get_motor_torque);
+	ClassDB::bind_method(D_METHOD("set_armature", "inertia"), &Box3DBallJoint::set_armature);
+	ClassDB::bind_method(D_METHOD("get_armature"), &Box3DBallJoint::get_armature);
 
 	// friction_torque is the one knob that stands alone: it is the shorthand for
 	// a zero-target motor, so it sits above the mechanisms it substitutes for.
@@ -1472,6 +1544,11 @@ void Box3DBallJoint::_bind_methods() {
 	// Box3D accepts 0 to PI/2 here (spherical_joint.c:42): the cone angle is a
 	// HALF-angle, so 90 degrees is already a full hemisphere of swing.
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cone_angle", PROPERTY_HINT_RANGE, "0,90,0.1,radians_as_degrees"), "set_cone_angle", "get_cone_angle");
+	// Elliptical cone: two angles in place of cone_angle, each up to 0.9 PI
+	// (spherical_joint.c clamps there; the tilt it limits is singular at PI).
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "elliptical_cone_enabled"), "set_elliptical_cone_enabled", "get_elliptical_cone_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cone_angle_x", PROPERTY_HINT_RANGE, "0,162,0.1,radians_as_degrees"), "set_cone_angle_x", "get_cone_angle_x");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cone_angle_y", PROPERTY_HINT_RANGE, "0,162,0.1,radians_as_degrees"), "set_cone_angle_y", "get_cone_angle_y");
 	ADD_GROUP("Twist Limit", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "twist_limit_enabled"), "set_twist_limit_enabled", "get_twist_limit_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "twist_lower", PROPERTY_HINT_RANGE, "-180,180,0.1,radians_as_degrees"), "set_twist_lower", "get_twist_lower");
@@ -1490,6 +1567,9 @@ void Box3DBallJoint::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "motor_enabled"), "set_motor_enabled", "get_motor_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "motor_velocity", PROPERTY_HINT_NONE, "suffix:rad/s"), "set_motor_velocity", "get_motor_velocity");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_motor_torque", PROPERTY_HINT_RANGE, torque_range("0,1000,0.1,or_greater")), "set_max_motor_torque", "get_max_motor_torque");
+	// Extra inertia of the relative rotation itself; 0 = none.
+	ADD_GROUP("Armature", "");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "armature", PROPERTY_HINT_RANGE, "0,1,0.0001,or_greater,suffix:kg·m²"), "set_armature", "get_armature");
 }
 
 // ---------------------------------------------------------------------------

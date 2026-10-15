@@ -24,6 +24,9 @@
 		</method>
 	</methods>
 	<members>
+		<member name="armature" type="float" setter="set_armature" getter="get_armature" default="0.0">
+			Extra rotational inertia of the hinge motion itself, in kg·m², that is not due to the mass of either body: for example a geared motor's rotor (rotor inertia times the gear ratio squared). It resists angular acceleration about the hinge axis, so light bodies on a chain of hinges are not flung about, and is stable at any substep count. 0 (the default) is none. Applies live.
+		</member>
 		<member name="limit_enabled" type="bool" setter="set_limit_enabled" getter="get_limit_enabled" default="false">
 			Restricts the hinge angle to [member lower_limit] .. [member upper_limit].
 		</member>

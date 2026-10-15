@@ -195,6 +195,9 @@ class Box3DHingeJoint : public Box3DJoint {
 	// see cap_joint_id. The spring's own off-hinge-axis components are inert:
 	// the hinge constrains those axes rigidly, so their error is always zero.
 	double max_spring_torque = 0.0;
+	// kg·m². Rotational inertia of the hinge motion that is not due to body
+	// mass (b3RevoluteJointDef.armature); 0 = none, Box3D's default.
+	double armature = 0.0;
 
 protected:
 	static void _bind_methods();
@@ -231,6 +234,8 @@ public:
 	double get_target_angle() const;
 	void set_max_spring_torque(double p_v);
 	double get_max_spring_torque() const;
+	void set_armature(double p_v);
+	double get_armature() const;
 	// Live readouts from the simulation (0 when the joint isn't created yet).
 	double get_angle() const;        // radians
 	double get_motor_torque() const; // newton-meters
@@ -355,6 +360,12 @@ class Box3DBallJoint : public Box3DJoint {
 
 	bool cone_limit_enabled = false;
 	double cone_angle = 0.5; // radians, half-angle of the cone
+	// Elliptical cone (b3SphericalJointDef.enableEllipticalCone): when on, the
+	// cone limit uses the two angles below instead of cone_angle. Radians, the
+	// largest swing of the joint axis towards the node's local X / Y axis.
+	bool elliptical_cone_enabled = false;
+	double cone_angle_x = 0.0;
+	double cone_angle_y = 0.0;
 	bool twist_limit_enabled = false;
 	double twist_lower = 0.0; // radians
 	double twist_upper = 0.0; // radians
@@ -371,6 +382,9 @@ class Box3DBallJoint : public Box3DJoint {
 	// class's companion motor joint (the one solver spring with a clamp) —
 	// see cap_joint_id.
 	double max_spring_torque = 0.0;
+	// kg·m². Rotational inertia of the relative rotation that is not due to
+	// body mass (b3SphericalJointDef.armature); 0 = none, Box3D's default.
+	double armature = 0.0;
 
 protected:
 	static void _bind_methods();
@@ -394,6 +408,12 @@ public:
 	bool get_cone_limit_enabled() const;
 	void set_cone_angle(double p_v);
 	double get_cone_angle() const;
+	void set_elliptical_cone_enabled(bool p_v);
+	bool get_elliptical_cone_enabled() const;
+	void set_cone_angle_x(double p_v);
+	double get_cone_angle_x() const;
+	void set_cone_angle_y(double p_v);
+	double get_cone_angle_y() const;
 	void set_twist_limit_enabled(bool p_v);
 	bool get_twist_limit_enabled() const;
 	void set_twist_lower(double p_v);
@@ -423,7 +443,12 @@ public:
 	// which is what upstream's GetConeLimit / GetConeAngle pair means.
 	double get_current_cone_angle() const;  // radians
 	double get_current_twist_angle() const; // radians
+	// The swing as two angles: towards the node's local X and Y axis (radians),
+	// the reading the elliptical cone limits.
+	Vector2 get_current_cone_angles() const;
 	Vector3 get_motor_torque() const;       // newton-meters
+	void set_armature(double p_v);
+	double get_armature() const;
 };
 
 // Fixed / weld joint: rigidly locks two bodies together.
