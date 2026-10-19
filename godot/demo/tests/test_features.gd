@@ -116,6 +116,7 @@ func _ready() -> void:
 	await _test_capsule_plane_sample()
 	await _test_mover_overlap_sample()
 	await _test_breakable_joints_sample()
+	await _test_card_house_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6699,6 +6700,25 @@ func _test_breakable_joints_sample() -> void:
 	_check("Breakable Joints: a yank past the threshold destroys that joint and only that one (%s)" % [broken],
 		broken == ["RevoluteJoint"] and inst.get_node_or_null("Box3DWorld/RevoluteJoint") == null
 			and inst.get_node_or_null("Box3DWorld/WeldJoint") != null)
+	inst.queue_free()
+	await get_tree().physics_frame
+
+
+## Card House (sample_stacking.cpp:15-87): forty 2 mm cards in five storeys
+## stand and settle by a few centimetres rather than folding.
+func _test_card_house_sample() -> void:
+	var inst: Node = (load("res://samples/card_house.tscn") as PackedScene).instantiate()
+	add_child(inst)
+	await get_tree().physics_frame
+	var world: Node = inst.get_node("Box3DWorld")
+	var cards := world.get_child_count() - 1
+	var top: Box3DBody = world.get_child(world.get_child_count() - 1)
+	var y0 := top.position.y
+	for i in range(180):
+		await get_tree().physics_frame
+	_check("Card House: upstream's 40 cards, and the top card still stands (%d cards, %.3f -> %.3f m)"
+			% [cards, y0, top.position.y],
+		cards == 40 and top.position.y > y0 - 0.1)
 	inst.queue_free()
 	await get_tree().physics_frame
 
