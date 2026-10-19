@@ -19,6 +19,7 @@ func _ready() -> void:
 	await _test_hull()
 	await _test_mesh()
 	await _test_ccd()
+	await _test_safety_factor()
 	await _test_motion_locks()
 	await _test_character()
 	await _test_queries()
@@ -384,6 +385,62 @@ func _test_ccd() -> void:
 	var tunneled_x := await _ccd_run(false)
 	_check("continuous on: fast body stopped by thin wall", stopped_x < 0.5)
 	_check("continuous off: fast body tunnels through wall", tunneled_x > 1.0)
+
+
+# A plain (non-bullet) sphere crossing a thin static wall at 1 m per step:
+# far more than safety_factor * its 0.2 radius, so the solver sweeps it and
+# stops it at the wall unless the factor is raised out of reach.
+func _safety_run(factor: float, live: bool) -> float:
+	var world := Box3DWorld.new()
+	world.gravity = Vector3.ZERO
+	world.continuous_collision = true
+	add_child(world)
+
+	var wall := Box3DBody.new()
+	wall.body_type = Box3DBody.STATIC
+	wall.box_size = Vector3(0.05, 4, 4)
+	world.add_child(wall)
+
+	var ball := Box3DBody.new()
+	ball.shape_type = Box3DBody.SPHERE
+	ball.sphere_radius = 0.2
+	ball.position = Vector3(-3.5, 0, 0) # never lands inside the wall
+	if not live:
+		ball.safety_factor = factor
+	world.add_child(ball)
+
+	await get_tree().physics_frame
+	if live:
+		ball.safety_factor = factor
+	ball.set_linear_velocity(Vector3(60, 0, 0))
+	for i in range(10):
+		await get_tree().physics_frame
+
+	var x: float = ball.position.x
+	world.free()
+	return x
+
+
+func _test_safety_factor() -> void:
+	var body := Box3DBody.new()
+	_check("safety_factor defaults to Box3D's 0.5", is_equal_approx(body.safety_factor, 0.5))
+	body.safety_factor = 0.1
+	_check("safety_factor round-trips", is_equal_approx(body.safety_factor, 0.1))
+	body.safety_factor = -1.0
+	_check("negative safety_factor is stored as 0 (%f)" % body.safety_factor, body.safety_factor == 0.0)
+	body.safety_factor = INF
+	var inf_stored := body.safety_factor
+	body.safety_factor = NAN
+	_check("INF/NaN safety_factor are stored as the largest float",
+		is_finite(inf_stored) and inf_stored > 1e38 and is_finite(body.safety_factor) and body.safety_factor > 1e38)
+	body.free()
+
+	var swept_x := await _safety_run(0.5, false)
+	var opted_x := await _safety_run(1e6, false)
+	var live_x := await _safety_run(INF, true)
+	_check("default safety_factor: plain fast body stopped by thin wall (x=%.2f)" % swept_x, swept_x < 0.0)
+	_check("huge safety_factor at creation: body tunnels (x=%.2f)" % opted_x, opted_x > 1.0)
+	_check("INF safety_factor set live: body tunnels (x=%.2f)" % live_x, live_x > 1.0)
 
 
 func _test_motion_locks() -> void:

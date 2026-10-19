@@ -207,6 +207,14 @@ private:
 	// 0.05 * b3GetLengthUnitsPerMeter() (src/types.c:37), i.e. 0.05 m/s at the
 	// default length unit.
 	double sleep_threshold = 0.05;
+	// Mirrors b3BodyDef.safetyFactor (types.h:317-322); upstream's default is
+	// 0.5 (src/types.c:42). The solver flags a dynamic body "fast", and sweeps
+	// it against static geometry, only when its motion over the step exceeds
+	// safety_factor * its smallest extent (src/solver.c:791-793, per shape at
+	// src/solver.c:458-484). Smaller = more continuous collision; a value too
+	// large for any reachable motion means the body is never swept, so it is
+	// never moved back to a time of impact (src/solver.c:574-592).
+	double safety_factor = 0.5;
 	bool can_sleep = true; // b3BodyDef.enableSleep / b3Body_EnableSleep
 	bool enabled = true; // b3BodyDef.isEnabled / b3Body_Enable|Disable
 	bool contact_monitor = false; // b3ShapeDef.enableContactEvents
@@ -391,6 +399,9 @@ public:
 	bool is_enabled_now() const;
 	float debug_min_extent() const;
 	float debug_max_extent() const;
+	// safety_factor as handed to Box3D (clamped into upstream's legal range);
+	// the debug draw's "fast" test uses it so it matches the solver's.
+	float safety_factor_b3() const;
 	// Hit-event flash: the world marks qualifying impacts, the debug draw
 	// shows them lime, upstream's "had time of impact" look. Upstream's flag
 	// lasts exactly one step; two frames keeps the flash visible at 60 Hz.
@@ -649,6 +660,8 @@ public:
 	bool get_can_sleep() const;
 	void set_sleep_threshold(double p_threshold);
 	double get_sleep_threshold() const;
+	void set_safety_factor(double p_factor);
+	double get_safety_factor() const;
 	void set_enabled(bool p_enabled);
 	bool get_enabled() const;
 	void set_contact_monitor(bool p_enabled);

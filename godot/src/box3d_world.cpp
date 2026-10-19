@@ -749,7 +749,7 @@ void Box3DWorld::dispatch_contact_events() {
 				continue;
 			}
 			bool swept_partner = other->get_body_type() == Box3DBody::STATIC || self->get_continuous();
-			if (swept_partner && hit.approachSpeed * dt > 0.5f * self->debug_min_extent()) {
+			if (swept_partner && hit.approachSpeed * dt > self->safety_factor_b3() * self->debug_min_extent()) {
 				self->debug_hit_mark();
 			}
 		}
@@ -2489,7 +2489,7 @@ void fragment() {
 			col = Color::hex(0x40E0D0FF); // turquoise: awake bullet
 		} else if (max_linear_speed > 0.0 && lin_speed >= (float)max_linear_speed * 0.99f) {
 			col = Color::hex(0xFFFF00FF); // yellow: speed capped
-		} else if (dynamic && continuous_collision && motion_speed * (float)last_step_delta > 0.5f * body->get_cached_min_extent()) {
+		} else if (dynamic && continuous_collision && motion_speed * (float)last_step_delta > body->safety_factor_b3() * body->get_cached_min_extent()) {
 			col = Color::hex(0xFFA500FF); // orange: fast (CCD territory)
 		} else if (type == Box3DBody::STATIC) {
 			col = Color::hex(0xA9A9A9FF); // dark gray: static
