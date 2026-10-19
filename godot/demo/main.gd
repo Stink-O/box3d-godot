@@ -440,6 +440,7 @@ var _sample_size_hint: Label         ## what the dials would build, count first
 var _sample_size_timer: Timer        ## debounce; see SAMPLE_SIZE_DELAY
 var _sample_size_spins := {}         ## dial key -> its SpinBox
 var _sample_size_keys := []          ## dial keys in the sample's own order
+var _sample_size_float := {}         ## dial key -> true for a float dial (step < 1)
 var _sample_size_pending := {}       ## dial key -> value waiting on the timer
 ## Sample scene path -> { dial key: value }, so Reset and an engine switch
 ## rebuild what is on screen rather than the authored default.
@@ -1428,6 +1429,10 @@ const SAMPLE_SIZE_DELAY := 0.35
 ##                                            would build, count first
 ##   set_sample_size(key, value)              build it
 ##
+## A dial is whole numbers (the value arrives as an int) unless its `step` is
+## below 1, which makes it a float dial: a slider-style setting such as a drop
+## height or a safety factor, handed to the sample as a float.
+##
 ## Dial order is the sample's, and it is load-bearing: it is the order the
 ## dials are applied in when a Reset puts a remembered tower back, so a sample
 ## whose dials interact declares the one that preserves state before the one
@@ -1467,6 +1472,7 @@ func _refresh_sample_size() -> void:
 	_sample_size_pending.clear()
 	_sample_size_spins.clear()
 	_sample_size_keys.clear()
+	_sample_size_float.clear()
 	for child in _sample_size_box.get_children():
 		_sample_size_box.remove_child(child)
 		if child != _sample_size_hint:
@@ -1503,6 +1509,7 @@ func _refresh_sample_size() -> void:
 		_sample_size_box.add_child(row)
 		_sample_size_spins[key] = spin
 		_sample_size_keys.append(key)
+		_sample_size_float[key] = _dial_is_float(dial)
 	_sample_size_box.add_child(_sample_size_hint)
 	_update_sample_size_hint()
 
@@ -1510,21 +1517,31 @@ func _refresh_sample_size() -> void:
 ## The hint describes the tower as the boxes currently read it. Asking about
 ## the first dial at its own value is the same question as "what are you now",
 ## so there is no second entry point for the sample to keep in step.
-func _update_sample_size_hint(key := "", value := 0) -> void:
+func _update_sample_size_hint(key := "", value: Variant = 0) -> void:
 	if _current == null or not _current.has_method("sample_size_hint"):
 		return
 	if key.is_empty():
 		if _sample_size_keys.is_empty():
 			return
 		key = String(_sample_size_keys[0])
-		value = int((_sample_size_spins[key] as SpinBox).value)
+		value = _dial_value(key, (_sample_size_spins[key] as SpinBox).value)
 	_sample_size_hint.text = String(_current.sample_size_hint(key, value))
+
+
+## A dial whose step is below 1 carries a float; every other dial an int.
+static func _dial_is_float(dial: Dictionary) -> bool:
+	return float(dial.get("step", 1.0)) < 1.0
+
+
+## A SpinBox value as the sample's dial expects it: float or int.
+func _dial_value(key: String, value: float) -> Variant:
+	return value if _sample_size_float.get(key, false) else int(value)
 
 
 func _on_sample_size_changed(value: float, key: String) -> void:
 	# The cost of the number first, the number itself when the user stops.
-	_sample_size_pending[key] = int(value)
-	_update_sample_size_hint(key, int(value))
+	_sample_size_pending[key] = _dial_value(key, value)
+	_update_sample_size_hint(key, _sample_size_pending[key])
 	if _sample_size_timer != null:
 		_sample_size_timer.start(SAMPLE_SIZE_DELAY)
 
@@ -1538,7 +1555,7 @@ func _apply_sample_size() -> void:
 	# touch them: a sample whose dials interact defines that order.
 	for key: String in _sample_size_keys:
 		if _sample_size_pending.has(key):
-			_current.set_sample_size(key, int(_sample_size_pending[key]))
+			_current.set_sample_size(key, _sample_size_pending[key])
 	_sample_size_pending.clear()
 	# One dial can move another (widening the tower drops its floor count), and
 	# it can move another's limits too, so the boxes are re-read from the
@@ -1552,7 +1569,7 @@ func _apply_sample_size() -> void:
 		spin.min_value = float(dial.get("min", spin.min_value))
 		spin.max_value = float(dial.get("max", spin.max_value))
 		spin.set_value_no_signal(float(dial.get("value", spin.value)))
-		sizes[key] = int(dial.get("value", spin.value))
+		sizes[key] = _dial_value(key, float(dial.get("value", spin.value)))
 	_sample_sizes[_current_path] = sizes
 	_update_sample_size_hint()
 	_body_count_cache = -1
@@ -2602,7 +2619,8 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 			for dial: Dictionary in _current.sample_size_dials():
 				var key := String(dial.get("key", ""))
 				if remembered.has(key):
-					_current.set_sample_size(key, int(remembered[key]))
+					var kept: float = float(remembered[key])
+					_current.set_sample_size(key, kept if _dial_is_float(dial) else int(kept))
 		_host.add_child(_current)
 	_step_count = 0
 	_body_count_cache = -1
