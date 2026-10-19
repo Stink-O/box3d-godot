@@ -20,6 +20,7 @@ func _ready() -> void:
 	await _test_mesh()
 	await _test_ccd()
 	await _test_safety_factor()
+	await _test_zero_step()
 	await _test_motion_locks()
 	await _test_character()
 	await _test_queries()
@@ -443,6 +444,67 @@ func _test_safety_factor() -> void:
 	_check("default safety_factor: plain fast body stopped by thin wall (x=%.2f)" % swept_x, swept_x < 0.0)
 	_check("huge safety_factor at creation: body tunnels (x=%.2f)" % opted_x, opted_x > 1.0)
 	_check("INF safety_factor set live: body tunnels (x=%.2f)" % live_x, live_x > 1.0)
+
+
+# Upstream defines a zero time step as broad phase and collision with no
+# solver, "so you can still get contact and sensor events" (box3d.h:49-51).
+# The binding used to drop any delta <= 0 on the floor.
+func _test_zero_step() -> void:
+	var world := Box3DWorld.new()
+	world.auto_step = false
+	add_child(world)
+
+	var floor := Box3DBody.new()
+	floor.body_type = Box3DBody.STATIC
+	floor.box_size = Vector3(10, 1, 10)
+	floor.position = Vector3(0, -0.5, 0)
+	world.add_child(floor)
+
+	# Resting a hair into the floor: touching from the first collide.
+	var box := Box3DBody.new()
+	box.box_size = Vector3.ONE
+	box.position = Vector3(0, 0.49, 0)
+	box.contact_monitor = true
+	world.add_child(box)
+	var touched: Array = []
+	box.body_entered.connect(func(other: Box3DBody) -> void: touched.append(other))
+
+	var sensor := Box3DBody.new()
+	sensor.body_type = Box3DBody.STATIC
+	sensor.is_sensor = true
+	sensor.box_size = Vector3(4, 4, 4)
+	sensor.position = Vector3(12, 2, 0) # clear of the floor, which would visit too
+	world.add_child(sensor)
+	var visitors: Array = []
+	sensor.area_entered.connect(func(v: Box3DBody) -> void: visitors.append(v))
+	var ball := Box3DBody.new()
+	ball.shape_type = Box3DBody.SPHERE
+	ball.sphere_radius = 0.5
+	ball.position = Vector3(12, 2, 0)
+	world.add_child(ball)
+
+	await get_tree().physics_frame
+	var box_y := box.position.y
+	var ball_y := ball.position.y
+	world.step(0.0)
+	_check("step(0) runs collision: the resting box reports its contact begin (%d)" % touched.size(),
+		touched.size() == 1 and touched[0] == floor)
+	_check("step(0) runs the sensor pass: the sensor reports its visitor (%d)" % visitors.size(),
+		visitors.size() == 1 and visitors[0] == ball)
+	_check("step(0) skips the solver: nothing falls under gravity",
+		box.position.y == box_y and ball.position.y == ball_y
+			and ball.get_linear_velocity() == Vector3.ZERO)
+	world.step(-1.0 / 60.0)
+	world.step(NAN)
+	world.step(INF)
+	_check("step() ignores a negative, NaN or infinite delta (ball y %.3f)" % ball.position.y,
+		ball.position.y == ball_y and ball.get_linear_velocity() == Vector3.ZERO
+			and touched.size() == 1 and visitors.size() == 1)
+	world.step(1.0 / 60.0)
+	_check("the next real step solves again (ball vy %.3f)" % ball.get_linear_velocity().y,
+		ball.get_linear_velocity().y < 0.0)
+
+	world.free()
 
 
 func _test_motion_locks() -> void:

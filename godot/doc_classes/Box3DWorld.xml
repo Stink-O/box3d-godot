@@ -353,6 +353,7 @@
 			<description>
 				Advances the simulation by [param delta] seconds. Called automatically each physics frame while [member auto_step] is on; call it yourself only if you turned that off.
 				With [member async_step] on this launches the step in the background and returns immediately, and is a no-op if the previous step is still running.
+				A [param delta] of [code]0[/code] is Box3D's zero step: the broad phase and collision run but the solver does not, so nothing moves while contact and sensor events (and [method Box3DBody.get_contacts]) are brought up to date, for example right after spawning bodies. Kinematic bodies keep their pending target for the next real step. A negative, NaN or infinite [param delta] is ignored.
 			</description>
 		</method>
 		<method name="stop_recording">

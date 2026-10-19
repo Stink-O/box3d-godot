@@ -566,9 +566,18 @@ void Box3DWorld::unregister_body(Box3DBody *p_body) {
 
 void Box3DWorld::step(double p_delta) {
 	ensure_world();
-	if (!b3World_IsValid(world_id) || p_delta <= 0.0) {
+	// A zero step is legal and useful: upstream runs the broad phase and
+	// collision but skips the solver, so contact and sensor events still
+	// arrive (box3d.h:49-51, src/physics_world.c:1135-1163). Negative, NaN
+	// and infinite deltas are refused; NaN and INF used to slip past a
+	// `<= 0` test and poison every body.
+	if (!b3World_IsValid(world_id) || !(p_delta >= 0.0) || !std::isfinite(p_delta)) {
 		return;
 	}
+	// Kinematic targets are reached over the step, which a zero step does
+	// not have (b3Body_SetTargetTransform ignores timeStep <= 0,
+	// src/body.c:1297-1300); leave them pending for the next real step.
+	const bool solving = p_delta > 0.0;
 	if (async_step) {
 		if (step_inflight.load(std::memory_order_acquire)) {
 			{
@@ -587,7 +596,7 @@ void Box3DWorld::step(double p_delta) {
 		}
 		// Push user-driven (kinematic) transforms into the solver.
 		for (Box3DBody *body : bodies) {
-			if (body != nullptr) {
+			if (body != nullptr && solving) {
 				body->sync_to_physics(p_delta);
 			}
 		}
@@ -603,7 +612,7 @@ void Box3DWorld::step(double p_delta) {
 	}
 	// Push user-driven (kinematic) transforms into the solver.
 	for (Box3DBody *body : bodies) {
-		if (body != nullptr) {
+		if (body != nullptr && solving) {
 			body->sync_to_physics(p_delta);
 		}
 	}
