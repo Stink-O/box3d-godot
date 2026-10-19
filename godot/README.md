@@ -42,11 +42,18 @@ nest bodies (with a `MeshInstance3D` child for visuals) under a world.
 | `max_linear_speed` | `float` | `0` | Speed clamp in m/s; `0` keeps Box3D's default. Raise for very fast bodies. |
 | `debug_draw` | `bool` | `false` | Overlay a wireframe of every body's collider (box/sphere/capsule/cylinder/cone). |
 | `worker_count` | `int` | `1` | `>1` uses Box3D's internal multithreaded solver. Set before the sim starts. |
-| `contact_hertz` | `float` | `30.0` | Contact stiffness (cycles/sec). Higher recovers overlap faster but can jitter. |
+| `contact_hertz` | `float` | `60.0` | Contact stiffness (cycles/sec). Higher recovers overlap faster but can jitter. Box3D's own default is 30; this binding uses 60. |
 | `contact_damping` | `float` | `10.0` | Contact bounciness (damping ratio, non-dimensional). Lower resolves overlap more energetically. |
 | `enable_sleep` | `bool` | `true` | Let resting bodies sleep. Disable if your game needs every body simulated every frame. |
 | `enable_warm_starting` | `bool` | `true` | Constraint warm starting. Advanced/testing only — disabling it hurts stability for no gain. |
+| `isotropic_inertia_tolerance` | `float` | `0.2` | How close to a sphere a body's inertia must be (0 to 1) before Box3D skips its gyroscopic torque. `0` applies it to every body. Only reaches bodies created afterwards. |
 | `sse2_fallback` | `bool` | `false` | Forces the 4-wide SSE2 solver kernels on a CPU with AVX2. Testing only: the two paths give bit-identical results and AVX2 is faster. `Box3DWorld.is_avx2_available()` says whether AVX2 is in use. |
+
+Project setting: `physics/box3d/length_units_per_meter` (Project Settings,
+**Physics > Box 3D**, default `1`). Box3D's length scale is global and fixed
+once the first world exists, so it is a project setting rather than a node
+property, and changing it needs an editor restart. Leave it at `1` unless
+your game is not built in metres.
 
 `contact_hertz` / `contact_damping` forward to `b3World_SetContactTuning` (the
 push-out speed cap is left at Box3D's default) and both take effect immediately

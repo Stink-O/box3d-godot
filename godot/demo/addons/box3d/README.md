@@ -24,6 +24,14 @@ the project folder: `xattr -dr com.apple.quarantine addons/box3d`
 The library the editor loads is the `template_debug` one; exported games use
 `template_release`. Both are included.
 
+## Project setting
+
+Box3D's length scale lives in Project Settings under **Physics > Box 3D**
+(`physics/box3d/length_units_per_meter`, default `1`; typing `length units`
+in the Project Settings filter finds it). It applies to every
+world in the game and is read once at startup, so restart the editor after
+changing it. Leave it at `1` unless your game is not built in metres.
+
 ## Docs, demo, source
 
 - Full node and property reference: https://github.com/Stink-O/box3d-godot/blob/main/godot/README.md
