@@ -106,6 +106,7 @@ const SAMPLES := {
 		"Hit": "res://samples/hit_events.tscn",
 		"Sensor Hits": "res://samples/sensor_hits.tscn",
 		"Breakable Joints": "res://samples/breakable_joints.tscn",
+		"Body Move Events": "res://samples/move_events.tscn",
 	},
 	"Robustness": {
 		"Overlap Recovery": "res://samples/overlap_recovery.tscn",
@@ -216,6 +217,7 @@ const DESCRIPTIONS := {
 	"Hit": "Impact events with an approach speed attached. A welded capsule tower is toppled onto a striped mesh floor and every hard landing reports where it hit, how fast, and which surface material it hit.",
 	"Sensor Hits": "Three sensors, one static, one kinematic and one on a motorised joint, shot through at 200 to 300 m/s. With bullet handling on, every pass is caught going in and coming out.",
 	"Breakable Joints": "Boxes hung on a distance, a prismatic, a revolute and a weld joint, each with a force and a torque threshold. Grab a box and yank it: the step its joint is overloaded, Box3D reports a joint event and the joint is destroyed.",
+	"Body Move Events": "A 20 m column launched so that its foot starts at rest, so it topples about its base like a felled tree. Each step lists the body move events Box3D reports: the column moves until the one step it falls asleep, and then the list is empty.",
 	"Overlap Recovery": "Ten boxes spawned deliberately interlocked. They push apart smoothly instead of exploding, because the depenetration speed is capped.",
 	"High Mass Ratio": "Pyramids topped by a box of the same size but 100, 200 and 400 times the mass. Heavy on light is the hardest case for a solver to hold up.",
 	"Height Field": "A terrain stored as one height per grid point rather than as triangles, so it costs a fraction of the memory and a cast only visits the cells it crosses. The probe sphere tracks the surface as it moves.",
@@ -307,6 +309,7 @@ const USE_CASES := {
 	"Hit": "Impact sounds and effects that scale with how hard something landed",
 	"Sensor Hits": "Triggers that catch bullet-speed passes, like finish lines and target hoops",
 	"Breakable Joints": "Chains, hinges and welds that snap when they are overloaded",
+	"Body Move Events": "Updating only what moved this frame, like network sync or a minimap, instead of polling every body",
 	"Overlap Recovery": "Spawning bodies in tight spaces without them exploding apart",
 	"High Mass Ratio": "Heavy objects resting on lighter ones, like a car parked on crates",
 	"Height Field": "Large outdoor terrain that is cheap to store and cheap to cast against",

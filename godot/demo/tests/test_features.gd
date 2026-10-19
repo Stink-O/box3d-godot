@@ -123,6 +123,7 @@ func _ready() -> void:
 	await _test_lock_mixing_sample()
 	await _test_fixed_rotation_sample()
 	await _test_rolling_resistance_sample()
+	await _test_move_events_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6888,6 +6889,32 @@ func _test_rolling_resistance_sample() -> void:
 	var stiff_ball: Box3DBody = inst.get_node("Box3DWorld/Ball4")
 	_check("Rolling Resistance: each roller stops short of the one with less resistance (z %s)" % line.strip_edges(),
 		ordered and free_ball.get_linear_velocity().length() > 3.0 and stiff_ball.position.z < -10.0)
+	inst.queue_free()
+	await get_tree().physics_frame
+
+
+## Body Move Events (sample_events.cpp:247-327): the column's foot starts at
+## rest, it reports "moved" while it falls, "fell asleep" on exactly one
+## step, and nothing after.
+func _test_move_events_sample() -> void:
+	var inst: Node = (load("res://samples/move_events.tscn") as PackedScene).instantiate()
+	add_child(inst)
+	var box: Box3DBody = inst.get_node("Box3DWorld/big box")
+	var pivot_speed := box.get_local_point_velocity(Vector3.ZERO).length()
+	await get_tree().physics_frame
+	var first: Array = inst.get("event_lines").duplicate()
+	var asleep := 0
+	var after_sleep := 0
+	for i in range(300):
+		await get_tree().physics_frame
+		var lines: Array = inst.get("event_lines")
+		if asleep > 0:
+			after_sleep += lines.size()
+		if lines.has("big box fell asleep"):
+			asleep += 1
+	_check("Body Move Events: the foot starts still (%.3f m/s), the first step reads \"big box moved\", one \"fell asleep\", then silence"
+			% pivot_speed,
+		pivot_speed < 0.001 and first == ["big box moved"] and asleep == 1 and after_sleep == 0)
 	inst.queue_free()
 	await get_tree().physics_frame
 
