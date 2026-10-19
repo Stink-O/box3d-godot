@@ -37,6 +37,7 @@ const SAMPLES := {
 		"Barrel Skyscraper": "res://samples/barrel_skyscraper.tscn",
 		"Wedge": "res://samples/wedge.tscn",
 		"Card House": "res://samples/card_house.tscn",
+		"Arch": "res://samples/arch.tscn",
 	},
 	"Constraints": {
 		"Motion Locks": "res://samples/motion_locks.tscn",
@@ -162,6 +163,7 @@ const DESCRIPTIONS := {
 	"Barrel Skyscraper": "The same three thousand drums as the Spire, stacked the way the Crysis clip actually stacks them: a hollow square tower, fifty floors of sixty barrels, walls one drum thick and nothing inside. Four straight walls cannot lock themselves the way a ring can, so this one runs at eight substeps; wind the sidebar back to four and the walls splay out and never settle. The sidebar has three boxes for it: wall width, floors and barrels. Widening it keeps every barrel and builds a shorter, fatter tower; the line under the boxes counts the bodies before any of them are built. Fly in at the bottom and the whole height of it is open above you.",
 	"Wedge": "A six vertex hull balanced on its own ridge. The contact is a line rather than a face, which is the case a manifold is most likely to get wrong; here it should settle and sleep instead of jittering off.",
 	"Card House": "Forty playing cards, 2 mm thick, leaned against each other in pairs and roofed with flat cards, five storeys high. Contacts between very thin cards standing on their edges are what make this hard; it should settle and sleep, not fold.",
+	"Arch": "A masonry arch of seventeen wedge-shaped stones with four slabs stacked on the keystone. Nothing holds it together but friction and the stones pressing on each other, so it stands only if the contact forces are resolved accurately all the way round the curve.",
 	"Motion Locks": "Bodies with individual axes locked. The pucks are held flat to the table and the beads are held to a single axis, so they glide instead of tumbling.",
 	"Compound Shapes": "Single bodies made of several child colliders, so one rigid body can have any shape you like.",
 	"Tile Floor": "Two and a half thousand slabs baked into ONE collider. The world keeps a single broad phase entry and the compound's own tree finds the slab under the marble.",
@@ -248,6 +250,7 @@ const USE_CASES := {
 	"Barrel Skyscraper": "Towers and warehouse stacks the player can collapse from the inside",
 	"Wedge": "Angular props like rocks and rubble that come to rest on an edge",
 	"Card House": "Delicate balancing structures built from very thin pieces",
+	"Arch": "Masonry, bridges and ruins that hold up by their own weight",
 	"Motion Locks": "Air hockey pucks, rail-bound crates and 2.5D movement",
 	"Compound Shapes": "Awkward props like tables and machinery as one rigid body",
 	"Tile Floor": "Baking a whole tiled floor into one cheap collider",

@@ -117,6 +117,7 @@ func _ready() -> void:
 	await _test_mover_overlap_sample()
 	await _test_breakable_joints_sample()
 	await _test_card_house_sample()
+	await _test_arch_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6719,6 +6720,24 @@ func _test_card_house_sample() -> void:
 	_check("Card House: upstream's 40 cards, and the top card still stands (%d cards, %.3f -> %.3f m)"
 			% [cards, y0, top.position.y],
 		cards == 40 and top.position.y > y0 - 0.1)
+	inst.queue_free()
+	await get_tree().physics_frame
+
+
+## Arch (sample_stacking.cpp:653-758): 17 stones and 4 slabs; the keystone
+## holds its height.
+func _test_arch_sample() -> void:
+	var inst: Node = (load("res://samples/arch.tscn") as PackedScene).instantiate()
+	add_child(inst)
+	await get_tree().physics_frame
+	var world: Node = inst.get_node("Box3DWorld")
+	var key: Box3DBody = world.get_node("Stone16")
+	var y0 := key.get_center_of_mass().y
+	for i in range(180):
+		await get_tree().physics_frame
+	_check("Arch: 21 bodies, and the keystone holds up its four slabs (%.2f -> %.2f m)"
+			% [y0, key.get_center_of_mass().y],
+		world.get_child_count() - 1 == 21 and key.get_center_of_mass().y > y0 - 0.5)
 	inst.queue_free()
 	await get_tree().physics_frame
 
