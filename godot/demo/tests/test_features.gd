@@ -120,6 +120,7 @@ func _ready() -> void:
 	await _test_arch_sample()
 	await _test_ragdoll_pile_sample()
 	await _test_lock_mixing_sample()
+	await _test_fixed_rotation_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6807,6 +6808,22 @@ func _test_lock_mixing_sample() -> void:
 		moved["Free"] and moved["AngularXZ"] and not moved["LinearXYZ"] and not moved["Full"]
 			and turned_xz["Free"] and turned_xz["LinearXYZ"] and not turned_xz["AngularXZ"]
 			and turned_y["AngularXZ"] and not turned_xz["Full"] and not turned_y["Full"])
+	inst.queue_free()
+	await get_tree().physics_frame
+
+
+## Fixed Rotation (sample_bodies.cpp:1242-1289): the rotation-locked capsule
+## is pushed out of the static one along +x without turning.
+func _test_fixed_rotation_sample() -> void:
+	var inst: Node = (load("res://samples/fixed_rotation.tscn") as PackedScene).instantiate()
+	add_child(inst)
+	var locked: Box3DBody = inst.get_node("Box3DWorld/LockedCapsule")
+	for i in range(60):
+		await get_tree().physics_frame
+	_check("Fixed Rotation: the locked capsule is pushed clear (x %.3f) with no rotation at all"
+			% locked.global_position.x,
+		locked.global_position.x > 0.49 and locked.global_transform.basis.is_equal_approx(Basis())
+			and locked.get_angular_velocity() == Vector3.ZERO)
 	inst.queue_free()
 	await get_tree().physics_frame
 

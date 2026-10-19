@@ -1,0 +1,78 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://samples/fixed_rotation.gd" id="1_fixed"]
+
+[sub_resource type="BoxMesh" id="GroundMesh"]
+size = Vector3(40, 2, 40)
+
+[sub_resource type="StandardMaterial3D" id="GroundMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="CapsuleMesh" id="StaticCapsule"]
+radius = 0.3
+height = 1.6
+
+[sub_resource type="CapsuleMesh" id="LockedCapsule"]
+radius = 0.2
+height = 1.4
+
+[sub_resource type="StandardMaterial3D" id="StaticMat"]
+albedo_color = Color(0.45, 0.5, 0.6, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="LockedMat"]
+albedo_color = Color(0.85, 0.55, 0.3, 1)
+roughness = 0.5
+
+[node name="FixedRotation" type="Node3D"]
+script = ExtResource("1_fixed")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -10, 0)
+
+[node name="Ground" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+body_type = 0
+box_size = Vector3(40, 2, 40)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ground"]
+mesh = SubResource("GroundMesh")
+material_override = SubResource("GroundMat")
+
+[node name="StaticCapsule" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+body_type = 0
+
+[node name="Capsule" type="Box3DCollisionShape" parent="Box3DWorld/StaticCapsule"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape_type = 2
+capsule_radius = 0.3
+capsule_height = 1.6
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/StaticCapsule"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("StaticCapsule")
+material_override = SubResource("StaticMat")
+
+[node name="LockedCapsule" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 0.5, 0)
+angular_damping = 0.0
+gravity_scale = 0.0
+can_sleep = false
+lock_angular_x = true
+lock_angular_y = true
+lock_angular_z = true
+
+[node name="Capsule" type="Box3DCollisionShape" parent="Box3DWorld/LockedCapsule"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape_type = 2
+capsule_radius = 0.2
+capsule_height = 1.4
+density = 1000.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/LockedCapsule"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("LockedCapsule")
+material_override = SubResource("LockedMat")

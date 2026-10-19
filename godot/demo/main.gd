@@ -42,6 +42,7 @@ const SAMPLES := {
 	"Constraints": {
 		"Motion Locks": "res://samples/motion_locks.tscn",
 		"Lock Mixing": "res://samples/lock_mixing.tscn",
+		"Fixed Rotation": "res://samples/fixed_rotation.tscn",
 	},
 	"Compound": {
 		"Compound Shapes": "res://samples/compound.tscn",
@@ -168,6 +169,7 @@ const DESCRIPTIONS := {
 	"Arch": "A masonry arch of seventeen wedge-shaped stones with four slabs stacked on the keystone. Nothing holds it together but friction and the stones pressing on each other, so it stands only if the contact forces are resolved accurately all the way round the curve.",
 	"Motion Locks": "Bodies with individual axes locked. The pucks are held flat to the table and the beads are held to a single axis, so they glide instead of tumbling.",
 	"Lock Mixing": "Five cubes with different motion locks side by side: one free, one that can only turn about the vertical, one pinned in place but free to rotate, one with every axis locked, and a static one. Grab and shove them to see what each lock allows.",
+	"Fixed Rotation": "A floating capsule with all three rotation axes locked starts half inside a static capsule. The contact pushes it out sideways and it never turns, because a fully rotation-locked body has no rotational inertia to give.",
 	"Compound Shapes": "Single bodies made of several child colliders, so one rigid body can have any shape you like.",
 	"Tile Floor": "Two and a half thousand slabs baked into ONE collider. The world keeps a single broad phase entry and the compound's own tree finds the slab under the marble.",
 	"Mesh Tile": "One box mesh placed four times at different heights, so the tiles meet in steps. Props dropped on it land on the tile below them, not on the gap.",
@@ -257,6 +259,7 @@ const USE_CASES := {
 	"Arch": "Masonry, bridges and ruins that hold up by their own weight",
 	"Motion Locks": "Air hockey pucks, rail-bound crates and 2.5D movement",
 	"Lock Mixing": "Doors, turrets and props that may only move or turn along chosen axes",
+	"Fixed Rotation": "Characters and pickups that must never tip over, whatever hits them",
 	"Compound Shapes": "Awkward props like tables and machinery as one rigid body",
 	"Tile Floor": "Baking a whole tiled floor into one cheap collider",
 	"Mesh Tile": "Level geometry assembled from one mesh repeated at different heights",
