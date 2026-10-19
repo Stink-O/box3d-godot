@@ -76,6 +76,7 @@ const SAMPLES := {
 		"Contact Pit": "res://samples/contacts.tscn",
 		"Bowling": "res://samples/bowling.tscn",
 		"Capsule Plane": "res://samples/capsule_plane.tscn",
+		"Mover Overlap": "res://samples/mover_overlap.tscn",
 	},
 	"Queries": {
 		"Radar Sweep": "res://samples/raycast.tscn",
@@ -186,6 +187,7 @@ const DESCRIPTIONS := {
 	"Contact Pit": "Every peg reports its contacts, so each one flashes as a ball hits it. A steady rain of balls keeps the ricochets coming.",
 	"Bowling": "Ten pins and a rolling ball. Shoot more balls down the lane with F or reset to re-rack.",
 	"Capsule Plane": "The character mover taken apart: the green capsule's collision planes against the box are gathered and drawn every step, and Activate runs the plane solver once to push it back out. Drag the capsule into the box with the left mouse and solve again.",
+	"Mover Overlap": "Drag the yellow capsule into a sphere, a capsule and a box. The lime arrows are the collision planes the mover query returns, even when it is buried deep, and the cyan capsule is where the plane solver pushes it out to.",
 	"Radar Sweep": "A ray sweeping around an emitter, raycasting the world every frame. Whatever it hits lights up and a marker sits at the impact point.",
 	"Explosion": "A radial blast applied to everything in range, with the impulse falling off with distance. Press Activate to set it off under the building.",
 	"Overlap World": "Every shape type crossed with every body type, with three rows of query probes sweeping through them. A probe turns red for the frame it overlaps something; the three rows are the three kinds of shape an overlap query can use, a sphere, a tilted capsule and an arbitrary point cloud.",
@@ -269,6 +271,7 @@ const USE_CASES := {
 	"Contact Pit": "Sound, sparks and score fired off every time something is hit",
 	"Bowling": "Bowling, skittles and knock-down mini games",
 	"Capsule Plane": "Building your own character controller from the same collide and solve steps the built-in one uses",
+	"Mover Overlap": "Checking a character spawned or teleported inside geometry gets pushed out cleanly",
 	"Radar Sweep": "Enemy vision cones, scanners and laser sights",
 	"Explosion": "Grenades and exploding barrels that throw nearby objects clear",
 	"Overlap World": "Checking a spot is clear before spawning a body or placing a building",

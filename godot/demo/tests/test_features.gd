@@ -114,6 +114,7 @@ func _ready() -> void:
 	await _test_body_cast_sample()
 	await _test_mover_toi_sample()
 	await _test_capsule_plane_sample()
+	await _test_mover_overlap_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6653,6 +6654,28 @@ func _test_capsule_plane_sample() -> void:
 	var after: Array = inst.get("planes")
 	_check("Capsule Plane: Activate solves it back out to the slop (z %.3f)" % inst.capsule_position.z,
 		absf(inst.capsule_position.z - 0.255) < 0.002 and (after.is_empty() or after[0]["distance"] < 0.006))
+	inst.queue_free()
+	await get_tree().physics_frame
+
+
+## Mover Overlap (sample_character.cpp:148-313): planes stay valid even with
+## the mover buried, and the solve pushes it clear.
+func _test_mover_overlap_sample() -> void:
+	var inst: Node = (load("res://samples/mover_overlap.tscn") as PackedScene).instantiate()
+	add_child(inst)
+	await get_tree().physics_frame
+	var clear: int = inst.get("planes").size()
+	var results := []
+	for at in [Vector3(-3, 1, 0), Vector3(0, 1, 0)]:
+		inst.mover_position = at
+		inst._query()
+		results.append([inst.get("planes").size(), inst.zero_normal_count, inst.pushed_position])
+	_check("Mover Overlap: nothing at the start; buried in the sphere and the capsule, one valid plane each",
+		clear == 0 and results[0][0] == 1 and results[0][1] == 0 and results[1][0] == 1 and results[1][1] == 0)
+	# Pushed clear: the sphere's 0.6 m plus the mover's 0.35, less the slop.
+	_check("Mover Overlap: the solve pushes the buried mover clear of the sphere (%.3f m)"
+			% results[0][2].distance_to(Vector3(-3, 1, 0)),
+		results[0][2].distance_to(Vector3(-3, 1, 0)) > 0.94)
 	inst.queue_free()
 	await get_tree().physics_frame
 
