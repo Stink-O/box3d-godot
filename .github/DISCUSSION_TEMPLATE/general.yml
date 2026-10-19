@@ -1,0 +1,28 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Discussions are for people talking with people. Posts written by an LLM may be closed without a reply.
+        Avoid posting links to LLM generated text. For quick help, try the [Box2D discord](https://discord.gg/NKYgCBP).
+  - type: input
+    id: version
+    attributes:
+      label: Box3D version
+      description: Commit hash or release you are using.
+      placeholder: e.g. 5d83df8
+    validations:
+      required: true
+  - type: textarea
+    id: topic
+    attributes:
+      label: What would you like to discuss?
+      description: In your own words. Short is fine.
+    validations:
+      required: true
+  - type: checkboxes
+    id: human
+    attributes:
+      label: Authorship
+      options:
+        - label: I wrote this post myself, not an LLM.
+          required: true
