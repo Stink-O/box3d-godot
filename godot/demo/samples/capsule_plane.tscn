@@ -1,0 +1,23 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://samples/capsule_plane.gd" id="1_plane"]
+
+[sub_resource type="BoxMesh" id="BoxMesh"]
+
+[sub_resource type="StandardMaterial3D" id="BoxMat"]
+albedo_color = Color(0.45, 0.5, 0.6, 1)
+roughness = 0.6
+
+[node name="CapsulePlane" type="Node3D"]
+script = ExtResource("1_plane")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -10, 0)
+
+[node name="Box" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1)
+body_type = 0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Box"]
+mesh = SubResource("BoxMesh")
+material_override = SubResource("BoxMat")

@@ -113,6 +113,7 @@ func _ready() -> void:
 	await _test_spinning_capsule_sample()
 	await _test_body_cast_sample()
 	await _test_mover_toi_sample()
+	await _test_capsule_plane_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6636,6 +6637,24 @@ func _test_mover_toi_sample() -> void:
 			% impact.get("speed", 0.0),
 		not impact.is_empty() and impact["normal"].is_equal_approx(Vector3.DOWN) and impact["speed"] > 15.0
 			and struck["plate_y"] < 0.5)
+
+
+## Capsule Plane (sample_character.cpp:14-146): upstream's capsule starts
+## 0.15 m into the box's near face; Solve pushes it out, less the slop.
+func _test_capsule_plane_sample() -> void:
+	var inst: Node = (load("res://samples/capsule_plane.tscn") as PackedScene).instantiate()
+	add_child(inst)
+	await get_tree().physics_frame
+	var planes: Array = inst.get("planes")
+	_check("Capsule Plane starts with one plane 0.15 m deep on the box's near face",
+		planes.size() == 1 and planes[0]["normal"].is_equal_approx(Vector3.FORWARD)
+			and absf(planes[0]["distance"] - 0.15) < 0.002)
+	inst.solve()
+	var after: Array = inst.get("planes")
+	_check("Capsule Plane: Activate solves it back out to the slop (z %.3f)" % inst.capsule_position.z,
+		absf(inst.capsule_position.z - 0.255) < 0.002 and (after.is_empty() or after[0]["distance"] < 0.006))
+	inst.queue_free()
+	await get_tree().physics_frame
 
 
 func _test_developer_globals() -> void:
