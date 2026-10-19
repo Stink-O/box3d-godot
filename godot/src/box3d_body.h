@@ -216,6 +216,10 @@ private:
 	// never moved back to a time of impact (src/solver.c:574-592).
 	double safety_factor = 0.5;
 	bool can_sleep = true; // b3BodyDef.enableSleep / b3Body_EnableSleep
+	// !b3BodyDef.isAwake (types.h:336-337): create the body asleep. Creation
+	// time only; upstream ignores it when enableSleep is off or the body is
+	// disabled (src/body.c:199). set_awake() is the live control.
+	bool start_asleep = false;
 	bool enabled = true; // b3BodyDef.isEnabled / b3Body_Enable|Disable
 	bool contact_monitor = false; // b3ShapeDef.enableContactEvents
 	// b3ShapeDef.enableSensorEvents / .enableHitEvents (types.h:496-505), the
@@ -658,6 +662,8 @@ public:
 	double get_gravity_scale() const;
 	void set_can_sleep(bool p_enabled);
 	bool get_can_sleep() const;
+	void set_start_asleep(bool p_asleep);
+	bool get_start_asleep() const;
 	void set_sleep_threshold(double p_threshold);
 	double get_sleep_threshold() const;
 	void set_safety_factor(double p_factor);

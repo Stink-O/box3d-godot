@@ -44,6 +44,7 @@ func _ready() -> void:
 	await _test_compound_cylinder()
 	await _test_point_forces()
 	await _test_sleep_controls()
+	await _test_start_asleep()
 	await _test_body_enabled()
 	await _test_live_body_properties()
 	await _test_mass_data()
@@ -1412,6 +1413,42 @@ func _test_point_forces() -> void:
 		world_pv.distance_to(Vector3(0, 0, -2)) < 0.05
 		and local_pv.distance_to(Vector3(0, 0, -2)) < 0.05)
 
+	world.free()
+
+
+# b3BodyDef.isAwake = false: the body is created asleep and hangs in the air
+# until woken. Upstream overrides it when sleep is disabled (src/body.c:199).
+func _test_start_asleep() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+	var sleeper := Box3DBody.new()
+	sleeper.start_asleep = true
+	sleeper.position = Vector3(0, 5, 0)
+	world.add_child(sleeper)
+	var faller := Box3DBody.new()
+	faller.position = Vector3(3, 5, 0)
+	world.add_child(faller)
+	var insomniac := Box3DBody.new()
+	insomniac.start_asleep = true
+	insomniac.can_sleep = false
+	insomniac.position = Vector3(-3, 5, 0)
+	world.add_child(insomniac)
+
+	_check("start_asleep defaults to false and round-trips",
+		not faller.start_asleep and sleeper.start_asleep)
+	for i in range(30):
+		await get_tree().physics_frame
+	_check("a start_asleep body is created asleep and does not fall (y %.2f)" % sleeper.position.y,
+		not sleeper.is_awake() and is_equal_approx(sleeper.position.y, 5.0))
+	_check("a default body is awake and falls (y %.2f)" % faller.position.y,
+		faller.position.y < 4.5)
+	_check("start_asleep is ignored with can_sleep off, as upstream does (y %.2f)" % insomniac.position.y,
+		insomniac.position.y < 4.5)
+	sleeper.set_awake(true)
+	for i in range(10):
+		await get_tree().physics_frame
+	_check("set_awake wakes the start_asleep body and it falls (y %.2f)" % sleeper.position.y,
+		sleeper.position.y < 5.0)
 	world.free()
 
 

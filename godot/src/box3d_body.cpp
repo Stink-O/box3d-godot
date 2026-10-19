@@ -299,6 +299,7 @@ void Box3DBody::create_in_world() {
 	body_def.sleepThreshold = (float)sleep_threshold;
 	body_def.safetyFactor = safety_factor_b3();
 	body_def.enableSleep = can_sleep;
+	body_def.isAwake = !start_asleep;
 	body_def.isEnabled = enabled;
 	body_def.isBullet = continuous;
 	body_def.enableContactRecycling = contact_recycling;
@@ -2677,6 +2678,16 @@ bool Box3DBody::get_can_sleep() const {
 	return can_sleep;
 }
 
+void Box3DBody::set_start_asleep(bool p_asleep) {
+	// Read only by create_in_world: a live body is put to sleep or woken with
+	// set_awake(), which is b3Body_SetAwake.
+	start_asleep = p_asleep;
+}
+
+bool Box3DBody::get_start_asleep() const {
+	return start_asleep;
+}
+
 void Box3DBody::set_sleep_threshold(double p_threshold) {
 	sleep_threshold = p_threshold;
 	if (body_live()) {
@@ -3128,6 +3139,8 @@ void Box3DBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_gravity_scale"), &Box3DBody::get_gravity_scale);
 	ClassDB::bind_method(D_METHOD("set_can_sleep", "enabled"), &Box3DBody::set_can_sleep);
 	ClassDB::bind_method(D_METHOD("get_can_sleep"), &Box3DBody::get_can_sleep);
+	ClassDB::bind_method(D_METHOD("set_start_asleep", "asleep"), &Box3DBody::set_start_asleep);
+	ClassDB::bind_method(D_METHOD("get_start_asleep"), &Box3DBody::get_start_asleep);
 	ClassDB::bind_method(D_METHOD("set_sleep_threshold", "threshold"), &Box3DBody::set_sleep_threshold);
 	ClassDB::bind_method(D_METHOD("get_sleep_threshold"), &Box3DBody::get_sleep_threshold);
 	ClassDB::bind_method(D_METHOD("set_safety_factor", "factor"), &Box3DBody::set_safety_factor);
@@ -3200,6 +3213,7 @@ void Box3DBody::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "angular_damping", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"), "set_angular_damping", "get_angular_damping");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "gravity_scale", PROPERTY_HINT_RANGE, "-10,10,0.01"), "set_gravity_scale", "get_gravity_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "can_sleep"), "set_can_sleep", "get_can_sleep");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "start_asleep"), "set_start_asleep", "get_start_asleep");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sleep_threshold", PROPERTY_HINT_RANGE, "0,1,0.001,or_greater"), "set_sleep_threshold", "get_sleep_threshold");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "safety_factor", PROPERTY_HINT_RANGE, "0,1,0.01,or_greater"), "set_safety_factor", "get_safety_factor");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled"), "set_enabled", "get_enabled");

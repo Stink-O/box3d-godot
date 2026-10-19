@@ -612,6 +612,9 @@
 		<member name="sphere_radius" type="float" setter="set_sphere_radius" getter="get_sphere_radius" default="0.5">
 			Radius of the [constant SPHERE] collider, in metres.
 		</member>
+		<member name="start_asleep" type="bool" setter="set_start_asleep" getter="get_start_asleep" default="false">
+			Creates the body asleep (Box3D's [code]b3BodyDef.isAwake = false[/code]): it costs nothing and does not fall until something touches it, a joint or impulse wakes it, or [method set_awake] is called. Useful for a level's pre-settled rubble or stacks that should hold still until the player arrives. Read when the body is created (entering the tree, or a rebuild); on a body already in the world use [method set_awake]. Ignored when [member can_sleep] is off or the body is disabled, as in Box3D.
+		</member>
 		<member name="surface_materials" type="Array" setter="set_surface_materials" getter="get_surface_materials" default="[]">
 			The material palette a [constant MESH] or [constant HEIGHT_FIELD] collider indexes per triangle or per cell, as an [Array] of [Dictionary]. [member mesh_materials] and [member height_field_materials] pick from it by position. Leave it empty and the whole collider uses the body's own [member friction], [member restitution] and so on.
 			Each [Dictionary] may carry [code]friction[/code] ([float]), [code]restitution[/code] ([float]), [code]rolling_resistance[/code] ([float]), [code]tangent_velocity[/code] ([Vector3], the conveyor-belt drive), [code]user_material_id[/code] ([int], your own tag, reported back by [method Box3DWorld.raycast] and [signal Box3DWorld.contact_hit]) and [code]custom_color[/code] ([int], for debug draw). Any key you omit keeps Box3D's default rather than the body's value, so spell out the ones that matter. Negative friction, restitution and rolling resistance are clamped to 0.
