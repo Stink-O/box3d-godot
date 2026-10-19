@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://samples/ragdoll_pile.gd" id="1_pile"]
+
+[node name="RagdollPile" type="Node3D"]
+script = ExtResource("1_pile")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -10, 0)

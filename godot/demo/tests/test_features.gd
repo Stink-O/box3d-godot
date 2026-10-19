@@ -118,6 +118,7 @@ func _ready() -> void:
 	await _test_breakable_joints_sample()
 	await _test_card_house_sample()
 	await _test_arch_sample()
+	await _test_ragdoll_pile_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6738,6 +6739,40 @@ func _test_arch_sample() -> void:
 	_check("Arch: 21 bodies, and the keystone holds up its four slabs (%.2f -> %.2f m)"
 			% [y0, key.get_center_of_mass().y],
 		world.get_child_count() - 1 == 21 and key.get_center_of_mass().y > y0 - 0.5)
+	inst.queue_free()
+	await get_tree().physics_frame
+
+
+## Ragdoll Pile (sample_ragdoll.cpp:208-260): twenty upstream humans of 12
+## bones, 11 joints and 3 filter joints each, spawned from upstream's seed-42
+## draws, land on the floor and settle there.
+func _test_ragdoll_pile_sample() -> void:
+	var inst: Node = (load("res://samples/ragdoll_pile.tscn") as PackedScene).instantiate()
+	add_child(inst)
+	await get_tree().physics_frame
+	var humans: Array = inst.get("humans")
+	var first: Node = inst.get_node("Box3DWorld/Human0")
+	var joints := 0
+	for child in first.get_children():
+		if child is Box3DJoint and (child as Box3DJoint).is_joint_valid():
+			joints += 1
+	var pelvis: Box3DBody = humans[0][0]
+	# The first RandomVec3 from seed 42, as upstream draws it.
+	_check("Ragdoll Pile: 20 humans of 12 bones and 14 live joints, the first at upstream's draw (%s)"
+			% pelvis.position,
+		humans.size() == 20 and humans[0].size() == 12 and joints == 14
+			and absf(pelvis.position.x - 0.1612) < 0.01 and absf(pelvis.position.z + 0.5547) < 0.01)
+	for i in range(180):
+		await get_tree().physics_frame
+	var lowest := INF
+	var highest := -INF
+	for human: Array in humans:
+		for body: Box3DBody in human:
+			lowest = minf(lowest, body.position.y)
+			highest = maxf(highest, body.position.y)
+	_check("Ragdoll Pile: the heap lies on the floor, nothing through it or flung away (%.2f .. %.2f m)"
+			% [lowest, highest],
+		lowest > -1.0 and highest < 1.0)
 	inst.queue_free()
 	await get_tree().physics_frame
 
