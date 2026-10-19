@@ -574,6 +574,14 @@ public:
 			uint64_t p_mask = B3_DEFAULT_MASK_BITS, uint64_t p_layer = B3_DEFAULT_CATEGORY_BITS);
 	Dictionary shape_cast_convex(const PackedVector3Array &p_points, const Vector3 &p_motion,
 			uint64_t p_mask = B3_DEFAULT_MASK_BITS, uint64_t p_layer = B3_DEFAULT_CATEGORY_BITS);
+	// b3World_CollideMover (box3d.h:125-129): every collision plane a
+	// character capsule with world-space end centres p_point_a / p_point_b
+	// meets, without moving anything -- the input b3SolvePlanes
+	// (Box3DCollision.solve_planes) turns into a push-out. Each entry is
+	// { normal, distance, position, collider, shape }, the layout
+	// Box3DBody.collide_mover returns.
+	Array collide_mover(const Vector3 &p_point_a, const Vector3 &p_point_b, double p_radius,
+			uint64_t p_mask = B3_DEFAULT_MASK_BITS, uint64_t p_layer = B3_DEFAULT_CATEGORY_BITS);
 
 	// b3TreeStats from the most recent query (types.h:1772-1779): how many
 	// broad-phase nodes and leaves it visited. Every b3World_Overlap*/Cast*

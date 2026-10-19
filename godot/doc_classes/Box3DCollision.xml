@@ -15,6 +15,14 @@
 	<tutorials>
 	</tutorials>
 	<methods>
+		<method name="clip_vector" qualifiers="static">
+			<return type="Vector3" />
+			<param index="0" name="vector" type="Vector3" />
+			<param index="1" name="planes" type="Array" />
+			<description>
+				Removes from [param vector] the part heading into each plane that pushed, Box3D's [code]b3ClipVector[/code]: how a character controller stops its velocity from building up against a wall it is sliding along. Pass the [code]planes[/code] a [method solve_planes] call returned, which carry each plane's [code]push[/code]; planes with no push, or with [code]clip_velocity[/code] off (soft collision), are skipped.
+			</description>
+		</method>
 		<method name="collide_capsule_and_sphere" qualifiers="static">
 			<return type="Dictionary" />
 			<param index="0" name="center_a1" type="Vector3" />
@@ -336,6 +344,16 @@
 				The closest points between two convex proxies, with B posed at [param transform_b] in A's frame.
 				Returns [code]point_a[/code] and [code]point_b[/code] ([Vector3]), [code]normal[/code] ([Vector3]), [code]distance[/code] ([float]) and [code]iterations[/code] ([int]). A [code]distance[/code] of 0 means they overlap, and [code]normal[/code] is meaningless there -- that is upstream's overlap signal, so test the distance before trusting the normal.
 				[param use_radii] accounts for each proxy's radius; turn it off to measure between the point clouds themselves.
+			</description>
+		</method>
+		<method name="solve_planes" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="target_delta" type="Vector3" />
+			<param index="1" name="planes" type="Array" />
+			<description>
+				Box3D's mover plane solver, [code]b3SolvePlanes[/code]: finds the translation closest to [param target_delta] that satisfies every collision plane, so a character capsule pushed into geometry comes back out and a move into a wall becomes a slide along it. A [param target_delta] of [constant Vector3.ZERO] just resolves the overlap.
+				Each plane is a [Dictionary] with [code]normal[/code] ([Vector3]) and [code]distance[/code] ([float], how far the capsule is into the plane), which is exactly what [method Box3DWorld.collide_mover] and [method Box3DBody.collide_mover] return, so their output can be passed straight in. Two optional keys make a plane soft, as upstream's character does for allies and springy enemies: [code]push_limit[/code] ([float], the most the plane may push in one solve; absent or [code]INF[/code] is rigid) and [code]clip_velocity[/code] ([bool], default [code]true[/code], read by [method clip_vector]).
+				Returns [code]delta[/code] ([Vector3], the solved translation, relative to where the planes were collected), [code]iterations[/code] ([int], diagnostics) and [code]planes[/code], the planes again with the [code]push[/code] the solver gave each one, ready for [method clip_vector]. The solve runs in no world and needs none.
 			</description>
 		</method>
 		<method name="time_of_impact" qualifiers="static">

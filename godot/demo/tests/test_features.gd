@@ -75,6 +75,7 @@ func _ready() -> void:
 	await _test_restitution_solver_settings()
 	await _test_character_soft_collision()
 	await _test_mover_can_push()
+	await _test_plane_solver()
 	await _test_live_shape_resize()
 	await _test_per_body_queries()
 	await _test_body_shape_queries()
@@ -3000,6 +3001,44 @@ func _test_mover_can_push() -> void:
 	_check("mover_can_push = false keeps the crate still but solid (crate x %.2f, mover x %.2f)"
 			% [crates[1].position.x, movers[1].position.x],
 		absf(crates[1].position.x - 1.5) < 0.01 and movers[1].position.x < 0.65)
+	world.free()
+
+
+# Box3DWorld.collide_mover + Box3DCollision.solve_planes / clip_vector: the
+# geometric mover's two halves, exposed separately (b3World_CollideMover,
+# b3SolvePlanes, b3ClipVector).
+func _test_plane_solver() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+	var block := Box3DBody.new()
+	block.body_type = Box3DBody.STATIC
+	block.box_size = Vector3(2, 2, 2) # top face at y = 1
+	world.add_child(block)
+	await get_tree().physics_frame
+
+	var planes: Array = world.collide_mover(Vector3(0, 1.2, 0), Vector3(0, 3, 0), 0.3)
+	_check("Box3DWorld.collide_mover finds the top face 0.1 m deep (%d planes)" % planes.size(),
+		planes.size() == 1 and planes[0]["normal"].is_equal_approx(Vector3.UP)
+			and absf(planes[0]["distance"] - 0.1) < 0.002 and planes[0]["collider"] == block)
+	_check("collide_mover finds nothing for a capsule in the clear",
+		world.collide_mover(Vector3(0, 5, 0), Vector3(0, 6, 0), 0.3).is_empty())
+
+	# Push-out keeps Box3D's linear slop (0.005 m) of overlap (src/mover.c:28).
+	var out: Dictionary = Box3DCollision.solve_planes(Vector3.ZERO, planes)
+	_check("solve_planes pushes the capsule out along the normal (%.4f m)" % out["delta"].y,
+		absf(out["delta"].y - 0.095) < 0.001 and is_zero_approx(out["delta"].x) and out["iterations"] >= 1)
+	var slide: Dictionary = Box3DCollision.solve_planes(Vector3(1, -1, 0), planes)
+	_check("a move into the face becomes a slide along it (%s)" % slide["delta"],
+		slide["delta"].is_equal_approx(Vector3(1, 0.095, 0)))
+	_check("clip_vector removes the velocity into a plane that pushed",
+		Box3DCollision.clip_vector(Vector3(3, -5, 0), slide["planes"]).is_equal_approx(Vector3(3, 0, 0)))
+	var soft := (planes[0] as Dictionary).duplicate()
+	soft["push_limit"] = 0.02
+	soft["clip_velocity"] = false
+	var soft_out: Dictionary = Box3DCollision.solve_planes(Vector3.ZERO, [soft])
+	_check("push_limit caps a soft plane's push (%.4f m) and clip_velocity off skips the clip" % soft_out["delta"].y,
+		absf(soft_out["delta"].y - 0.02) < 0.0001
+			and Box3DCollision.clip_vector(Vector3(3, -5, 0), soft_out["planes"]) == Vector3(3, -5, 0))
 	world.free()
 
 

@@ -27,6 +27,19 @@
 				[param collision_mask] selects which layers the blast reaches. It has no layer half, unlike the queries: Box3D's explosion definition carries a mask and no category of its own.
 			</description>
 		</method>
+		<method name="collide_mover">
+			<return type="Array" />
+			<param index="0" name="point_a" type="Vector3" />
+			<param index="1" name="point_b" type="Vector3" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="collision_mask" type="int" default="-1" />
+			<param index="4" name="collision_layer" type="int" default="-1" />
+			<description>
+				Collides a character capsule, given by its two end centres [param point_a] and [param point_b] in world space and its [param radius], against the whole world and returns every collision plane it meets, without moving anything. This is the first half of Box3D's geometric character mover; [method Box3DCollision.solve_planes] is the second, turning these planes into the translation that pushes the capsule out or slides it along them. [method Box3DCharacterBody.move_and_slide] runs both (plus a sweep) for you; this is for building your own controller on the same parts.
+				Each entry is a [Dictionary] with [code]normal[/code] ([Vector3], pointing from the shape towards the capsule), [code]distance[/code] ([float], how far the capsule reaches into the shape), [code]position[/code] ([Vector3], the closest point on the shape, world space), [code]collider[/code] (the [Box3DBody]) and [code]shape[/code] (its [Box3DCollisionShape], or [code]null[/code] for a body's own [member Box3DBody.shape_type] shape). A shape may report more than one plane. Back faces of meshes and height fields are ignored.
+				[param collision_mask] and [param collision_layer] filter as in [method raycast].
+			</description>
+		</method>
 		<method name="dump_memory_stats" qualifiers="const">
 			<return type="String" />
 			<description>

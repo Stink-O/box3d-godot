@@ -31,6 +31,33 @@ struct Proxy {
 	bool empty() const { return points.empty(); }
 };
 
+// A plane Dictionary -> b3CollisionPlane. Missing keys take upstream's
+// rigid defaults: push_limit FLT_MAX (an INF also maps there, a negative to
+// 0) and clip_velocity true; push is only read by b3ClipVector.
+b3CollisionPlane to_collision_plane(const Dictionary &p_plane) {
+	b3CollisionPlane cp;
+	cp.plane.normal = to_b3((Vector3)p_plane.get("normal", Vector3()));
+	cp.plane.offset = (float)(double)p_plane.get("distance", 0.0);
+	const double limit = (double)p_plane.get("push_limit", (double)FLT_MAX);
+	cp.pushLimit = (limit >= 0.0) ? (float)MIN(limit, (double)FLT_MAX) : (limit < 0.0 ? 0.0f : FLT_MAX);
+	cp.push = (float)(double)p_plane.get("push", 0.0);
+	cp.clipVelocity = (bool)p_plane.get("clip_velocity", true);
+	return cp;
+}
+
+std::vector<b3CollisionPlane> to_collision_planes(const Array &p_planes) {
+	std::vector<b3CollisionPlane> out;
+	out.reserve((size_t)p_planes.size());
+	for (int i = 0; i < p_planes.size(); ++i) {
+		if (p_planes[i].get_type() != Variant::DICTIONARY) {
+			UtilityFunctions::push_warning("Box3DCollision: a plane must be a Dictionary { normal, distance }; skipped.");
+			continue;
+		}
+		out.push_back(to_collision_plane(p_planes[i]));
+	}
+	return out;
+}
+
 Proxy make_proxy(const PackedVector3Array &p_points, double p_radius) {
 	Proxy out;
 	int count = p_points.size();
@@ -613,8 +640,35 @@ Dictionary Box3DCollision::collide_triangle_and_hull(const PackedVector3Array &p
 	return out;
 }
 
+Dictionary Box3DCollision::solve_planes(const Vector3 &p_target_delta, const Array &p_planes) {
+	std::vector<b3CollisionPlane> planes = to_collision_planes(p_planes);
+	b3PlaneSolverResult r = b3SolvePlanes(to_b3(p_target_delta), planes.data(), (int)planes.size());
+	Array solved;
+	for (size_t i = 0; i < planes.size(); ++i) {
+		Dictionary d;
+		d["normal"] = to_gd(planes[i].plane.normal);
+		d["distance"] = (double)planes[i].plane.offset;
+		d["push_limit"] = (double)planes[i].pushLimit;
+		d["push"] = (double)planes[i].push;
+		d["clip_velocity"] = planes[i].clipVelocity;
+		solved.push_back(d);
+	}
+	Dictionary out;
+	out["delta"] = to_gd(r.delta);
+	out["iterations"] = r.iterationCount;
+	out["planes"] = solved;
+	return out;
+}
+
+Vector3 Box3DCollision::clip_vector(const Vector3 &p_vector, const Array &p_planes) {
+	std::vector<b3CollisionPlane> planes = to_collision_planes(p_planes);
+	return to_gd(b3ClipVector(to_b3(p_vector), planes.data(), (int)planes.size()));
+}
+
 void Box3DCollision::_bind_methods() {
 	ClassDB::bind_static_method("Box3DCollision", D_METHOD("is_valid_ray", "origin", "translation", "max_fraction"), &Box3DCollision::is_valid_ray, DEFVAL(1.0));
+	ClassDB::bind_static_method("Box3DCollision", D_METHOD("solve_planes", "target_delta", "planes"), &Box3DCollision::solve_planes);
+	ClassDB::bind_static_method("Box3DCollision", D_METHOD("clip_vector", "vector", "planes"), &Box3DCollision::clip_vector);
 	ClassDB::bind_static_method("Box3DCollision", D_METHOD("ray_cast_sphere", "center", "radius", "origin", "translation", "max_fraction"), &Box3DCollision::ray_cast_sphere, DEFVAL(1.0));
 	ClassDB::bind_static_method("Box3DCollision", D_METHOD("ray_cast_hollow_sphere", "center", "radius", "origin", "translation", "max_fraction"), &Box3DCollision::ray_cast_hollow_sphere, DEFVAL(1.0));
 	ClassDB::bind_static_method("Box3DCollision", D_METHOD("ray_cast_capsule", "center1", "center2", "radius", "origin", "translation", "max_fraction"), &Box3DCollision::ray_cast_capsule, DEFVAL(1.0));

@@ -136,6 +136,19 @@ public:
 		TOI_SEPARATED,
 	};
 
+	// --- the mover plane solver ---------------------------------------------
+	// b3SolvePlanes / b3ClipVector (collision.h:682-690), the half of a
+	// character controller that runs on planes alone. A plane is a Dictionary
+	// { normal, distance } as Box3DWorld.collide_mover / Box3DBody.collide_mover
+	// return them (distance = b3Plane.offset, how far the mover is in), plus
+	// optional push_limit (absent or INF = FLT_MAX, rigid) and clip_velocity
+	// (default true), upstream's b3CollisionPlane fields (types.h:1864-1878).
+	// solve_planes returns { delta, iterations, planes }: the solved
+	// translation, the solver's iteration count, and the planes again with the
+	// solver's per-plane `push` filled in, ready for clip_vector.
+	static Dictionary solve_planes(const Vector3 &p_target_delta, const Array &p_planes);
+	static Vector3 clip_vector(const Vector3 &p_vector, const Array &p_planes);
+
 	// --- mass properties and bounds ----------------------------------------
 	// b3Compute*Mass (collision.h:472-483) and b3Compute*AABB (collision.h:485-
 	// 495). Mass returns { mass, center, inertia }, the same three keys

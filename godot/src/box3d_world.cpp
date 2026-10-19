@@ -1497,6 +1497,57 @@ Dictionary Box3DWorld::shape_cast_convex(const PackedVector3Array &p_points, con
 	return run_cast_proxy(convex_proxy(p_points), p_motion, p_mask, p_layer);
 }
 
+namespace {
+
+struct CollideMoverContext {
+	Box3DWorld *world = nullptr;
+	b3Pos origin;
+	Array *out = nullptr;
+};
+
+// b3PlaneResultFcn: keep every plane and keep looking. The points arrive
+// relative to the query origin (box3d.h:126), so they are moved back to world.
+bool collide_mover_cb(b3ShapeId p_shape, const b3PlaneResult *p_results, int p_count, void *p_context) {
+	CollideMoverContext *ctx = static_cast<CollideMoverContext *>(p_context);
+	Box3DBody *body = ctx->world->body_from_shape(p_shape);
+	Object *shape_node = (Object *)(Box3DCollisionShape *)b3Shape_GetUserData(p_shape);
+	for (int i = 0; i < p_count; ++i) {
+		Dictionary entry;
+		entry["normal"] = to_gd(p_results[i].plane.normal);
+		entry["distance"] = (double)p_results[i].plane.offset;
+		entry["position"] = to_gd_pos(b3OffsetPos(ctx->origin, p_results[i].point));
+		entry["collider"] = static_cast<Object *>(body);
+		entry["shape"] = shape_node;
+		ctx->out->push_back(entry);
+	}
+	return true;
+}
+
+} // namespace
+
+Array Box3DWorld::collide_mover(const Vector3 &p_point_a, const Vector3 &p_point_b, double p_radius,
+		uint64_t p_mask, uint64_t p_layer) {
+	join_async_step();
+	ensure_world();
+	Array out;
+	if (!b3World_IsValid(world_id)) {
+		return out;
+	}
+	CollideMoverContext ctx;
+	ctx.world = this;
+	ctx.origin = to_b3_pos(p_point_a);
+	ctx.out = &out;
+	b3Capsule mover;
+	mover.center1 = b3Vec3_zero;
+	mover.center2 = to_b3(p_point_b - p_point_a);
+	mover.radius = (float)Math::abs(p_radius);
+	b3QueryFilter filter = b3DefaultQueryFilter();
+	filter.maskBits = p_mask;
+	filter.categoryBits = p_layer;
+	b3World_CollideMover(world_id, ctx.origin, &mover, filter, collide_mover_cb, &ctx);
+	return out;
+}
+
 Array Box3DWorld::overlap_aabb(const AABB &p_aabb, uint64_t p_mask, uint64_t p_layer) {
 	join_async_step();
 	Array result;
@@ -2933,6 +2984,7 @@ void Box3DWorld::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("overlap_convex", "points", "collision_mask", "collision_layer"), &Box3DWorld::overlap_convex, DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("shape_cast_capsule", "point_a", "point_b", "radius", "motion", "collision_mask", "collision_layer"), &Box3DWorld::shape_cast_capsule, DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("shape_cast_convex", "points", "motion", "collision_mask", "collision_layer"), &Box3DWorld::shape_cast_convex, DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
+	ClassDB::bind_method(D_METHOD("collide_mover", "point_a", "point_b", "radius", "collision_mask", "collision_layer"), &Box3DWorld::collide_mover, DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("get_last_query_stats"), &Box3DWorld::get_last_query_stats);
 	ClassDB::bind_method(D_METHOD("set_contact_rules", "rules"), &Box3DWorld::set_contact_rules);
 	ClassDB::bind_method(D_METHOD("get_contact_rules"), &Box3DWorld::get_contact_rules);
