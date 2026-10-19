@@ -136,6 +136,13 @@
 				How many Box3D worlds can exist at once, a fixed limit compiled into Box3D. Every [Box3DWorld] node holds one while it is inside the tree, so this is the ceiling on simultaneous simulations across the whole game, not per scene.
 			</description>
 		</method>
+		<method name="get_move_events" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Box3D's body move events for the last step: one [Dictionary] per body the solver moved, with [code]body[/code] (the [Box3DBody]), [code]transform[/code] ([Transform3D], its pose after the step) and [code]fell_asleep[/code] ([bool], true on the step it went to sleep, the last event it produces until it wakes). Bodies that are asleep or static are not listed, so this is the cheap way to find what changed this step without visiting every body.
+				The list describes the most recent step and is replaced by the next one; read it from [code]_physics_process[/code] after the world has stepped (or after calling [method step]). [signal body_fell_asleep] is the same event's falling-asleep edge as a signal.
+			</description>
+		</method>
 		<method name="get_profile" qualifiers="const">
 			<return type="Dictionary" />
 			<description>

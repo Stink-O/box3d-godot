@@ -46,6 +46,7 @@ func _ready() -> void:
 	await _test_point_forces()
 	await _test_sleep_controls()
 	await _test_start_asleep()
+	await _test_move_events()
 	await _test_body_enabled()
 	await _test_live_body_properties()
 	await _test_mass_data()
@@ -1466,6 +1467,43 @@ func _test_point_forces() -> void:
 
 # b3BodyDef.isAwake = false: the body is created asleep and hangs in the air
 # until woken. Upstream overrides it when sleep is disabled (src/body.c:199).
+# Box3DWorld.get_move_events: b3World_GetBodyEvents as a list, one entry per
+# moved body, with the fell-asleep edge on exactly one step.
+func _test_move_events() -> void:
+	var world := Box3DWorld.new()
+	world.auto_step = false
+	add_child(world)
+	var floor := Box3DBody.new()
+	floor.body_type = Box3DBody.STATIC
+	floor.box_size = Vector3(10, 1, 10)
+	floor.position = Vector3(0, -0.5, 0)
+	world.add_child(floor)
+	var box := Box3DBody.new()
+	box.position = Vector3(0, 0.5, 0)
+	world.add_child(box)
+	await get_tree().physics_frame
+
+	world.step(1.0 / 60.0)
+	var first: Array = world.get_move_events()
+	_check("get_move_events lists the awake body and not the static one (%d)" % first.size(),
+		first.size() == 1 and first[0]["body"] == box and not first[0]["fell_asleep"]
+			and (first[0]["transform"] as Transform3D).is_equal_approx(box.global_transform))
+	var asleep_steps := 0
+	var steps := 0
+	for i in range(300):
+		world.step(1.0 / 60.0)
+		steps += 1
+		for e: Dictionary in world.get_move_events():
+			if e["fell_asleep"]:
+				asleep_steps += 1
+		if not box.is_awake():
+			break
+	world.step(1.0 / 60.0)
+	_check("the fell_asleep edge arrives on exactly one step, then the list is empty (%d steps)" % steps,
+		asleep_steps == 1 and world.get_move_events().is_empty())
+	world.free()
+
+
 func _test_start_asleep() -> void:
 	var world := Box3DWorld.new()
 	add_child(world)

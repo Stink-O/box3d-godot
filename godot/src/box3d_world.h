@@ -374,6 +374,11 @@ public:
 	// upstream getter names minus the b3World_ prefix, matching get_profile()
 	// and get_counters(). Empty when the world is dead.
 	Dictionary get_live_settings() const;
+	// b3World_GetBodyEvents (box3d.h:64-65, types.h:1233-1258): one entry
+	// per body the last step moved, { body, transform, fell_asleep }. The
+	// binding consumes these itself to sync nodes and emit body_fell_asleep;
+	// this hands the raw list to a script.
+	Array get_move_events() const;
 	// b3World_GetMaxCapacity: the high-water marks this world reached. Feed the
 	// numbers back into the capacity_* properties to pre-size a rebuild.
 	// Keys are b3Capacity's field names (types.h:120-137).

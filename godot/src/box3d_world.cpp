@@ -863,6 +863,27 @@ void Box3DWorld::dispatch_body_events() {
 	}
 }
 
+Array Box3DWorld::get_move_events() const {
+	Array out;
+	join_async_step();
+	if (!b3World_IsValid(world_id)) {
+		return out;
+	}
+	// Transient, valid until the next step (box3d.h:64-65). Every field is copied, and
+	// the transform is the post-continuous-collision pose
+	// (src/solver.c:570-572), the same one the node was just synced to.
+	b3BodyEvents events = b3World_GetBodyEvents(world_id);
+	for (int i = 0; i < events.moveCount; ++i) {
+		const b3BodyMoveEvent &move = events.moveEvents[i];
+		Dictionary d;
+		d["body"] = static_cast<Object *>(static_cast<Box3DBody *>(move.userData));
+		d["transform"] = Transform3D(Basis(to_gd(move.transform.q)), to_gd_pos(move.transform.p));
+		d["fell_asleep"] = move.fellAsleep;
+		out.push_back(d);
+	}
+	return out;
+}
+
 // b3World_GetJointEvents reports every awake joint whose constraint force or
 // torque reached its threshold during the step (types.h:1237-1246,
 // src/solver.c:297-309). Upstream omits the observed force/torque from the
@@ -2997,6 +3018,7 @@ void Box3DWorld::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("shape_cast_box", "from", "to", "size", "collision_mask", "collision_layer"), &Box3DWorld::shape_cast_box, DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("is_contact_valid", "contact_id"), &Box3DWorld::is_contact_valid);
 	ClassDB::bind_method(D_METHOD("get_contact_data", "contact_id"), &Box3DWorld::get_contact_data);
+	ClassDB::bind_method(D_METHOD("get_move_events"), &Box3DWorld::get_move_events);
 	ClassDB::bind_method(D_METHOD("get_awake_body_count"), &Box3DWorld::get_awake_body_count);
 	ClassDB::bind_method(D_METHOD("get_bounds"), &Box3DWorld::get_bounds);
 	ClassDB::bind_method(D_METHOD("shape_cast_sphere", "from", "to", "radius", "collision_mask", "collision_layer"), &Box3DWorld::shape_cast_sphere, DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
