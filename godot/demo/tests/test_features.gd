@@ -100,6 +100,7 @@ func _ready() -> void:
 	await _test_replay_car_visuals()
 	_test_blast_calibration()
 	await _test_sample_fidelity()
+	await _test_safety_factor_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6129,6 +6130,31 @@ func _test_sample_fidelity() -> void:
 
 
 # --- F-004 / F-013 / F-014: the developer-facing globals --------------------
+
+## Safety Factor (sample_continuous.cpp:1024-1137): the 0.3 m drop reaches
+## 2.45 m/s, 0.041 m per step. Upstream's default Safety 0.1 makes "fast"
+## 0.05 m, so the landing is discrete and the box sinks in; at 0.05 the
+## threshold is 0.025 m, the landing is swept and the overlap all but goes.
+func _safety_sample_overlap(safety: float) -> float:
+	var inst: Node = (load("res://samples/safety_factor.tscn") as PackedScene).instantiate()
+	inst.set_sample_size("safety", safety)
+	add_child(inst)
+	for i in range(60):
+		await get_tree().physics_frame
+	var overlap: float = inst.get("_overlap")
+	inst.queue_free()
+	await get_tree().physics_frame
+	return overlap
+
+
+func _test_safety_factor_sample() -> void:
+	var discrete := await _safety_sample_overlap(0.1)
+	var swept := await _safety_sample_overlap(0.05)
+	_check("Safety Factor: upstream's 0.1 lands discretely and overlaps (%.4f m)" % discrete,
+		discrete > 0.01)
+	_check("Safety Factor: 0.05 sweeps the landing and the overlap shrinks (%.4f m)" % swept,
+		swept < 0.25 * discrete)
+
 
 func _test_developer_globals() -> void:
 	# The editor gizmos register at MODULE_INITIALIZATION_LEVEL_EDITOR, a level

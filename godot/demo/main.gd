@@ -85,6 +85,7 @@ const SAMPLES := {
 		"Bounce House": "res://samples/bounce_house.tscn",
 		"Spinning Stick": "res://samples/spinning_stick.tscn",
 		"Bullet vs Stack": "res://samples/bullet_vs_stack.tscn",
+		"Safety Factor": "res://samples/safety_factor.tscn",
 	},
 	"Vehicles": {
 		"Car": "res://samples/car.tscn",
@@ -187,6 +188,7 @@ const DESCRIPTIONS := {
 	"Bounce House": "One frictionless, perfectly elastic ball fired across a walled pen at 170 m/s with no gravity. It should never escape the pen and never lose speed.",
 	"Spinning Stick": "A stick dropped onto the edge of a thin wall at 100 m/s while spinning at up to 50 rad/s. The toggle switches fast rotation handling on and off.",
 	"Bullet vs Stack": "A small, very dense sphere fired at 500 m/s through a ten box tower with a thin backstop behind it. The tower is demolished and neither the bullet nor any box gets past the wall.",
+	"Safety Factor": "A box dropped a few centimetres onto the ground, far too slowly to tunnel, still sinks a little into it on the step it lands. Lower the safety factor and continuous collision engages at that speed too: the box turns orange on swept steps and the measured overlap shrinks.",
 	"Car": "A jointed vehicle: wheel joints with springs and motors, driven only through the wheels. Everything the chassis does comes from suspension and tyre contact.",
 	"Sensor Visit": "A sensor takes part in collision detection but never pushes anything. The box reports what enters and leaves it while bodies pass straight through.",
 	"Persistent Contact": "One sphere rolling across a triangle mesh floor with its live contact drawn every frame, so you can watch a single manifold be held and updated rather than rebuilt.",
@@ -266,6 +268,7 @@ const USE_CASES := {
 	"Bounce House": "Frictionless arcade balls that keep their speed forever",
 	"Spinning Stick": "Thrown weapons that spin fast without passing through geometry",
 	"Bullet vs Stack": "High-powered weapons that punch through cover but not through the level",
+	"Safety Factor": "Trading a little continuous-collision cost for props that land without visibly sinking in",
 	"Car": "Drivable vehicles with real suspension and tyre grip",
 	"Sensor Visit": "Pickups and trigger zones",
 	"Persistent Contact": "Effects that need one contact tracked over time, like skid marks",
