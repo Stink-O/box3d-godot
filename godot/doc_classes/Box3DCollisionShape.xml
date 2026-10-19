@@ -63,6 +63,12 @@
 				The point on this shape's surface closest to [param target], in world space.
 			</description>
 		</method>
+		<method name="get_contacts" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Every contact this one shape is currently touching, in exactly the layout of [method Box3DBody.get_contacts]: [code]shape[/code] is this node, [code]collider[/code] and [code]collider_shape[/code] the other side, and [code]normal[/code] points from this shape towards the collider. Where the body's query lists every contact on every child, this narrows it to one collider, for example to tell which wheel or foot of a compound body is on the ground. Empty while the shape is not in a world.
+			</description>
+		</method>
 		<method name="get_filter" qualifiers="const">
 			<return type="Dictionary" />
 			<description>

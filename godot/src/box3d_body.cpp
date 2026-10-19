@@ -2060,27 +2060,21 @@ Box3DWorld *Box3DBody::get_world() const {
 
 // One entry per touching contact:
 //   collider        the other Box3DBody
-//   shape           this body's Box3DCollisionShape, or null for its own shape
+//   shape           this side's Box3DCollisionShape, or null for a body's own shape
 //   collider_shape  the other body's Box3DCollisionShape, or null
-//   normal          unit normal pointing from this body towards the collider
+//   normal          unit normal pointing from this side towards the collider
 //   impulse         summed totalNormalImpulse over every manifold point
 //   points          [{ position, separation, impulse, velocity }] in world space
-Array Box3DBody::get_contacts() const {
+// "This side" is p_self_shape when it is non-null (Box3DCollisionShape's
+// query, whose shape is either shapeIdA or shapeIdB, box3d.h:1039), else
+// p_self_body (the body's own query).
+Array Box3DBody::contacts_to_array(const b3ContactData *p_contacts, int p_count, b3BodyId p_self_body, b3ShapeId p_self_shape) {
 	Array out;
-	if (!body_live()) {
-		return out;
-	}
-	int capacity = b3Body_GetContactCapacity(body_id);
-	if (capacity <= 0) {
-		return out;
-	}
-	std::vector<b3ContactData> contacts((size_t)capacity);
-	// The fill call returns the touching count, which is what must be iterated.
-	int count = b3Body_GetContactData(body_id, contacts.data(), capacity);
-	for (int i = 0; i < count; ++i) {
-		const b3ContactData &c = contacts[(size_t)i];
+	const bool by_shape = B3_IS_NON_NULL(p_self_shape);
+	for (int i = 0; i < p_count; ++i) {
+		const b3ContactData &c = p_contacts[i];
 		b3BodyId owner_a = b3Shape_GetBody(c.shapeIdA);
-		bool self_is_a = B3_ID_EQUALS(owner_a, body_id);
+		bool self_is_a = by_shape ? B3_ID_EQUALS(c.shapeIdA, p_self_shape) : B3_ID_EQUALS(owner_a, p_self_body);
 		b3ShapeId own_shape = self_is_a ? c.shapeIdA : c.shapeIdB;
 		b3ShapeId other_shape = self_is_a ? c.shapeIdB : c.shapeIdA;
 
@@ -2118,6 +2112,20 @@ Array Box3DBody::get_contacts() const {
 		out.push_back(entry);
 	}
 	return out;
+}
+
+Array Box3DBody::get_contacts() const {
+	if (!body_live()) {
+		return Array();
+	}
+	int capacity = b3Body_GetContactCapacity(body_id);
+	if (capacity <= 0) {
+		return Array();
+	}
+	std::vector<b3ContactData> contacts((size_t)capacity);
+	// The fill call returns the touching count, which is what must be iterated.
+	int count = b3Body_GetContactData(body_id, contacts.data(), capacity);
+	return contacts_to_array(contacts.data(), count, body_id, b3_nullShapeId);
 }
 
 Array Box3DBody::get_touching_bodies() const {

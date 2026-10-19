@@ -540,6 +540,9 @@ public:
 	// What this body is touching right now, without waiting for a contact event
 	// edge. One Dictionary per touching contact; see the .cpp for the keys.
 	Array get_contacts() const;
+	// The get_contacts Dictionary builder, shared with Box3DCollisionShape:
+	// "self" is p_self_shape when non-null, else p_self_body.
+	static Array contacts_to_array(const b3ContactData *p_contacts, int p_count, b3BodyId p_self_body, b3ShapeId p_self_shape);
 	Array get_touching_bodies() const; // unique Box3DBody nodes from get_contacts
 	// Bodies currently overlapping this body's sensor shapes. Empty unless the
 	// body is a sensor.

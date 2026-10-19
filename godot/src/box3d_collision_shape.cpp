@@ -180,6 +180,22 @@ Box3DBody *Box3DCollisionShape::get_body() const {
 	return (Box3DBody *)b3Body_GetUserData(owner_body);
 }
 
+Array Box3DCollisionShape::get_contacts() const {
+	if (!shape_live()) {
+		return Array();
+	}
+	// b3Shape_GetContactCapacity / b3Shape_GetContactData (box3d.h:1036-1043):
+	// the same touching contacts Box3DBody.get_contacts reports, narrowed to
+	// this one shape, and the same Dictionary layout.
+	int capacity = b3Shape_GetContactCapacity(shape_id);
+	if (capacity <= 0) {
+		return Array();
+	}
+	std::vector<b3ContactData> contacts((size_t)capacity);
+	int count = b3Shape_GetContactData(shape_id, contacts.data(), capacity);
+	return Box3DBody::contacts_to_array(contacts.data(), count, b3_nullBodyId, shape_id);
+}
+
 Box3DWorld *Box3DCollisionShape::get_world() const {
 	Box3DBody *body = get_body();
 	if (body == nullptr) {
@@ -745,6 +761,7 @@ void Box3DCollisionShape::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_shape_name"), &Box3DCollisionShape::get_shape_name);
 	ClassDB::bind_method(D_METHOD("get_body"), &Box3DCollisionShape::get_body);
 	ClassDB::bind_method(D_METHOD("get_world"), &Box3DCollisionShape::get_world);
+	ClassDB::bind_method(D_METHOD("get_contacts"), &Box3DCollisionShape::get_contacts);
 	ClassDB::bind_method(D_METHOD("get_geometry_type"), &Box3DCollisionShape::get_geometry_type);
 	ClassDB::bind_method(D_METHOD("get_sphere"), &Box3DCollisionShape::get_sphere);
 	ClassDB::bind_method(D_METHOD("get_capsule"), &Box3DCollisionShape::get_capsule);

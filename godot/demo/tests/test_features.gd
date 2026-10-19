@@ -55,6 +55,7 @@ func _ready() -> void:
 	await _test_shape_handles()
 	await _test_filter_joint()
 	await _test_contact_query()
+	await _test_shape_contacts()
 	await _test_height_field()
 	await _test_mesh_from_data()
 	await _test_shape_scale()
@@ -1898,6 +1899,46 @@ func _test_filter_joint() -> void:
 	_check("filter joint reports its box3d type",
 		joint.get_joint_type() == Box3DJoint.JOINT_FILTER)
 
+	world.free()
+
+
+# Box3DCollisionShape.get_contacts: b3Shape_GetContactData narrowed to one
+# child of a compound, in Box3DBody.get_contacts' layout.
+func _test_shape_contacts() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+	var floor := Box3DBody.new()
+	floor.body_type = Box3DBody.STATIC
+	var pads: Array[Box3DCollisionShape] = []
+	for x in [-3.0, 3.0]:
+		var pad := Box3DCollisionShape.new()
+		pad.shape_type = Box3DCollisionShape.BOX
+		pad.box_size = Vector3(4, 1, 4)
+		pad.position = Vector3(x, -0.5, 0)
+		floor.add_child(pad)
+		pads.append(pad)
+	world.add_child(floor)
+	var box := Box3DBody.new()
+	box.box_size = Vector3.ONE
+	box.position = Vector3(-3, 0.5, 0) # on the left pad only
+	world.add_child(box)
+
+	var loose := Box3DCollisionShape.new()
+	_check("Box3DCollisionShape.get_contacts is empty outside a world", loose.get_contacts().is_empty())
+	loose.free()
+	for i in range(30):
+		await get_tree().physics_frame
+
+	var left: Array = pads[0].get_contacts()
+	var right: Array = pads[1].get_contacts()
+	_check("the loaded pad reports one contact and the bare pad none (%d, %d)" % [left.size(), right.size()],
+		left.size() == 1 and right.is_empty() and floor.get_contacts().size() == 1)
+	if left.size() == 1:
+		var c: Dictionary = left[0]
+		_check("the shape contact is in get_contacts' layout, from the pad's side",
+			c["collider"] == box and c["shape"] == pads[0] and c["collider_shape"] == null
+				and c["normal"].is_equal_approx(Vector3.UP) and c["points"].size() == 4
+				and c["impulse"] > 0.0)
 	world.free()
 
 

@@ -199,6 +199,8 @@ public:
 	// exactly what these are for.
 	Box3DBody *get_body() const;
 	Box3DWorld *get_world() const;
+	// b3Shape_GetContactData, in Box3DBody.get_contacts' Dictionary layout.
+	Array get_contacts() const;
 
 	// --- b3Shape_GetType and the per-geometry accessors (box3d.h:887-1025) ---
 	// Every reader is guarded by b3Shape_GetType, because the Get* family
