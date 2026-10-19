@@ -115,6 +115,7 @@ func _ready() -> void:
 	await _test_mover_toi_sample()
 	await _test_capsule_plane_sample()
 	await _test_mover_overlap_sample()
+	await _test_breakable_joints_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6676,6 +6677,28 @@ func _test_mover_overlap_sample() -> void:
 	_check("Mover Overlap: the solve pushes the buried mover clear of the sphere (%.3f m)"
 			% results[0][2].distance_to(Vector3(-3, 1, 0)),
 		results[0][2].distance_to(Vector3(-3, 1, 0)) > 0.94)
+	inst.queue_free()
+	await get_tree().physics_frame
+
+
+## Breakable Joints (sample_events.cpp:330-569): gravity alone loads no joint
+## past 3000 N, and a hard yank breaks exactly the yanked one.
+func _test_breakable_joints_sample() -> void:
+	var inst: Node = (load("res://samples/breakable_joints.tscn") as PackedScene).instantiate()
+	add_child(inst)
+	for i in range(60):
+		await get_tree().physics_frame
+	var settled: Array = inst.get("broken").duplicate()
+	var rod: Box3DDistanceJoint = inst.get_node("Box3DWorld/DistanceJoint")
+	_check("Breakable Joints: four joints hold under gravity, the rod at upstream's 2 m (%.3f)" % rod.get_current_length(),
+		settled.is_empty() and absf(rod.get_current_length() - 2.0) < 0.01)
+	(inst.get_node("Box3DWorld/RevoluteBox") as Box3DBody).set_linear_velocity(Vector3(0, 60, 0))
+	for i in range(5):
+		await get_tree().physics_frame
+	var broken: Array = inst.get("broken")
+	_check("Breakable Joints: a yank past the threshold destroys that joint and only that one (%s)" % [broken],
+		broken == ["RevoluteJoint"] and inst.get_node_or_null("Box3DWorld/RevoluteJoint") == null
+			and inst.get_node_or_null("Box3DWorld/WeldJoint") != null)
 	inst.queue_free()
 	await get_tree().physics_frame
 

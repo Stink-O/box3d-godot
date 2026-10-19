@@ -1,0 +1,108 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://samples/breakable_joints.gd" id="1_joints"]
+
+[sub_resource type="BoxMesh" id="GroundMesh"]
+size = Vector3(40, 2, 40)
+
+[sub_resource type="StandardMaterial3D" id="GroundMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="BoxMesh"]
+size = Vector3(2, 2, 1)
+
+[sub_resource type="StandardMaterial3D" id="BoxMat"]
+albedo_color = Color(0.85, 0.55, 0.3, 1)
+roughness = 0.5
+
+[node name="BreakableJoints" type="Node3D"]
+script = ExtResource("1_joints")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -10, 0)
+
+[node name="Ground" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+body_type = 0
+box_size = Vector3(40, 2, 40)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ground"]
+mesh = SubResource("GroundMesh")
+material_override = SubResource("GroundMat")
+
+[node name="DistanceBox" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.5, 10, 0)
+box_size = Vector3(2, 2, 1)
+angular_damping = 0.0
+can_sleep = false
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/DistanceBox"]
+mesh = SubResource("BoxMesh")
+material_override = SubResource("BoxMat")
+
+[node name="PrismaticBox" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 10, 0)
+box_size = Vector3(2, 2, 1)
+angular_damping = 0.0
+can_sleep = false
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/PrismaticBox"]
+mesh = SubResource("BoxMesh")
+material_override = SubResource("BoxMat")
+
+[node name="RevoluteBox" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 10, 0)
+box_size = Vector3(2, 2, 1)
+angular_damping = 0.0
+can_sleep = false
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/RevoluteBox"]
+mesh = SubResource("BoxMesh")
+material_override = SubResource("BoxMat")
+
+[node name="WeldBox" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.5, 10, 0)
+box_size = Vector3(2, 2, 1)
+angular_damping = 0.0
+can_sleep = false
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/WeldBox"]
+mesh = SubResource("BoxMesh")
+material_override = SubResource("BoxMat")
+
+[node name="DistanceJoint" type="Box3DDistanceJoint" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.5, 13, 0)
+body_a = NodePath("../Ground")
+body_b = NodePath("../DistanceBox")
+collide_connected = true
+force_threshold = 3000.0
+torque_threshold = 10000.0
+length = 2.0
+
+[node name="PrismaticJoint" type="Box3DSliderJoint" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 10, 0)
+body_a = NodePath("../Ground")
+body_b = NodePath("../PrismaticBox")
+collide_connected = true
+force_threshold = 3000.0
+torque_threshold = 10000.0
+
+[node name="RevoluteJoint" type="Box3DHingeJoint" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 10, 0)
+body_a = NodePath("../Ground")
+body_b = NodePath("../RevoluteBox")
+collide_connected = true
+force_threshold = 3000.0
+torque_threshold = 10000.0
+
+[node name="WeldJoint" type="Box3DFixedJoint" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 10, 0)
+body_a = NodePath("../Ground")
+body_b = NodePath("../WeldBox")
+collide_connected = true
+force_threshold = 3000.0
+torque_threshold = 10000.0
+angular_hertz = 2.0
+angular_damping = 0.5
