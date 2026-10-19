@@ -532,6 +532,14 @@ public:
 			uint64_t p_mask = B3_DEFAULT_MASK_BITS, uint64_t p_layer = B3_DEFAULT_CATEGORY_BITS) const;
 	bool overlaps_shape(const PackedVector3Array &p_points, double p_radius, const Transform3D &p_body_xform,
 			uint64_t p_mask = B3_DEFAULT_MASK_BITS, uint64_t p_layer = B3_DEFAULT_CATEGORY_BITS) const;
+	// b3Body_CollideMover (box3d.h:821-824): the planes a character capsule
+	// with world-space end centres p_point_a / p_point_b would collide with on
+	// this body alone; spheres, capsules and hulls only (src/body.c:790-794).
+	// Box3DCharacterBody.collide_with_body is the same query with the
+	// character's own upright capsule.
+	Array collide_mover(const Vector3 &p_point_a, const Vector3 &p_point_b, double p_radius,
+			const Transform3D &p_body_xform,
+			uint64_t p_mask = B3_DEFAULT_MASK_BITS, uint64_t p_layer = B3_DEFAULT_CATEGORY_BITS) const;
 	int get_shape_count() const;
 	int get_joint_count() const;
 	// --- introspection back into the scene tree (P-016, box3d.h:758-779) ---

@@ -120,6 +120,20 @@
 				[param body_transform] poses the body for the query as in [method cast_ray]. [param collision_mask] and [param collision_layer] filter as in [method cast_ray].
 			</description>
 		</method>
+		<method name="collide_mover" qualifiers="const">
+			<return type="Array" />
+			<param index="0" name="point_a" type="Vector3" />
+			<param index="1" name="point_b" type="Vector3" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="body_transform" type="Transform3D" default="Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)" />
+			<param index="4" name="collision_mask" type="int" default="-1" />
+			<param index="5" name="collision_layer" type="int" default="-1" />
+			<description>
+				Collides a character capsule, given by its two end centres [param point_a] and [param point_b] in world space and its [param radius], against [b]this body alone[/b] and returns the collision planes, without moving anything. This is Box3D's mover query, the planes a character controller slides along, for any capsule, tilted or not; [method Box3DCharacterBody.collide_with_body] is the same query with a character's own upright capsule.
+				Each entry is a [Dictionary] with [code]normal[/code] ([Vector3], pointing from the body towards the capsule), [code]distance[/code] ([float], how far the capsule reaches into the shape, so how far it must move along the normal to clear it), [code]position[/code] ([Vector3], the closest point on the shape, world space), [code]collider[/code] (this body) and [code]shape[/code] (the [Box3DCollisionShape], or [code]null[/code] for the body's own [member shape_type] shape). Only shapes the capsule touches or overlaps report a plane, and only the body's spheres, capsules and convex hulls answer: Box3D skips meshes, height fields and compounds in this query, and a capsule whose core segment is already inside a hull gets no plane from it.
+				[param body_transform], [param collision_mask] and [param collision_layer] work as in [method cast_ray].
+			</description>
+		</method>
 		<method name="get_aabb" qualifiers="const">
 			<return type="AABB" />
 			<description>

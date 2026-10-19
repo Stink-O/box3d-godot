@@ -2053,6 +2053,52 @@ bool Box3DBody::overlaps_shape(const PackedVector3Array &p_points, double p_radi
 	return b3Body_OverlapShape(body_id, origin, &proxy, filter, query_pose(body_id, p_body_xform));
 }
 
+Array Box3DBody::collide_mover(const Vector3 &p_point_a, const Vector3 &p_point_b, double p_radius,
+		const Transform3D &p_body_xform, uint64_t p_mask, uint64_t p_layer) const {
+	Array out;
+	if (!body_live()) {
+		return out;
+	}
+	// The mover is relative to its first end centre, which is the query origin.
+	const b3Pos origin = to_b3_pos(p_point_a);
+	b3Capsule mover;
+	mover.center1 = b3Vec3_zero;
+	mover.center2 = to_b3(p_point_b - p_point_a);
+	mover.radius = (float)Math::abs(p_radius);
+	b3QueryFilter filter = b3DefaultQueryFilter();
+	filter.maskBits = p_mask;
+	filter.categoryBits = p_layer;
+	const b3WorldTransform pose = query_pose(body_id, p_body_xform);
+
+	// The call fills at most planeCapacity and returns how many it wrote, so
+	// a full buffer may be a truncated answer: grow and ask again, as
+	// Box3DCharacterBody.collide_with_body_at does.
+	std::vector<b3BodyPlaneResult> results;
+	int capacity = 8;
+	int count = 0;
+	while (true) {
+		results.resize((size_t)capacity);
+		count = b3Body_CollideMover(body_id, results.data(), capacity, origin, &mover, filter, pose);
+		if (count < capacity || capacity >= 256) {
+			break;
+		}
+		capacity *= 2;
+	}
+	for (int i = 0; i < count; ++i) {
+		const b3PlaneResult &r = results[(size_t)i].result;
+		Dictionary entry;
+		entry["normal"] = to_gd(r.plane.normal);
+		// The plane offset is how far the capsule has to move along the normal
+		// to clear the shape (e.g. src/sphere.c:244), so it needs no origin.
+		entry["distance"] = (double)r.plane.offset;
+		entry["position"] = to_gd_pos(b3OffsetPos(origin, r.point));
+		entry["collider"] = const_cast<Box3DBody *>(this);
+		entry["shape"] = (Object *)b3Shape_GetUserData(results[(size_t)i].shapeId);
+		out.push_back(entry);
+	}
+	return out;
+}
+
 int Box3DBody::get_shape_count() const {
 	if (body_live()) {
 		return b3Body_GetShapeCount(body_id);
@@ -3220,6 +3266,7 @@ void Box3DBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("overlaps_box", "center", "size", "body_transform", "collision_mask", "collision_layer"), &Box3DBody::overlaps_box, DEFVAL(Transform3D()), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("cast_shape", "points", "radius", "translation", "body_transform", "max_fraction", "can_encroach", "collision_mask", "collision_layer"), &Box3DBody::cast_shape, DEFVAL(Transform3D()), DEFVAL(1.0), DEFVAL(false), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("overlaps_shape", "points", "radius", "body_transform", "collision_mask", "collision_layer"), &Box3DBody::overlaps_shape, DEFVAL(Transform3D()), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
+	ClassDB::bind_method(D_METHOD("collide_mover", "point_a", "point_b", "radius", "body_transform", "collision_mask", "collision_layer"), &Box3DBody::collide_mover, DEFVAL(Transform3D()), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("set_linear_damping", "damping"), &Box3DBody::set_linear_damping);
 	ClassDB::bind_method(D_METHOD("get_linear_damping"), &Box3DBody::get_linear_damping);
 	ClassDB::bind_method(D_METHOD("set_angular_damping", "damping"), &Box3DBody::set_angular_damping);

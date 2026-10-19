@@ -3177,6 +3177,16 @@ func _test_body_shape_queries() -> void:
 	_check("an empty point cloud is a clean miss",
 		not block.cast_shape(PackedVector3Array(), 0.5, Vector3.ONE)["hit"]
 			and not block.overlaps_shape(PackedVector3Array(), 0.5))
+	# b3Body_CollideMover for an arbitrary capsule: 0.1 m into the top face.
+	var planes: Array = block.collide_mover(Vector3(0, 1.2, 0), Vector3(0, 3, 0), 0.3)
+	_check("collide_mover reports the top face's plane (%d planes)" % planes.size(),
+		planes.size() == 1 and planes[0]["normal"].is_equal_approx(Vector3.UP)
+			and absf(planes[0]["distance"] - 0.1) < 0.002 and absf(planes[0]["position"].y - 1.0) < 0.002
+			and planes[0]["collider"] == block)
+	_check("collide_mover is empty when clear, or with the body posed away",
+		block.collide_mover(Vector3(0, 2, 0), Vector3(0, 3, 0), 0.3).is_empty()
+			and block.collide_mover(Vector3(0, 1.2, 0), Vector3(0, 3, 0), 0.3,
+				Transform3D(Basis(), Vector3(10, 0, 0))).is_empty())
 	world.free()
 
 
