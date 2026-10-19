@@ -321,6 +321,12 @@ void Box3DJoint::wake_bodies() {
 	}
 }
 
+bool Box3DJoint::is_awake() const {
+	// Upstream answers from the joint's solver set (src/joint.c:1011-1018),
+	// cheaper than asking both bodies. A joint not in a world is not awake.
+	return joint_live() && b3Joint_IsAwake(joint_id);
+}
+
 void Box3DJoint::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_READY: {
@@ -483,6 +489,7 @@ void Box3DJoint::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_collide_connected", "enabled"), &Box3DJoint::set_collide_connected);
 	ClassDB::bind_method(D_METHOD("get_collide_connected"), &Box3DJoint::get_collide_connected);
 	ClassDB::bind_method(D_METHOD("wake_bodies"), &Box3DJoint::wake_bodies);
+	ClassDB::bind_method(D_METHOD("is_awake"), &Box3DJoint::is_awake);
 	ClassDB::bind_method(D_METHOD("get_joint_type"), &Box3DJoint::get_joint_type);
 	ClassDB::bind_method(D_METHOD("get_constraint_force"), &Box3DJoint::get_constraint_force);
 	ClassDB::bind_method(D_METHOD("get_constraint_torque"), &Box3DJoint::get_constraint_torque);

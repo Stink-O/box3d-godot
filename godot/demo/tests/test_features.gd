@@ -59,6 +59,7 @@ func _ready() -> void:
 	await _test_shape_scale()
 	await _test_contact_hit_events()
 	await _test_joint_events()
+	await _test_joint_is_awake()
 	await _test_world_queries()
 	await _test_character_sweep_and_floor()
 	await _test_shape_def_extras()
@@ -2162,6 +2163,47 @@ func _test_joint_events() -> void:
 		_check("joint event hands back the joint node", events[0][0] == joint)
 		_check("joint event carries the constraint force (%.0f N)" % events[0][1].length(),
 			events[0][1].length() > 100.0)
+	world.free()
+
+
+# b3Joint_IsAwake: true while the joint is in the awake set, i.e. while an
+# attached body is awake. A hanging body at rest falls asleep, and so does
+# its joint; waking the bodies wakes the joint.
+func _test_joint_is_awake() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+	var anchor := Box3DBody.new()
+	anchor.name = "AwakeAnchor"
+	anchor.body_type = Box3DBody.STATIC
+	anchor.box_size = Vector3(0.2, 0.2, 0.2)
+	anchor.position = Vector3(0, 6, 0)
+	world.add_child(anchor)
+	var hung := Box3DBody.new()
+	hung.name = "AwakeHung"
+	hung.box_size = Vector3(0.5, 0.5, 0.5)
+	hung.position = Vector3(0, 4, 0)
+	world.add_child(hung)
+	var joint := Box3DDistanceJoint.new()
+	joint.position = Vector3(0, 6, 0)
+	world.add_child(joint)
+	joint.body_a = NodePath("../AwakeAnchor")
+	joint.body_b = NodePath("../AwakeHung")
+	var loose := Box3DDistanceJoint.new()
+	_check("Box3DJoint.is_awake is false for a joint in no world", not loose.is_awake())
+	loose.free()
+
+	await get_tree().physics_frame
+	_check("a freshly made joint is awake", joint.is_awake() and hung.is_awake())
+	var slept := false
+	for i in range(240):
+		await get_tree().physics_frame
+		if not hung.is_awake():
+			slept = true
+			break
+	_check("the joint falls asleep with its resting body",
+		slept and not joint.is_awake())
+	joint.wake_bodies()
+	_check("wake_bodies wakes the joint again", joint.is_awake())
 	world.free()
 
 

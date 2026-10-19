@@ -55,6 +55,12 @@
 				The joint frame in [member body_b]'s local space.
 			</description>
 		</method>
+		<method name="is_awake" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Whether the joint is awake, which is true while either connected body is awake. Box3D answers from the joint's own solver set, so this is cheaper than asking both bodies. [code]false[/code] for a joint that is not in a world.
+			</description>
+		</method>
 		<method name="is_joint_valid" qualifiers="const">
 			<return type="bool" />
 			<description>

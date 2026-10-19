@@ -140,6 +140,9 @@ public:
 	// value, so a sleeping body would ignore a new drive command; every setter
 	// that changes a drive target calls this.
 	void wake_bodies();
+	// b3Joint_IsAwake (box3d.h:1133-1134): true while the joint sits in the
+	// awake solver set, i.e. while an attached body is awake.
+	bool is_awake() const;
 
 	JointType get_joint_type() const;
 
