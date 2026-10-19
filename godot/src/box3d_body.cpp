@@ -1844,6 +1844,18 @@ void Box3DBody::apply_mass_from_shapes() {
 	}
 }
 
+double Box3DBody::get_min_extent() const {
+	// Computed with the mass data (src/body.c:953-966 for kinematic, :1050-1058
+	// per shape for dynamic, src/shape.c:772-815 per geometry). A static body
+	// keeps upstream's B3_HUGE and a zero max extent: it never moves, so
+	// nothing reads them. Unlike debug_min_extent() this is Box3D's own value.
+	return body_live() ? (double)b3Body_GetMinExtent(body_id) : 0.0;
+}
+
+Vector3 Box3DBody::get_max_extent() const {
+	return body_live() ? to_gd(b3Body_GetMaxExtent(body_id)) : Vector3();
+}
+
 AABB Box3DBody::get_aabb() const {
 	if (body_live()) {
 		b3AABB box = b3Body_ComputeAABB(body_id);
@@ -3049,6 +3061,8 @@ void Box3DBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mass_data"), &Box3DBody::get_mass_data);
 	ClassDB::bind_method(D_METHOD("apply_mass_from_shapes"), &Box3DBody::apply_mass_from_shapes);
 	ClassDB::bind_method(D_METHOD("get_aabb"), &Box3DBody::get_aabb);
+	ClassDB::bind_method(D_METHOD("get_min_extent"), &Box3DBody::get_min_extent);
+	ClassDB::bind_method(D_METHOD("get_max_extent"), &Box3DBody::get_max_extent);
 	ClassDB::bind_method(D_METHOD("get_closest_point", "target"), &Box3DBody::get_closest_point);
 	ClassDB::bind_method(D_METHOD("get_closest_distance", "target"), &Box3DBody::get_closest_distance);
 	ClassDB::bind_method(D_METHOD("get_shape_count"), &Box3DBody::get_shape_count);

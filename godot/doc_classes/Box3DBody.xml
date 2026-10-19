@@ -253,6 +253,12 @@
 				The current mass properties as a [Dictionary] with [code]mass[/code] ([float]), [code]center[/code] ([Vector3], local space) and [code]inertia[/code] ([Basis]).
 			</description>
 		</method>
+		<method name="get_max_extent" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				Box3D's per-axis maximum extent: the largest distance, along each local axis, from the center of mass to any point of the body's colliders. With the angular speed it bounds how far the body's farthest point moves in a step, which is what the solver's continuous-collision "fast" test uses. [code]Vector3.ZERO[/code] for a static body (Box3D does not compute it for one) and outside a world.
+			</description>
+		</method>
 		<method name="get_mesh_material" qualifiers="const">
 			<return type="Dictionary" />
 			<param index="0" name="index" type="int" />
@@ -266,6 +272,12 @@
 			<description>
 				How many surface materials this body's mesh or height field collider actually holds, as built. 0 for any other shape type, and 0 before the body has entered the tree.
 				This is the live count, so it is the safe bound for [method get_mesh_material] and [method set_mesh_material] -- [member surface_materials] is what you authored, this is what Box3D kept.
+			</description>
+		</method>
+		<method name="get_min_extent" qualifiers="const">
+			<return type="float" />
+			<description>
+				Box3D's minimum extent: the smallest distance from the center of mass to a collider's surface (half the thinnest box side, or a sphere or capsule radius). A body that moves farther than [member safety_factor] times this in one step is swept by continuous collision. Exact, read from the solver rather than estimated. Static bodies report Box3D's "huge" placeholder (they never move), and a body outside a world reports [code]0[/code].
 			</description>
 		</method>
 		<method name="get_overlapping_bodies" qualifiers="const">

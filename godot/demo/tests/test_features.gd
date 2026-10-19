@@ -20,6 +20,7 @@ func _ready() -> void:
 	await _test_mesh()
 	await _test_ccd()
 	await _test_safety_factor()
+	await _test_body_extents()
 	await _test_zero_step()
 	await _test_motion_locks()
 	await _test_character()
@@ -396,6 +397,37 @@ func _test_ccd() -> void:
 # A plain (non-bullet) sphere crossing a thin static wall at 1 m per step:
 # far more than safety_factor * its 0.2 radius, so the solver sweeps it and
 # stops it at the wall unless the factor is raised out of reach.
+# b3Body_GetMinExtent / b3Body_GetMaxExtent: the solver's own numbers, the
+# ones safety_factor multiplies.
+func _test_body_extents() -> void:
+	var world := Box3DWorld.new()
+	world.gravity = Vector3.ZERO
+	add_child(world)
+	var box := Box3DBody.new()
+	box.box_size = Vector3(1, 2, 3)
+	world.add_child(box)
+	var ball := Box3DBody.new()
+	ball.shape_type = Box3DBody.SPHERE
+	ball.sphere_radius = 0.3
+	ball.position = Vector3(5, 0, 0)
+	world.add_child(ball)
+	var wall := Box3DBody.new()
+	wall.body_type = Box3DBody.STATIC
+	wall.position = Vector3(-5, 0, 0)
+	world.add_child(wall)
+	var loose := Box3DBody.new()
+	_check("extents read 0 outside a world",
+		loose.get_min_extent() == 0.0 and loose.get_max_extent() == Vector3.ZERO)
+	loose.free()
+	await get_tree().physics_frame
+	_check("a 1x2x3 box: min extent 0.5, max extent (0.5, 1, 1.5) (%.3f, %s)" % [box.get_min_extent(), box.get_max_extent()],
+		is_equal_approx(box.get_min_extent(), 0.5) and box.get_max_extent().is_equal_approx(Vector3(0.5, 1.0, 1.5)))
+	_check("a 0.3 sphere: min extent 0.3, max extent 0.3 on every axis",
+		is_equal_approx(ball.get_min_extent(), 0.3) and ball.get_max_extent().is_equal_approx(Vector3.ONE * 0.3))
+	_check("a static body has no max extent (Box3D skips it)", wall.get_max_extent() == Vector3.ZERO)
+	world.free()
+
+
 func _safety_run(factor: float, live: bool) -> float:
 	var world := Box3DWorld.new()
 	world.gravity = Vector3.ZERO

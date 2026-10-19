@@ -490,6 +490,10 @@ public:
 	// World AABB of every attached shape. May not contain the body origin, and
 	// is empty and centered on the origin when the body has no shapes.
 	AABB get_aabb() const;
+	// b3Body_GetMinExtent / b3Body_GetMaxExtent (box3d.h:794-798): what the
+	// solver itself uses for its continuous-collision "fast" test.
+	double get_min_extent() const;
+	Vector3 get_max_extent() const;
 	Vector3 get_closest_point(const Vector3 &p_target) const;
 	double get_closest_distance(const Vector3 &p_target) const;
 	// --- per-body queries (P-018, box3d.h:797-810) ---
