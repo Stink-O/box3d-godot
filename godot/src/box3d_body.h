@@ -540,6 +540,14 @@ public:
 	Array collide_mover(const Vector3 &p_point_a, const Vector3 &p_point_b, double p_radius,
 			const Transform3D &p_body_xform,
 			uint64_t p_mask = B3_DEFAULT_MASK_BITS, uint64_t p_layer = B3_DEFAULT_CATEGORY_BITS) const;
+	// b3Body_TimeOfImpactMover (box3d.h:826-831): the first time, as a fraction
+	// of one interval, at which a capsule moving by p_translation meets this
+	// body moving from p_body_start to p_body_end. Shapes that start out
+	// overlapping are ignored (src/body.c:876-877); spheres, capsules and hulls
+	// only. Keys: hit, fraction, position, normal (body -> mover), shape.
+	Dictionary time_of_impact_mover(const Vector3 &p_point_a, const Vector3 &p_point_b, double p_radius,
+			const Vector3 &p_translation, const Transform3D &p_body_start, const Transform3D &p_body_end,
+			uint64_t p_mask = B3_DEFAULT_MASK_BITS, uint64_t p_layer = B3_DEFAULT_CATEGORY_BITS) const;
 	int get_shape_count() const;
 	int get_joint_count() const;
 	// --- introspection back into the scene tree (P-016, box3d.h:758-779) ---

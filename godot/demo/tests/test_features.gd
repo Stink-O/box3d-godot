@@ -77,6 +77,7 @@ func _ready() -> void:
 	await _test_live_shape_resize()
 	await _test_per_body_queries()
 	await _test_body_shape_queries()
+	await _test_time_of_impact_mover()
 	await _test_live_child_shape_resize()
 	await _test_joint_draw_scale()
 	await _test_query_categories()
@@ -3188,6 +3189,45 @@ func _test_body_shape_queries() -> void:
 		block.collide_mover(Vector3(0, 2, 0), Vector3(0, 3, 0), 0.3).is_empty()
 			and block.collide_mover(Vector3(0, 1.2, 0), Vector3(0, 3, 0), 0.3,
 				Transform3D(Basis(), Vector3(10, 0, 0))).is_empty())
+	world.free()
+
+
+# b3Body_TimeOfImpactMover: a falling plate swept through a standing capsule
+# within one interval, which two discrete checks would both miss.
+func _test_time_of_impact_mover() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+	var plate := Box3DBody.new()
+	plate.body_type = Box3DBody.STATIC
+	plate.box_size = Vector3(2, 0.2, 2)
+	plate.position = Vector3(0, 20, 0)
+	world.add_child(plate)
+	await get_tree().physics_frame
+
+	var a := Vector3(0, -0.5, 0)
+	var b := Vector3(0, 0.5, 0)
+	var above := Transform3D(Basis(), Vector3(0, 5, 0))
+	var below := Transform3D(Basis(), Vector3(0, -5, 0))
+	var toi: Dictionary = plate.time_of_impact_mover(a, b, 0.3, Vector3.ZERO, above, below)
+	# The plate's underside (y - 0.1) meets the capsule top (0.8) at y = 0.9,
+	# 4.1 m into the 10 m fall.
+	_check("time_of_impact_mover catches a plate swept through a capsule (fraction %.3f)" % toi.get("fraction", -1.0),
+		toi["hit"] and absf(toi["fraction"] - 0.41) < 0.01
+			and toi["normal"].is_equal_approx(Vector3.DOWN) and absf(toi["position"].y - 0.8) < 0.02)
+	var moving: Dictionary = plate.time_of_impact_mover(a, b, 0.3, Vector3(0, 2, 0), above, below)
+	_check("the capsule's own translation counts too (it rises to meet the plate sooner, %.3f)"
+			% moving.get("fraction", -1.0),
+		moving["hit"] and moving["fraction"] < toi["fraction"])
+	var miss: Dictionary = plate.time_of_impact_mover(a, b, 0.3, Vector3.ZERO,
+		Transform3D(Basis(), Vector3(5, 5, 0)), Transform3D(Basis(), Vector3(5, -5, 0)))
+	_check("a miss reports hit false and fraction 1 (Box3D's own miss value)",
+		not miss["hit"] and miss["fraction"] == 1.0)
+	var current: Dictionary = plate.time_of_impact_mover(a, b, 0.3, Vector3.ZERO, Transform3D(), below)
+	_check("an identity start means the body's current pose (from y 20: fraction %.3f)" % current.get("fraction", -1.0),
+		current["hit"] and absf(current["fraction"] - 19.1 / 25.0) < 0.01)
+	var overlapped: Dictionary = plate.time_of_impact_mover(a, b, 0.3, Vector3.ZERO,
+		Transform3D(Basis(), Vector3(0, 0.2, 0)), below)
+	_check("a plate that starts overlapping the capsule is ignored, as upstream does", not overlapped["hit"])
 	world.free()
 
 

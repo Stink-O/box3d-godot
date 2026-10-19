@@ -470,6 +470,22 @@
 				Moves the body to [param xform] without sweeping through the space between, and clears the motion that would have been implied. Use this rather than assigning the node transform, which a dynamic body's next sync would overwrite.
 			</description>
 		</method>
+		<method name="time_of_impact_mover" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="point_a" type="Vector3" />
+			<param index="1" name="point_b" type="Vector3" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="translation" type="Vector3" />
+			<param index="4" name="body_start" type="Transform3D" default="Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)" />
+			<param index="5" name="body_end" type="Transform3D" default="Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)" />
+			<param index="6" name="collision_mask" type="int" default="-1" />
+			<param index="7" name="collision_layer" type="int" default="-1" />
+			<description>
+				Continuous collision between a moving character capsule and this body, both moving over the same interval: the capsule with end centres [param point_a] / [param point_b] and [param radius] (world space, at the start) moves by [param translation] while this body moves from [param body_start] to [param body_end]. Use it to find out what struck a character during a step, and how hard, when the body was moving fast enough to pass through it between two discrete checks (a falling crate, a toppling tree).
+				Returns a [Dictionary] with [code]hit[/code] ([bool]) and [code]fraction[/code] ([float], 0..1 of the interval; 1 on a miss). On a hit it also has [code]position[/code] ([Vector3], world space), [code]normal[/code] ([Vector3], pointing from the body towards the capsule) and [code]shape[/code] (the [Box3DCollisionShape] hit, or [code]null[/code] for the body's own [member shape_type] shape). Interpolate the body's pose by [code]fraction[/code] to see it at the moment of contact.
+				Leave either transform at the identity to use the body's current pose for that end. Shapes that already overlap the capsule at the start are ignored, and only the body's spheres, capsules and convex hulls take part. [param collision_mask] and [param collision_layer] filter as in [method cast_ray].
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="allow_fast_rotation" type="bool" setter="set_allow_fast_rotation" getter="get_allow_fast_rotation" default="false">

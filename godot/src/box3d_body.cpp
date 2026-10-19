@@ -2099,6 +2099,39 @@ Array Box3DBody::collide_mover(const Vector3 &p_point_a, const Vector3 &p_point_
 	return out;
 }
 
+Dictionary Box3DBody::time_of_impact_mover(const Vector3 &p_point_a, const Vector3 &p_point_b, double p_radius,
+		const Vector3 &p_translation, const Transform3D &p_body_start, const Transform3D &p_body_end,
+		uint64_t p_mask, uint64_t p_layer) const {
+	Dictionary out;
+	out["hit"] = false;
+	out["fraction"] = 1.0;
+	if (!body_live()) {
+		return out;
+	}
+	const b3Pos origin = to_b3_pos(p_point_a);
+	b3Capsule mover;
+	mover.center1 = b3Vec3_zero;
+	mover.center2 = to_b3(p_point_b - p_point_a);
+	mover.radius = (float)Math::abs(p_radius);
+	b3QueryFilter filter = b3DefaultQueryFilter();
+	filter.maskBits = p_mask;
+	filter.categoryBits = p_layer;
+	b3BodyTOIResult r = b3Body_TimeOfImpactMover(body_id, origin, &mover, to_b3(p_translation), filter,
+			query_pose(body_id, p_body_start), query_pose(body_id, p_body_end));
+	// A miss leaves the fraction at its initial 1 and the point at the origin
+	// (src/body.c:817-818); only a hit replaces it with a fraction below 1
+	// (:877-889). "fraction > 0" therefore does NOT mean a hit.
+	if (!(r.fraction < 1.0f)) {
+		return out;
+	}
+	out["hit"] = true;
+	out["fraction"] = (double)r.fraction;
+	out["position"] = to_gd_pos(r.point);
+	out["normal"] = to_gd(r.normal);
+	out["shape"] = (Box3DCollisionShape *)b3Shape_GetUserData(r.shapeId);
+	return out;
+}
+
 int Box3DBody::get_shape_count() const {
 	if (body_live()) {
 		return b3Body_GetShapeCount(body_id);
@@ -3267,6 +3300,7 @@ void Box3DBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("cast_shape", "points", "radius", "translation", "body_transform", "max_fraction", "can_encroach", "collision_mask", "collision_layer"), &Box3DBody::cast_shape, DEFVAL(Transform3D()), DEFVAL(1.0), DEFVAL(false), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("overlaps_shape", "points", "radius", "body_transform", "collision_mask", "collision_layer"), &Box3DBody::overlaps_shape, DEFVAL(Transform3D()), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("collide_mover", "point_a", "point_b", "radius", "body_transform", "collision_mask", "collision_layer"), &Box3DBody::collide_mover, DEFVAL(Transform3D()), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
+	ClassDB::bind_method(D_METHOD("time_of_impact_mover", "point_a", "point_b", "radius", "translation", "body_start", "body_end", "collision_mask", "collision_layer"), &Box3DBody::time_of_impact_mover, DEFVAL(Transform3D()), DEFVAL(Transform3D()), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("set_linear_damping", "damping"), &Box3DBody::set_linear_damping);
 	ClassDB::bind_method(D_METHOD("get_linear_damping"), &Box3DBody::get_linear_damping);
 	ClassDB::bind_method(D_METHOD("set_angular_damping", "damping"), &Box3DBody::set_angular_damping);
