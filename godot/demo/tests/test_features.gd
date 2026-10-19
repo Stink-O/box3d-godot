@@ -119,6 +119,7 @@ func _ready() -> void:
 	await _test_card_house_sample()
 	await _test_arch_sample()
 	await _test_ragdoll_pile_sample()
+	await _test_lock_mixing_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6773,6 +6774,39 @@ func _test_ragdoll_pile_sample() -> void:
 	_check("Ragdoll Pile: the heap lies on the floor, nothing through it or flung away (%.2f .. %.2f m)"
 			% [lowest, highest],
 		lowest > -1.0 and highest < 1.0)
+	inst.queue_free()
+	await get_tree().physics_frame
+
+
+## Lock Mixing (sample_bodies.cpp:1160-1240): shove every cube sideways and
+## spin it; each keeps exactly the freedom its locks leave it.
+func _test_lock_mixing_sample() -> void:
+	var inst: Node = (load("res://samples/lock_mixing.tscn") as PackedScene).instantiate()
+	add_child(inst)
+	await get_tree().physics_frame
+	var names := ["Free", "AngularXZ", "LinearXYZ", "Full"]
+	var start := {}
+	for n in names:
+		var body: Box3DBody = inst.get_node("Box3DWorld/" + n)
+		start[n] = body.global_transform
+		body.set_linear_velocity(Vector3(0, 0, 3))
+		body.set_angular_velocity(Vector3(2, 2, 2))
+	for i in range(20):
+		await get_tree().physics_frame
+	var moved := {}
+	var turned_y := {}
+	var turned_xz := {}
+	for n in names:
+		var body: Box3DBody = inst.get_node("Box3DWorld/" + n)
+		var xf: Transform3D = body.global_transform
+		moved[n] = xf.origin.distance_to(start[n].origin) > 0.05
+		var up: Vector3 = xf.basis.y
+		turned_xz[n] = up.angle_to(Vector3.UP) > 0.05
+		turned_y[n] = absf(xf.basis.x.signed_angle_to(start[n].basis.x, Vector3.UP)) > 0.05
+	_check("Lock Mixing: only 'full' and 'linear xyz' stay put; only 'angular xz' turns about Y alone; 'full' never turns",
+		moved["Free"] and moved["AngularXZ"] and not moved["LinearXYZ"] and not moved["Full"]
+			and turned_xz["Free"] and turned_xz["LinearXYZ"] and not turned_xz["AngularXZ"]
+			and turned_y["AngularXZ"] and not turned_xz["Full"] and not turned_y["Full"])
 	inst.queue_free()
 	await get_tree().physics_frame
 
