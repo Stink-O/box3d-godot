@@ -111,6 +111,7 @@ func _ready() -> void:
 	await _test_safety_factor_sample()
 	await _test_spinning_capsule_sample()
 	await _test_body_cast_sample()
+	await _test_mover_toi_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6564,6 +6565,38 @@ func _test_body_cast_sample() -> void:
 		inst.last_sphere["hit"] and inst.last_sphere["fraction"] > 0.0 and inst.last_sphere["fraction"] < 1.0)
 	inst.queue_free()
 	await get_tree().physics_frame
+
+
+## Character Controller, Geometric Mover's time-of-impact half
+## (sample_character.cpp:476-496, :712-733): the gold plate falls through
+## the character (which is not a body), and only the swept TOI catches it.
+func _plate_impact_with_mover_at(where: Vector3) -> Dictionary:
+	var inst: Node = (load("res://samples/character.tscn") as PackedScene).instantiate()
+	add_child(inst)
+	await get_tree().physics_frame
+	var mover: Node3D = inst.get_node("Box3DWorld/Mover")
+	mover.global_position = where
+	inst.set("_sweep_ready", false)
+	for i in range(170):
+		await get_tree().physics_frame
+	var impact: Dictionary = inst.get("_box_impact")
+	var plate_y: float = (inst.get("_falling_box") as Box3DBody).position.y
+	inst.queue_free()
+	await get_tree().physics_frame
+	return {"impact": impact, "plate_y": plate_y}
+
+
+func _test_mover_toi_sample() -> void:
+	var clear := await _plate_impact_with_mover_at(Vector3(7.5, 0.75, 9.0))
+	var struck := await _plate_impact_with_mover_at(Vector3(10.5, 1.4, 0.0))
+	_check("Geometric Mover TOI: the plate lands without touching a mover standing clear (plate y %.2f)"
+			% clear["plate_y"],
+		clear["impact"].is_empty() and clear["plate_y"] < 0.5)
+	var impact: Dictionary = struck["impact"]
+	_check("Geometric Mover TOI: under the drop line the plate passes through and the sweep catches it (%.1f m/s)"
+			% impact.get("speed", 0.0),
+		not impact.is_empty() and impact["normal"].is_equal_approx(Vector3.DOWN) and impact["speed"] > 15.0
+			and struck["plate_y"] < 0.5)
 
 
 func _test_developer_globals() -> void:

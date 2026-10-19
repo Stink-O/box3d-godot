@@ -43,6 +43,29 @@ extends Node3D
 ## not vendor, so the floor is a box with its top at y = 0 and the stairs are
 ## ten 0.25 m risers at upstream's stairs origin.
 ##
+## Geometric Mover's time-of-impact half is here too (sample_character.cpp:
+## 406-419, :476-496, :606-768). A thin gold plate (2 x 0.2 x 2) drops from
+## (10.5, 30, 0) on a loop, respawning once it has slept for a second, and a
+## tree of 22 shrinking six-sided cylinders topples from (22, 1.5, 2) on the
+## wave field, spun about its base at 0.5 rad/s along (1, 0, -1), and is
+## rebuilt the same way. Neither can be caught by the mover's discrete
+## collide: the character is not a body, so they pass straight through it.
+## Every step, Box3DBody.time_of_impact_mover sweeps the mover capsule over
+## its own move against each body's motion over the same step
+## (b3Body_TimeOfImpactMover), and a hit is drawn as upstream draws it: a
+## point, an arrow along the normal and the approach speed in m/s (yellow
+## for the plate, cyan for the tree), plus a translucent yellow plate at the
+## pose where it first touched. The tree carries upstream's shape user data
+## as mover metadata: push limit 10, clip velocity on, and mover_can_push
+## off, so walking into it does not shove it. Stand under the plate's drop
+## line (x 10.5, z 0) to be hit.
+##
+## One deliberate difference: upstream records an impact whenever
+## toi.fraction > 0 (:699, :722), but b3Body_TimeOfImpactMover reports a miss
+## as fraction 1 with a zero point (src/body.c:817-818), so upstream's test
+## passes on every step and its ghost plate simply follows the falling one.
+## This port records an impact only on a real hit (the binding's `hit`).
+##
 ## The wave field's diagonal chains of missing cells are upstream's too:
 ## b3CreateWave's makeHoles marks every 16th CELL as B3_HEIGHT_FIELD_HOLE
 ## (src/height_field.c:1417) and a row is 49 cells, so the hole index walks one
@@ -68,6 +91,19 @@ const POGO_ZETA := 0.7
 const POGO_MASK := 0xFFFFFFFD
 
 const START_POSITION := Vector3(7.5, 0.75, 9.0)
+
+# --- Geometric Mover's time-of-impact props (sample_character.cpp:406-419,
+# :476-496, :606-637) ---------------------------------------------------------
+const FALLING_EXTENT := Vector3(1.0, 0.1, 1.0)
+const FALLING_SPAWN := Vector3(10.5, 30.0, 0.0)
+const TREE_SPAWN := Vector3(22.0, 1.5, 2.0)
+const TREE_SPIN := 0.5
+const TREE_AXIS := Vector3(1.0, 0.0, -1.0)
+const TREE_SEGMENTS := 22
+## SettledForOneSecond (:672-688): a body asleep this long is put back.
+const SETTLE_TIME := 1.0
+## b3DefaultShapeDef's density, which the plate and the tree keep.
+const PROP_DENSITY := 1000.0
 
 ## Upstream frames this sample with a 5 m boom on the mover itself
 ## (SetView(120, 30, 5, moverPosition), sample_character.cpp:325), which is
@@ -99,6 +135,25 @@ var _pogo_grounded := false
 var _clip_held := false
 var _debug_held := false
 
+var _falling_box: Box3DBody
+var _tree: Box3DBody
+var _box_timer := 0.0
+var _tree_timer := 0.0
+## The step's start poses, recorded before the move and swept to the end
+## poses at the start of the next physics frame (after the world stepped).
+var _sweep_ready := false
+var _mover_start := Vector3.ZERO
+var _box_start := Transform3D()
+var _tree_start := Transform3D()
+## Upstream's MoverImpact (point, normal, speed); empty until the first hit.
+var _box_impact: Dictionary = {}
+var _tree_impact: Dictionary = {}
+var _impact_lines: ImmediateMesh
+var _impact_ghost: MeshInstance3D
+var _box_label: Label3D
+var _tree_label: Label3D
+var _tree_material: StandardMaterial3D
+
 
 func _ready() -> void:
 	_world = $Box3DWorld
@@ -110,6 +165,9 @@ func _ready() -> void:
 	_build_obstacle_course()
 	_build_hud()
 	_build_overlay()
+	_build_falling_box()
+	_create_falling_tree()
+	_build_impact_overlay()
 
 
 ## The shell's Activate button: upstream restarts the sample to put the mover
@@ -119,6 +177,8 @@ func activate() -> void:
 	_velocity = Vector3.ZERO
 	_pogo_velocity = 0.0
 	_on_ground = false
+	# A teleport is not a move to sweep.
+	_sweep_ready = false
 
 
 # --- Shell toggle: third-person chase camera, the Car sample's rig -----------
@@ -140,6 +200,18 @@ func set_toggled(on: bool) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# Upstream's Step (sample_character.cpp:743-768) records the mover's and
+	# both bodies' poses, moves the mover, steps the world and then sweeps.
+	# The world steps after this script, so the sweep of the last step runs
+	# here first, and this step's start poses are recorded before the move.
+	if _sweep_ready:
+		_update_falling_box(delta)
+		_update_falling_tree(delta)
+	_mover_start = _char.global_position
+	_box_start = _falling_box.global_transform
+	_tree_start = _tree.global_transform
+	_sweep_ready = true
+
 	# CharacterMover::Step (mover.cpp:263-318): camera-relative throttle, jump
 	# and sprint, then one SolveMove.
 	var throttle := Vector2.ZERO
@@ -271,6 +343,214 @@ func _solve_pogo(delta: float) -> void:
 func _process(_delta: float) -> void:
 	_update_hud()
 	_draw_overlay()
+	_draw_impacts()
+
+
+# --- Geometric Mover's falling plate and tree --------------------------------
+
+## The falling plate (sample_character.cpp:476-496): a dynamic 2 x 0.2 x 2
+## box dropped from (10.5, 30, 0) with no spin.
+func _build_falling_box() -> void:
+	_falling_box = Box3DBody.new()
+	_falling_box.name = "FallingBox"
+	_falling_box.box_size = 2.0 * FALLING_EXTENT
+	_falling_box.density = PROP_DENSITY
+	_falling_box.angular_damping = 0.0
+	_falling_box.position = FALLING_SPAWN
+	var mesh := BoxMesh.new()
+	mesh.size = 2.0 * FALLING_EXTENT
+	var visual := MeshInstance3D.new()
+	visual.mesh = mesh
+	visual.material_override = _material(Color(1.0, 0.8431, 0.0), 0.45)  # b3_colorGold
+	_falling_box.add_child(visual)
+	_world.add_child(_falling_box)
+
+
+## CreateFallingTree (sample_character.cpp:606-638): 22 six-sided cylinder
+## hulls on one body, each b3CreateCylinder(l + 2r, r, y - r, 6) with y
+## stepping by l + 2r and r shrinking by 5%, friction 0.9, rolling
+## resistance 0.05, sleep threshold 0.2, then spun about its base.
+func _create_falling_tree() -> void:
+	if _tree_material == null:
+		_tree_material = _material(Color(0.55, 0.4, 0.25), 0.8)
+	_tree = Box3DBody.new()
+	_tree.name = "FallingTree"
+	_tree.sleep_threshold = 0.2
+	_tree.angular_damping = 0.0
+	_tree.position = TREE_SPAWN
+	# Upstream's m_treeShapeUserData (:414-416), as mover metadata.
+	_tree.set_meta("mover_push_limit", 10.0)
+	_tree.set_meta("mover_clip_velocity", true)
+	_tree.set_meta("mover_can_push", false)
+	var y := 1.0
+	var r := 0.75
+	var l := 1.5
+	for i in range(TREE_SEGMENTS):
+		var height := l + 2.0 * r
+		var centre := Vector3(0.0, y - r + 0.5 * height, 0.0)
+		var segment := Box3DCollisionShape.new()
+		segment.shape_type = Box3DCollisionShape.CYLINDER
+		segment.capsule_radius = r
+		segment.capsule_height = height
+		segment.sides = 6
+		segment.density = PROP_DENSITY
+		segment.friction = 0.9
+		segment.rolling_resistance = 0.05
+		segment.position = centre
+		_tree.add_child(segment)
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = r
+		mesh.bottom_radius = r
+		mesh.height = height
+		mesh.radial_segments = 6
+		mesh.rings = 1
+		var visual := MeshInstance3D.new()
+		visual.mesh = mesh
+		visual.position = centre
+		visual.material_override = _tree_material
+		_tree.add_child(visual)
+		y += height
+		r *= 0.95
+	_world.add_child(_tree)
+	# Spin about the base: omega, plus the matching velocity of the centre of
+	# mass, omega x (centre - spawn) (:635-637).
+	var spin := TREE_SPIN * TREE_AXIS.normalized()
+	_tree.set_angular_velocity(spin)
+	_tree.set_linear_velocity(spin.cross(_tree.get_center_of_mass() - TREE_SPAWN))
+
+
+## SettledForOneSecond (sample_character.cpp:672-688).
+func _settled(body: Box3DBody, timer: float, delta: float) -> float:
+	if body.is_awake():
+		return 0.0
+	return timer + delta
+
+
+## The mover capsule's sweep over the last step against `body` moving from
+## `start` to where it is now (UpdateFallingBox / UpdateFallingTree,
+## sample_character.cpp:712-733, :691-709).
+func _sweep(body: Box3DBody, start: Transform3D) -> Dictionary:
+	var a := _mover_start + Vector3(0.0, -CAPSULE_HALF, 0.0)
+	var b := _mover_start + Vector3(0.0, CAPSULE_HALF, 0.0)
+	return body.time_of_impact_mover(a, b, CAPSULE_RADIUS, _char.global_position - _mover_start,
+			start, body.global_transform)
+
+
+## MakeImpact (:648-654): the normal points from the body to the mover, so
+## an approach is a positive speed.
+func _impact(body: Box3DBody, toi: Dictionary) -> Dictionary:
+	var point: Vector3 = toi["position"]
+	var normal: Vector3 = toi["normal"]
+	return {"point": point, "normal": normal,
+			"speed": normal.dot(body.get_point_velocity(point) - _velocity)}
+
+
+func _update_falling_box(delta: float) -> void:
+	var toi := _sweep(_falling_box, _box_start)
+	if toi["hit"]:
+		var f: float = toi["fraction"]
+		var end := _falling_box.global_transform
+		var q1 := _box_start.basis.get_rotation_quaternion()
+		var q2 := end.basis.get_rotation_quaternion()
+		if q1.dot(q2) < 0.0:
+			q2 = -q2
+		# The plate's pose at first touch, b3NLerp as upstream (:724-725).
+		_impact_ghost.transform = Transform3D(Basis((q1 * (1.0 - f) + q2 * f).normalized()),
+				_box_start.origin.lerp(end.origin, f))
+		_box_impact = _impact(_falling_box, toi)
+	_box_timer = _settled(_falling_box, _box_timer, delta)
+	if _box_timer >= SETTLE_TIME:
+		_box_timer = 0.0
+		# RespawnFallingBox (:735-741).
+		_falling_box.teleport(Transform3D(Basis(), FALLING_SPAWN))
+		_falling_box.set_linear_velocity(Vector3.ZERO)
+		_falling_box.set_angular_velocity(Vector3.ZERO)
+		_falling_box.set_awake(true)
+
+
+func _update_falling_tree(delta: float) -> void:
+	var toi := _sweep(_tree, _tree_start)
+	if toi["hit"]:
+		_tree_impact = _impact(_tree, toi)
+	_tree_timer = _settled(_tree, _tree_timer, delta)
+	if _tree_timer >= SETTLE_TIME:
+		_tree_timer = 0.0
+		# ResetFallingTree (:641-645): destroy and rebuild.
+		_tree.free()
+		_create_falling_tree()
+
+
+func _build_impact_overlay() -> void:
+	_impact_lines = ImmediateMesh.new()
+	var node := MeshInstance3D.new()
+	node.name = "Impacts"
+	node.mesh = _impact_lines
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.no_depth_test = true
+	node.material_override = material
+	add_child(node)
+
+	var ghost_mesh := BoxMesh.new()
+	ghost_mesh.size = 2.0 * FALLING_EXTENT
+	var ghost_material := StandardMaterial3D.new()
+	ghost_material.albedo_color = Color(1.0, 1.0, 0.0, 0.4)  # b3_colorYellow, alpha 0.4
+	ghost_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_impact_ghost = MeshInstance3D.new()
+	_impact_ghost.name = "ImpactPose"
+	_impact_ghost.mesh = ghost_mesh
+	_impact_ghost.material_override = ghost_material
+	_impact_ghost.visible = false
+	add_child(_impact_ghost)
+
+	_box_label = _impact_label(Color(1.0, 1.0, 0.0))
+	_tree_label = _impact_label(Color(0.0, 1.0, 1.0))
+
+
+func _impact_label(color: Color) -> Label3D:
+	var label := Label3D.new()
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.font_size = 24
+	label.outline_size = 8
+	label.modulate = color
+	label.no_depth_test = true
+	label.visible = false
+	add_child(label)
+	return label
+
+
+## DrawImpact (:656-669): a point, an arrow half a metre along the normal and
+## the approach speed at its tip.
+func _draw_impacts() -> void:
+	_impact_lines.clear_surfaces()
+	_impact_ghost.visible = not _box_impact.is_empty()
+	if _box_impact.is_empty() and _tree_impact.is_empty():
+		_box_label.visible = false
+		_tree_label.visible = false
+		return
+	_impact_lines.surface_begin(Mesh.PRIMITIVE_LINES)
+	_draw_impact(_box_impact, Color(1.0, 1.0, 0.0), _box_label)
+	_draw_impact(_tree_impact, Color(0.0, 1.0, 1.0), _tree_label)
+	_impact_lines.surface_end()
+
+
+func _draw_impact(impact: Dictionary, color: Color, label: Label3D) -> void:
+	label.visible = not impact.is_empty()
+	if impact.is_empty():
+		return
+	var point: Vector3 = impact["point"]
+	var normal: Vector3 = impact["normal"]
+	var tip := point + 0.5 * normal
+	var side := normal.cross(Vector3.UP if absf(normal.y) < 0.9 else Vector3.RIGHT).normalized()
+	_impact_lines.surface_set_color(color)
+	for seg in [[point, tip], [tip, tip - 0.12 * normal + 0.06 * side],
+			[tip, tip - 0.12 * normal - 0.06 * side],
+			[point - 0.05 * side, point + 0.05 * side]]:
+		_impact_lines.surface_add_vertex(seg[0])
+		_impact_lines.surface_add_vertex(seg[1])
+	label.global_position = tip
+	label.text = " %.1f m/s" % float(impact["speed"])
 
 
 # --- HUD and debug draw, upstream's own readouts -----------------------------
