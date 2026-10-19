@@ -80,6 +80,7 @@ const SAMPLES := {
 		"Radar Sweep": "res://samples/raycast.tscn",
 		"Explosion": "res://samples/explosion.tscn",
 		"Overlap World": "res://samples/overlap_world.tscn",
+		"Body Cast": "res://samples/body_cast.tscn",
 	},
 	"Continuous": {
 		"Bullets (CCD)": "res://samples/bullets.tscn",
@@ -186,6 +187,7 @@ const DESCRIPTIONS := {
 	"Radar Sweep": "A ray sweeping around an emitter, raycasting the world every frame. Whatever it hits lights up and a marker sits at the impact point.",
 	"Explosion": "A radial blast applied to everything in range, with the impulse falling off with distance. Press Activate to set it off under the building.",
 	"Overlap World": "Every shape type crossed with every body type, with three rows of query probes sweeping through them. A probe turns red for the frame it overlaps something; the three rows are the three kinds of shape an overlap query can use, a sphere, a tilted capsule and an arbitrary point cloud.",
+	"Body Cast": "Ray, sphere sweep, capsule overlap and capsule mover queries run against one body alone, posed somewhere it is not (the blue cylinder). Shift and drag to move that pose; the real body keeps turning off to the side and never takes part.",
 	"Bullets (CCD)": "Fast bullets fired at a thin wall. With continuous collision on they are caught; switch it off with C and they pass straight through.",
 	"Bounce House": "One frictionless, perfectly elastic ball fired across a walled pen at 170 m/s with no gravity. It should never escape the pen and never lose speed.",
 	"Spinning Stick": "A stick dropped onto the edge of a thin wall at 100 m/s while spinning at up to 50 rad/s. The toggle switches fast rotation handling on and off.",
@@ -267,6 +269,7 @@ const USE_CASES := {
 	"Radar Sweep": "Enemy vision cones, scanners and laser sights",
 	"Explosion": "Grenades and exploding barrels that throw nearby objects clear",
 	"Overlap World": "Checking a spot is clear before spawning a body or placing a building",
+	"Body Cast": "Asking whether a move would hit one specific object, like a door or a platform, before making it",
 	"Bullets (CCD)": "Fast projectiles that must never tunnel through walls",
 	"Bounce House": "Frictionless arcade balls that keep their speed forever",
 	"Spinning Stick": "Thrown weapons that spin fast without passing through geometry",

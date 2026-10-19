@@ -108,6 +108,7 @@ func _ready() -> void:
 	await _test_sample_fidelity()
 	await _test_safety_factor_sample()
 	await _test_spinning_capsule_sample()
+	await _test_body_cast_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6463,6 +6464,30 @@ func _test_spinning_capsule_sample() -> void:
 	_check("Spinning Capsule: with gyroscopic torque it falls over (tilt %.0f deg)" % on[1], on[1] > 60.0)
 	_check("Spinning Capsule: tolerance 1 skips the torque and it balances (tilt %.0f deg)" % off[1],
 		off[1] < 30.0)
+
+
+## Body Cast (sample_bodies.cpp:896-1082): at upstream's starting pose the
+## overlap capsule overlaps and the mover capsule reports one plane, while the
+## ray and the sphere pass just clear (1.03 m and 0.71 m from the axis, both
+## more than the 0.5 m radius). Dragging the pose onto them makes both hit.
+func _test_body_cast_sample() -> void:
+	var inst: Node = (load("res://samples/body_cast.tscn") as PackedScene).instantiate()
+	add_child(inst)
+	await get_tree().physics_frame
+	_check("Body Cast at upstream's pose: overlap on, one mover plane, ray and sphere miss",
+		inst.last_overlap and inst.last_planes.size() == 1
+			and not inst.last_ray["hit"] and not inst.last_sphere["hit"])
+	var axis: Vector3 = inst.pose.basis * Vector3.UP
+	inst.pose.origin = Vector3(-9.75, 3.0, 0.0) - axis
+	inst._run_queries()
+	_check("Body Cast: posed across the ray, cast_ray hits it", inst.last_ray["hit"])
+	inst.pose.origin = Vector3(-12.0, 2.5, 0.5) - axis
+	inst._run_queries()
+	_check("Body Cast: posed across the sweep, the sphere stops on it (fraction %.2f)"
+			% inst.last_sphere.get("fraction", -1.0),
+		inst.last_sphere["hit"] and inst.last_sphere["fraction"] > 0.0 and inst.last_sphere["fraction"] < 1.0)
+	inst.queue_free()
+	await get_tree().physics_frame
 
 
 func _test_developer_globals() -> void:
