@@ -121,6 +121,7 @@ func _ready() -> void:
 	await _test_ragdoll_pile_sample()
 	await _test_lock_mixing_sample()
 	await _test_fixed_rotation_sample()
+	await _test_rolling_resistance_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6824,6 +6825,31 @@ func _test_fixed_rotation_sample() -> void:
 			% locked.global_position.x,
 		locked.global_position.x > 0.49 and locked.global_transform.basis.is_equal_approx(Basis())
 			and locked.get_angular_velocity() == Vector3.ZERO)
+	inst.queue_free()
+	await get_tree().physics_frame
+
+
+## Rolling Resistance (sample_shapes.cpp:57-111): after six seconds the
+## balls and the capsules lie in order of their rolling resistance, the
+## frictionless roller still going and the stiffest still on the ramp.
+func _test_rolling_resistance_sample() -> void:
+	var inst: Node = (load("res://samples/rolling_resistance.tscn") as PackedScene).instantiate()
+	add_child(inst)
+	for i in range(360):
+		await get_tree().physics_frame
+	var ordered := true
+	var line := ""
+	for kind in ["Ball", "Capsule"]:
+		var previous := INF
+		for i in range(5):
+			var z: float = (inst.get_node("Box3DWorld/%s%d" % [kind, i]) as Box3DBody).position.z
+			line += "%.0f " % z
+			ordered = ordered and z < previous - 1.0
+			previous = z
+	var free_ball: Box3DBody = inst.get_node("Box3DWorld/Ball0")
+	var stiff_ball: Box3DBody = inst.get_node("Box3DWorld/Ball4")
+	_check("Rolling Resistance: each roller stops short of the one with less resistance (z %s)" % line.strip_edges(),
+		ordered and free_ball.get_linear_velocity().length() > 3.0 and stiff_ball.position.z < -10.0)
 	inst.queue_free()
 	await get_tree().physics_frame
 

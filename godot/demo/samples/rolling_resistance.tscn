@@ -1,0 +1,203 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://samples/rolling_resistance.gd" id="1_rolling"]
+
+[sub_resource type="BoxMesh" id="GroundMesh"]
+size = Vector3(160, 2, 160)
+
+[sub_resource type="StandardMaterial3D" id="GroundMat"]
+albedo_color = Color(0.2, 0.22, 0.26, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="PlaneMesh"]
+size = Vector3(64, 1, 30)
+
+[sub_resource type="StandardMaterial3D" id="PlaneMat"]
+albedo_color = Color(0.45, 0.5, 0.6, 1)
+roughness = 0.6
+
+[sub_resource type="SphereMesh" id="BallMesh"]
+radius = 1.0
+height = 2.0
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh"]
+radius = 0.5
+height = 3.0
+
+[sub_resource type="StandardMaterial3D" id="BallMat"]
+albedo_color = Color(0.85, 0.55, 0.3, 1)
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="CapsuleMat"]
+albedo_color = Color(0.35, 0.6, 0.85, 1)
+roughness = 0.45
+
+[node name="RollingResistance" type="Node3D"]
+script = ExtResource("1_rolling")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+gravity = Vector3(0, -10, 0)
+
+[node name="Ground" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+body_type = 0
+box_size = Vector3(160, 2, 160)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ground"]
+mesh = SubResource("GroundMesh")
+material_override = SubResource("GroundMat")
+
+[node name="Plane" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0.9848078, -0.1736482, 0, 0.1736482, 0.9848078, 0, 2, -20)
+body_type = 0
+box_size = Vector3(64, 1, 30)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Plane"]
+mesh = SubResource("PlaneMesh")
+material_override = SubResource("PlaneMat")
+
+[node name="Ball0" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0.9848078, -0.1736482, 0, 0.1736482, 0.9848078, -25, 8, -24)
+shape_type = 1
+sphere_radius = 1.0
+density = 1000.0
+rolling_resistance = 0
+angular_damping = 0.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball0"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball1" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0.9848078, -0.1736482, 0, 0.1736482, 0.9848078, -20, 8, -24)
+shape_type = 1
+sphere_radius = 1.0
+density = 1000.0
+rolling_resistance = 0.05
+angular_damping = 0.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball1"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball2" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0.9848078, -0.1736482, 0, 0.1736482, 0.9848078, -15, 8, -24)
+shape_type = 1
+sphere_radius = 1.0
+density = 1000.0
+rolling_resistance = 0.1
+angular_damping = 0.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball2"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball3" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0.9848078, -0.1736482, 0, 0.1736482, 0.9848078, -10, 8, -24)
+shape_type = 1
+sphere_radius = 1.0
+density = 1000.0
+rolling_resistance = 0.15
+angular_damping = 0.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball3"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Ball4" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0.9848078, -0.1736482, 0, 0.1736482, 0.9848078, -5, 8, -24)
+shape_type = 1
+sphere_radius = 1.0
+density = 1000.0
+rolling_resistance = 0.2
+angular_damping = 0.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Ball4"]
+mesh = SubResource("BallMesh")
+material_override = SubResource("BallMat")
+
+[node name="Capsule0" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0.9848078, -0.1736482, 0, 0.1736482, 0.9848078, 2, 8, -24)
+angular_damping = 0.0
+
+[node name="Shape" type="Box3DCollisionShape" parent="Box3DWorld/Capsule0"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+shape_type = 2
+capsule_radius = 0.5
+capsule_height = 3.0
+density = 1000.0
+rolling_resistance = 0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Capsule0"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CapsuleMesh")
+material_override = SubResource("CapsuleMat")
+
+[node name="Capsule1" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0.9848078, -0.1736482, 0, 0.1736482, 0.9848078, 7, 8, -24)
+angular_damping = 0.0
+
+[node name="Shape" type="Box3DCollisionShape" parent="Box3DWorld/Capsule1"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+shape_type = 2
+capsule_radius = 0.5
+capsule_height = 3.0
+density = 1000.0
+rolling_resistance = 0.05
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Capsule1"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CapsuleMesh")
+material_override = SubResource("CapsuleMat")
+
+[node name="Capsule2" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0.9848078, -0.1736482, 0, 0.1736482, 0.9848078, 12, 8, -24)
+angular_damping = 0.0
+
+[node name="Shape" type="Box3DCollisionShape" parent="Box3DWorld/Capsule2"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+shape_type = 2
+capsule_radius = 0.5
+capsule_height = 3.0
+density = 1000.0
+rolling_resistance = 0.1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Capsule2"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CapsuleMesh")
+material_override = SubResource("CapsuleMat")
+
+[node name="Capsule3" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0.9848078, -0.1736482, 0, 0.1736482, 0.9848078, 17, 8, -24)
+angular_damping = 0.0
+
+[node name="Shape" type="Box3DCollisionShape" parent="Box3DWorld/Capsule3"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+shape_type = 2
+capsule_radius = 0.5
+capsule_height = 3.0
+density = 1000.0
+rolling_resistance = 0.15
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Capsule3"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CapsuleMesh")
+material_override = SubResource("CapsuleMat")
+
+[node name="Capsule4" type="Box3DBody" parent="Box3DWorld"]
+transform = Transform3D(1, 0, 0, 0, 0.9848078, -0.1736482, 0, 0.1736482, 0.9848078, 22, 8, -24)
+angular_damping = 0.0
+
+[node name="Shape" type="Box3DCollisionShape" parent="Box3DWorld/Capsule4"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+shape_type = 2
+capsule_radius = 0.5
+capsule_height = 3.0
+density = 1000.0
+rolling_resistance = 0.2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Capsule4"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CapsuleMesh")
+material_override = SubResource("CapsuleMat")
