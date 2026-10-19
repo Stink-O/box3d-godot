@@ -3943,6 +3943,14 @@ func _test_length_units() -> void:
 	_check("the project setting exists",
 		ProjectSettings.has_setting("physics/box3d/length_units_per_meter"))
 	print("  setting=%s" % ProjectSettings.get_setting("physics/box3d/length_units_per_meter"))
+	var usage := -1
+	for prop in ProjectSettings.get_property_list():
+		if prop["name"] == "physics/box3d/length_units_per_meter":
+			usage = prop["usage"]
+	_check("the length scale setting shows without Advanced Settings",
+		usage != -1 and (usage & PROPERTY_USAGE_EDITOR_BASIC_SETTING) != 0)
+	_check("the length scale setting asks for a restart when changed",
+		usage != -1 and (usage & PROPERTY_USAGE_RESTART_IF_CHANGED) != 0)
 	var world := Box3DWorld.new()
 	add_child(world)
 	world.step(1.0 / 60.0)

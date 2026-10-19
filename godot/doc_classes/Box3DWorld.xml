@@ -283,7 +283,7 @@
 			<param index="0" name="units" type="float" />
 			<description>
 				Sets the process-wide length scale, returning whether it took. Fails, changing nothing, on a value that is not positive and finite, and [b]refuses once any [Box3DWorld] exists[/b] -- a live world has already baked the old scale into its slop, its margins and every shape in it.
-				Prefer the [code]physics/box3d/length_units_per_meter[/code] project setting, which is applied before any scene loads and is the only way to have it in place for a world created by a scene. This method is for tools and tests that must do it in code, before the first world.
+				Prefer the [code]physics/box3d/length_units_per_meter[/code] project setting (Project Settings, [b]Physics > Box3D[/b]), which is applied before any scene loads and is the only way to have it in place for a world created by a scene. This method is for tools and tests that must do it in code, before the first world.
 			</description>
 		</method>
 		<method name="shape_cast_box">

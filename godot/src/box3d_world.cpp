@@ -378,14 +378,20 @@ void Box3DWorld::apply_length_units_setting() {
 	const String key = "physics/box3d/length_units_per_meter";
 	if (!settings->has_setting(key)) {
 		settings->set_setting(key, 1.0);
-		settings->set_initial_value(key, 1.0);
-		Dictionary info;
-		info["name"] = key;
-		info["type"] = Variant::FLOAT;
-		info["hint"] = PROPERTY_HINT_RANGE;
-		info["hint_string"] = "0.001,1000,0.001,or_greater";
-		settings->add_property_info(info);
 	}
+	// Registered every time, not only when the key is new: a project that has
+	// saved a value would otherwise lose the hint and the default. Basic so it
+	// shows without the Project Settings "Advanced Settings" toggle (issue #6);
+	// restart because it is read once, before the first world exists.
+	settings->set_initial_value(key, 1.0);
+	Dictionary info;
+	info["name"] = key;
+	info["type"] = Variant::FLOAT;
+	info["hint"] = PROPERTY_HINT_RANGE;
+	info["hint_string"] = "0.001,1000,0.001,or_greater";
+	settings->add_property_info(info);
+	settings->set_as_basic(key, true);
+	settings->set_restart_if_changed(key, true);
 	const double units = (double)settings->get_setting(key, 1.0);
 	// b3SetLengthUnitsPerMeter asserts on a non-finite or non-positive value
 	// (src/core.c:41-45), so script and project data are validated here rather
