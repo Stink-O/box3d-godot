@@ -206,7 +206,10 @@ func _draw() -> void:
 
 ## Upstream's MouseDown / MouseUp / MouseMove (:936-966): shift + left-drag
 ## carries the query pose along a plane 10 m out along the pick ray.
-func _input(event: InputEvent) -> void:
+## Unhandled, so the shell's buttons get their clicks first; the sample sits
+## after the camera in the tree, so it sees the press before the camera's grab
+## does and consumes it.
+func _unhandled_input(event: InputEvent) -> void:
 	var camera := get_viewport().get_camera_3d()
 	if camera == null:
 		return
