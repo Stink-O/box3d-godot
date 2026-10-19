@@ -74,6 +74,7 @@ func _ready() -> void:
 	await _test_world_capacity_and_live_settings()
 	await _test_restitution_solver_settings()
 	await _test_character_soft_collision()
+	await _test_mover_can_push()
 	await _test_live_shape_resize()
 	await _test_per_body_queries()
 	await _test_body_shape_queries()
@@ -2964,6 +2965,41 @@ func _test_restitution_solver_settings() -> void:
 		live["restitutionPropagationEnabled"] == true)
 	for world in worlds:
 		world.free()
+
+
+# mover_can_push metadata, upstream's MoverShapeUserData::canMoverPush: a
+# character walking into a crate shoves it, unless the crate opts out.
+func _test_mover_can_push() -> void:
+	var world := Box3DWorld.new()
+	world.gravity = Vector3.ZERO
+	add_child(world)
+	var crates: Array[Box3DBody] = []
+	var movers: Array[Box3DCharacterBody] = []
+	for i in range(2):
+		var crate := Box3DBody.new()
+		crate.box_size = Vector3.ONE
+		crate.position = Vector3(1.5, 0, 4.0 * i)
+		if i == 1:
+			crate.set_meta("mover_can_push", false)
+		world.add_child(crate)
+		crates.append(crate)
+		var mover := Box3DCharacterBody.new()
+		mover.radius = 0.4
+		mover.height = 1.8
+		mover.position = Vector3(0, 0, 4.0 * i)
+		world.add_child(mover)
+		movers.append(mover)
+	await get_tree().physics_frame
+	for f in range(30):
+		for mover in movers:
+			mover.move_and_slide(Vector3(3, 0, 0), 1.0 / 60.0)
+		await get_tree().physics_frame
+	_check("a character shoves a dynamic crate it walks into (x %.2f)" % crates[0].position.x,
+		crates[0].position.x > 1.7)
+	_check("mover_can_push = false keeps the crate still but solid (crate x %.2f, mover x %.2f)"
+			% [crates[1].position.x, movers[1].position.x],
+		absf(crates[1].position.x - 1.5) < 0.01 and movers[1].position.x < 0.65)
+	world.free()
 
 
 func _test_character_soft_collision() -> void:

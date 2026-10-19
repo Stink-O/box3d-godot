@@ -38,6 +38,10 @@ namespace {
 //                      (samples/mover.cpp:178-181): the shape still presents
 //                      planes but never blocks the sweep, which is what lets a
 //                      soft ally be pushed through instead of being a wall
+//   mover_can_push     bool, upstream's MoverShapeUserData::canMoverPush
+//                      (samples/mover.h:14, mover.cpp:224-228): false keeps the
+//                      character from applying its push impulse to a dynamic
+//                      body (absent = true, the mover shoves what it walks into)
 //
 // Anything not set falls back to the character's own push_limit /
 // clip_plane_velocity, so a scene that sets no metadata behaves exactly as it
@@ -53,6 +57,20 @@ const char *META_PUSH_LIMIT = "mover_push_limit";
 const char *META_CLIP_VELOCITY = "mover_clip_velocity";
 const char *META_IGNORE = "mover_ignore";
 const char *META_IGNORE_CAST = "mover_ignore_cast";
+const char *META_CAN_PUSH = "mover_can_push";
+
+// mover_can_push, the shape's node first and then its body, as for the other
+// keys. Absent everywhere means the mover may push.
+bool mover_can_push(b3ShapeId p_shape, Box3DBody *p_body) {
+	Object *shape_node = b3Shape_IsValid(p_shape) ? static_cast<Object *>((Box3DCollisionShape *)b3Shape_GetUserData(p_shape)) : nullptr;
+	if (shape_node != nullptr && shape_node->has_meta(META_CAN_PUSH)) {
+		return (bool)shape_node->get_meta(META_CAN_PUSH);
+	}
+	if (p_body != nullptr && p_body->has_meta(META_CAN_PUSH)) {
+		return (bool)p_body->get_meta(META_CAN_PUSH);
+	}
+	return true;
+}
 
 void read_mover_meta(Object *p_object, MoverShapeSettings &r_settings, bool &r_push_set, bool &r_clip_set) {
 	if (p_object == nullptr) {
@@ -166,6 +184,7 @@ Vector3 Box3DCharacterBody::move_and_slide(const Vector3 &p_velocity, double p_d
 	last_planes.clear();
 	last_points.clear();
 	last_bodies.clear();
+	last_shapes.clear();
 	last_solver_iterations = 0;
 
 	Box3DWorld *world = find_world();
@@ -239,6 +258,7 @@ Vector3 Box3DCharacterBody::move_and_slide(const Vector3 &p_velocity, double p_d
 		// origin (samples/mover.cpp:73), so they are offset back to world here.
 		last_planes = ctx.planes;
 		last_bodies = ctx.bodies;
+		last_shapes = ctx.shapes;
 		last_points.clear();
 		for (size_t i = 0; i < ctx.planes.size(); ++i) {
 			last_points.push_back(to_gd_pos(b3OffsetPos(position, ctx.points[i])));
@@ -272,6 +292,9 @@ Vector3 Box3DCharacterBody::move_and_slide(const Vector3 &p_velocity, double p_d
 		}
 		const b3BodyId body_id = body->get_body_id();
 		if (!b3Body_IsValid(body_id) || b3Body_GetType(body_id) != b3_dynamicBody) {
+			continue;
+		}
+		if (!mover_can_push(last_shapes[i], body)) {
 			continue;
 		}
 

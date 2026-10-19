@@ -69,6 +69,7 @@ class Box3DCharacterBody : public Node3D {
 	std::vector<b3CollisionPlane> last_planes;
 	std::vector<Vector3> last_points; // world space, one per plane
 	std::vector<Box3DBody *> last_bodies; // one per plane, may be null
+	std::vector<b3ShapeId> last_shapes; // one per plane, for mover_can_push
 
 	Box3DWorld *find_world() const;
 	// Cosine of floor_max_angle, i.e. the dot(normal, up) a plane must reach to
