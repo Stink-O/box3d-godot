@@ -85,6 +85,12 @@ private:
 	// solver kernels even on a CPU with AVX2. Upstream has no getter, so the
 	// value lives here and is re-applied when the world is created.
 	bool sse2_fallback = false;
+	// b3WorldDef.isotropicInertiaTolerance (types.h:176-178): bodies whose
+	// principal inertias are within this fraction of each other skip the
+	// gyroscopic torque (src/body.c:909). 0.2 is b3DefaultWorldDef's value
+	// (src/types.c:28); Box3D clamps to [0, 1]. A change reaches only bodies
+	// created or re-massed afterwards (box3d.h:217-219).
+	double isotropic_inertia_tolerance = 0.2;
 	// b3WorldDef.capacity (b3Capacity, types.h:120-137): expected counts used to
 	// pre-size the world so a scene that grows into them never reallocates
 	// mid-step. Read ONLY when the world is created; 0 keeps Box3D's own
@@ -475,6 +481,8 @@ public:
 	bool get_enable_warm_starting() const;
 	void set_sse2_fallback(bool p_enabled);
 	bool get_sse2_fallback() const;
+	void set_isotropic_inertia_tolerance(double p_tolerance);
+	double get_isotropic_inertia_tolerance() const;
 	void set_contact_speed(double p_speed);
 	double get_contact_speed() const;
 	void set_hit_event_threshold(double p_speed);

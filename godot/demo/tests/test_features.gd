@@ -1071,6 +1071,18 @@ func _test_solver_tuning() -> void:
 		is_equal_approx(world.contact_hertz, 45.0) and is_equal_approx(world.contact_damping, 4.0)
 		and world.enable_sleep == false and world.enable_warm_starting == true)
 
+	var iso_live: float = world.get_live_settings()["isotropicInertiaTolerance"]
+	_check("isotropic_inertia_tolerance defaults to Box3D's 0.2 (%.3f)" % iso_live,
+		is_equal_approx(world.isotropic_inertia_tolerance, 0.2) and is_equal_approx(iso_live, 0.2))
+	world.isotropic_inertia_tolerance = 0.5
+	iso_live = world.get_live_settings()["isotropicInertiaTolerance"]
+	_check("isotropic_inertia_tolerance applies live (%.3f)" % iso_live, is_equal_approx(iso_live, 0.5))
+	world.isotropic_inertia_tolerance = 3.0
+	_check("isotropic_inertia_tolerance clamps to [0, 1] (%.3f)" % world.isotropic_inertia_tolerance,
+		is_equal_approx(world.isotropic_inertia_tolerance, 1.0)
+			and is_equal_approx(world.get_live_settings()["isotropicInertiaTolerance"], 1.0))
+	world.isotropic_inertia_tolerance = 0.2
+
 	var floor := Box3DBody.new()
 	floor.body_type = Box3DBody.STATIC
 	floor.box_size = Vector3(20, 1, 20)
@@ -2597,7 +2609,7 @@ func _test_world_capacity_and_live_settings() -> void:
 	_check("capacity properties round-trip",
 		world.capacity_dynamic_bodies == 64 and world.capacity_contacts == 256)
 	var live: Dictionary = world.get_live_settings()
-	_check("get_live_settings reports eleven readings (%d)" % live.size(), live.size() == 11)
+	_check("get_live_settings reports twelve readings (%d)" % live.size(), live.size() == 12)
 	_check("live gravity matches the property", live["gravity"].is_equal_approx(world.gravity))
 	_check("live sleeping/continuous/warm flags are booleans",
 		live["sleepingEnabled"] is bool and live["continuousEnabled"] is bool

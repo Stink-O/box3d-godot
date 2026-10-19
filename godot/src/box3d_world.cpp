@@ -114,6 +114,7 @@ Dictionary Box3DWorld::get_live_settings() const {
 	d["hitEventThreshold"] = (double)b3World_GetHitEventThreshold(world_id);
 	d["contactRecycleDistance"] = (double)b3World_GetContactRecycleDistance(world_id);
 	d["maximumLinearSpeed"] = (double)b3World_GetMaximumLinearSpeed(world_id);
+	d["isotropicInertiaTolerance"] = (double)b3World_GetIsotropicInertiaTolerance(world_id);
 	d["workerCount"] = b3World_GetWorkerCount(world_id);
 	d["sleepingEnabled"] = b3World_IsSleepingEnabled(world_id);
 	d["continuousEnabled"] = b3World_IsContinuousEnabled(world_id);
@@ -442,6 +443,7 @@ void Box3DWorld::ensure_world() {
 	def.restitutionThreshold = (float)restitution_threshold;
 	def.restitutionIterations = restitution_iterations;
 	def.enableRestitutionPropagation = enable_restitution_propagation;
+	def.isotropicInertiaTolerance = (float)isotropic_inertia_tolerance;
 	// Optional pre-sizing. Zeros are Box3D's own default (grow on demand), so a
 	// scene that authors nothing here is unaffected.
 	def.capacity.staticShapeCount = capacity_static_shapes;
@@ -2793,6 +2795,20 @@ bool Box3DWorld::get_sse2_fallback() const {
 	return sse2_fallback;
 }
 
+void Box3DWorld::set_isotropic_inertia_tolerance(double p_tolerance) {
+	// Clamped here as well as in Box3D so the property reads back what the
+	// solver actually uses.
+	isotropic_inertia_tolerance = CLAMP(p_tolerance, 0.0, 1.0);
+	if (b3World_IsValid(world_id)) {
+		join_async_step();
+		b3World_SetIsotropicInertiaTolerance(world_id, (float)isotropic_inertia_tolerance);
+	}
+}
+
+double Box3DWorld::get_isotropic_inertia_tolerance() const {
+	return isotropic_inertia_tolerance;
+}
+
 void Box3DWorld::set_contact_speed(double p_speed) {
 	contact_speed = p_speed;
 	apply_contact_tuning();
@@ -3003,6 +3019,8 @@ void Box3DWorld::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_enable_warm_starting"), &Box3DWorld::get_enable_warm_starting);
 	ClassDB::bind_method(D_METHOD("set_sse2_fallback", "enabled"), &Box3DWorld::set_sse2_fallback);
 	ClassDB::bind_method(D_METHOD("get_sse2_fallback"), &Box3DWorld::get_sse2_fallback);
+	ClassDB::bind_method(D_METHOD("set_isotropic_inertia_tolerance", "tolerance"), &Box3DWorld::set_isotropic_inertia_tolerance);
+	ClassDB::bind_method(D_METHOD("get_isotropic_inertia_tolerance"), &Box3DWorld::get_isotropic_inertia_tolerance);
 	ClassDB::bind_method(D_METHOD("set_contact_speed", "speed"), &Box3DWorld::set_contact_speed);
 	ClassDB::bind_method(D_METHOD("get_contact_speed"), &Box3DWorld::get_contact_speed);
 	ClassDB::bind_method(D_METHOD("set_hit_event_threshold", "speed"), &Box3DWorld::set_hit_event_threshold);
@@ -3082,6 +3100,9 @@ void Box3DWorld::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enable_sleep"), "set_enable_sleep", "get_enable_sleep");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enable_warm_starting"), "set_enable_warm_starting", "get_enable_warm_starting");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sse2_fallback"), "set_sse2_fallback", "get_sse2_fallback");
+	// 0 keeps gyroscopic torque on every body; a sphere is 0 and a 1x1x2 box
+	// 0.5 on this scale (types.h:176-177).
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "isotropic_inertia_tolerance", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_isotropic_inertia_tolerance", "get_isotropic_inertia_tolerance");
 
 	ADD_GROUP("Contact", "contact_");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "contact_hertz", PROPERTY_HINT_RANGE, "0,120,0.1,or_greater,suffix:Hz"), "set_contact_hertz", "get_contact_hertz");

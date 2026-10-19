@@ -106,7 +106,7 @@
 		<method name="get_live_settings" qualifiers="const">
 			<return type="Dictionary" />
 			<description>
-				What the solver is actually running with, read back from Box3D rather than from this node's properties, as a [Dictionary]: [code]gravity[/code], [code]restitutionThreshold[/code], [code]restitutionIterations[/code], [code]restitutionPropagationEnabled[/code], [code]hitEventThreshold[/code], [code]contactRecycleDistance[/code], [code]maximumLinearSpeed[/code], [code]workerCount[/code], [code]sleepingEnabled[/code], [code]continuousEnabled[/code] and [code]warmStartingEnabled[/code]. Keys are Box3D's own field names.
+				What the solver is actually running with, read back from Box3D rather than from this node's properties, as a [Dictionary]: [code]gravity[/code], [code]restitutionThreshold[/code], [code]restitutionIterations[/code], [code]restitutionPropagationEnabled[/code], [code]hitEventThreshold[/code], [code]contactRecycleDistance[/code], [code]maximumLinearSpeed[/code], [code]isotropicInertiaTolerance[/code], [code]workerCount[/code], [code]sleepingEnabled[/code], [code]continuousEnabled[/code] and [code]warmStartingEnabled[/code]. Keys are Box3D's own field names.
 				Worth reading when a property does not seem to have taken effect. Several are applied only when the world is created ([member worker_count] most notably), and [member max_linear_speed] shows here as the real cap rather than as the [code]0[/code] that means "leave Box3D's default alone". Empty while the world does not exist.
 			</description>
 		</method>
@@ -483,6 +483,10 @@
 		<member name="hit_event_threshold" type="float" setter="set_hit_event_threshold" getter="get_hit_event_threshold" default="1.0">
 			How fast two shapes must close on each other before the world emits [signal contact_hit], in metres per second. Matches Box3D's default of 1.
 			This is the gate on the whole signal: raise it and only hard impacts report, which is what you want for impact sounds and damage; lower it towards 0 and every brushing contact fires, including the ones a resting stack makes as it settles.
+		</member>
+		<member name="isotropic_inertia_tolerance" type="float" setter="set_isotropic_inertia_tolerance" getter="get_isotropic_inertia_tolerance" default="0.2">
+			How close a body's three principal inertias must be, as a fraction, before Box3D treats it as a sphere and skips the gyroscopic torque for it. Range [code]0[/code] to [code]1[/code]: a sphere scores [code]0[/code] and a 1x1x2 box [code]0.5[/code]. Skipping the torque keeps near-spherical bodies from picking up spurious spin; [code]0[/code] applies it to everything.
+			A change only reaches bodies created, or whose mass is updated, afterwards. Bodies already in the world keep the value they were built with.
 		</member>
 		<member name="max_linear_speed" type="float" setter="set_max_linear_speed" getter="get_max_linear_speed" default="0.0">
 			Speed cap for dynamic bodies, in metres per second. [code]0[/code] does not mean "no limit": it means "leave Box3D's own default alone", which is 400 m/s (faster than sound).
