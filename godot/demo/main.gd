@@ -69,6 +69,7 @@ const SAMPLES := {
 		"Gyroscopic Precession": "res://samples/gyro_precession.tscn",
 		"Spinning Books": "res://samples/spinning_books.tscn",
 		"Class Ring": "res://samples/class_ring.tscn",
+		"Spinning Capsule": "res://samples/spinning_capsule.tscn",
 	},
 	"Gameplay": {
 		"Character Controller": "res://samples/character.tscn",
@@ -178,6 +179,7 @@ const DESCRIPTIONS := {
 	"Gyroscopic Precession": "Sixty four spinning tops. A leaning top does not fall over, it circles, because its spin turns gravity's torque sideways.",
 	"Spinning Books": "Three identical slabs spun about each of their three axes in free fall. Two spins are stable and the third, about the middle axis, tumbles.",
 	"Class Ring": "A ring of welded capsules with a heavy gem, spun on its rim. It needs a 960 Hz step to behave: at 60 Hz the contact patch cannot keep up with the rim and the ring never falls over properly.",
+	"Spinning Capsule": "A long capsule stood on its tip and spun about its own axis. With gyroscopic torque it falls over as a real one would; raise the tolerance until Box3D skips that torque and it balances like an impossible top.",
 	"Character Controller": "Upstream's mover on its full course: a capsule riding a spring suspension (the hover gap is the suspension, shown by the green ray) over ramps, stairs, platforms and a wave field with real holes. WASD moves, Shift sprints, Space jumps, C toggles velocity clipping, V shows the mover debug; the switch follows in third person.",
 	"Contact Pit": "Every peg reports its contacts, so each one flashes as a ball hits it. A steady rain of balls keeps the ricochets coming.",
 	"Bowling": "Ten pins and a rolling ball. Shoot more balls down the lane with F or reset to re-rack.",
@@ -258,6 +260,7 @@ const USE_CASES := {
 	"Gyroscopic Precession": "Spinning tops, gyroscopes and wobbling wheels",
 	"Spinning Books": "Thrown props that tumble differently depending on the spin axis",
 	"Class Ring": "Tuning the step rate for fast-spinning props like coins and wheels",
+	"Spinning Capsule": "Keeping spinning poles, bats and thrown sticks from balancing in ways real ones cannot",
 	"Character Controller": "Player and NPC movement that walks, climbs steps and shoves props",
 	"Contact Pit": "Sound, sparks and score fired off every time something is hit",
 	"Bowling": "Bowling, skittles and knock-down mini games",

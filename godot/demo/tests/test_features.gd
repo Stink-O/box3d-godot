@@ -101,6 +101,7 @@ func _ready() -> void:
 	_test_blast_calibration()
 	await _test_sample_fidelity()
 	await _test_safety_factor_sample()
+	await _test_spinning_capsule_sample()
 	await _test_developer_globals()
 	await _test_height_field_readback()
 	await _test_barrel_spire()
@@ -6154,6 +6155,37 @@ func _test_safety_factor_sample() -> void:
 		discrete > 0.01)
 	_check("Safety Factor: 0.05 sweeps the landing and the overlap shrinks (%.4f m)" % swept,
 		swept < 0.25 * discrete)
+
+
+## Spinning Capsule (sample_bodies.cpp:586-685): a slender capsule spun at
+## 20 rad/s about its own (least-inertia) axis cannot be held up by the spin,
+## so with gyroscopic torque it falls; with the tolerance raised above its
+## anisotropy the torque is skipped and it balances implausibly.
+func _capsule_tilt_after(tolerance: float, frames: int) -> Array:
+	var inst: Node = (load("res://samples/spinning_capsule.tscn") as PackedScene).instantiate()
+	if tolerance >= 0.0:
+		inst.set_sample_size("tolerance", tolerance)
+	add_child(inst)
+	await get_tree().physics_frame
+	var capsule: Box3DBody = inst.get_node("Box3DWorld/Capsule")
+	var anisotropy: float = inst.anisotropy_of(capsule.get_mass_data()["inertia"])
+	for i in range(frames):
+		await get_tree().physics_frame
+	var axis: Vector3 = capsule.global_transform.basis.orthonormalized() * Vector3.UP
+	var tilt := rad_to_deg(acos(clampf(absf(axis.y), 0.0, 1.0)))
+	inst.queue_free()
+	await get_tree().physics_frame
+	return [anisotropy, tilt]
+
+
+func _test_spinning_capsule_sample() -> void:
+	var on: Array = await _capsule_tilt_after(-1.0, 180)
+	var off: Array = await _capsule_tilt_after(1.0, 180)
+	_check("Spinning Capsule: the 4 m capsule's anisotropy is above the 0.2 default (%.2f)" % on[0],
+		on[0] > 0.9 and on[0] < 1.0)
+	_check("Spinning Capsule: with gyroscopic torque it falls over (tilt %.0f deg)" % on[1], on[1] > 60.0)
+	_check("Spinning Capsule: tolerance 1 skips the torque and it balances (tilt %.0f deg)" % off[1],
+		off[1] < 30.0)
 
 
 func _test_developer_globals() -> void:
