@@ -1911,6 +1911,30 @@ void box_proxy_points(const Vector3 &p_center, const Vector3 &p_size, const Vect
 	}
 }
 
+// A world-space point cloud as a proxy relative to its first point, which
+// becomes the query origin (origin-relative proxies keep the query precise far
+// from the world origin, box3d.h:78-80). Clamped to B3_MAX_SHAPE_CAST_POINTS
+// with a warning, as Box3DCollision's make_proxy does. False for no points.
+bool body_proxy_points(const PackedVector3Array &p_points, std::vector<b3Vec3> &r_points, b3Pos &r_origin) {
+	int count = p_points.size();
+	if (count <= 0) {
+		return false;
+	}
+	if (count > B3_MAX_SHAPE_CAST_POINTS) {
+		UtilityFunctions::push_warning(
+				"Box3DBody: a shape proxy takes at most " + itos(B3_MAX_SHAPE_CAST_POINTS) +
+				" points (B3_MAX_SHAPE_CAST_POINTS); the rest are ignored.");
+		count = B3_MAX_SHAPE_CAST_POINTS;
+	}
+	const Vector3 base = p_points[0];
+	r_origin = to_b3_pos(base);
+	r_points.resize((size_t)count);
+	for (int i = 0; i < count; ++i) {
+		r_points[(size_t)i] = to_b3(p_points[i] - base);
+	}
+	return true;
+}
+
 // b3BodyCastResult -> Dictionary, shared by cast_ray and cast_box.
 Dictionary cast_result_to_dict(const b3BodyCastResult &r) {
 	Dictionary out;
@@ -1986,6 +2010,47 @@ bool Box3DBody::overlaps_box(const Vector3 &p_center, const Vector3 &p_size, con
 	filter.maskBits = p_mask;
 	filter.categoryBits = p_layer;
 	return b3Body_OverlapShape(body_id, to_b3_pos(p_center), &proxy, filter, query_pose(body_id, p_body_xform));
+}
+
+Dictionary Box3DBody::cast_shape(const PackedVector3Array &p_points, double p_radius, const Vector3 &p_translation,
+		const Transform3D &p_body_xform, double p_max_fraction, bool p_can_encroach, uint64_t p_mask, uint64_t p_layer) const {
+	Dictionary out;
+	out["hit"] = false;
+	std::vector<b3Vec3> points;
+	b3Pos origin;
+	if (!body_live() || !body_proxy_points(p_points, points, origin)) {
+		return out;
+	}
+	b3ShapeProxy proxy;
+	proxy.points = points.data();
+	proxy.count = (int)points.size();
+	proxy.radius = (float)Math::abs(p_radius);
+	b3QueryFilter filter = b3DefaultQueryFilter();
+	filter.maskBits = p_mask;
+	filter.categoryBits = p_layer;
+	// canEncroach lets a rounded proxy that starts touching slide a little
+	// closer instead of reporting an immediate zero-fraction hit
+	// (types.h:1419-1420); maxFraction cuts the sweep short.
+	b3BodyCastResult r = b3Body_CastShape(body_id, origin, &proxy, to_b3(p_translation), filter,
+			(float)p_max_fraction, p_can_encroach, query_pose(body_id, p_body_xform));
+	return cast_result_to_dict(r);
+}
+
+bool Box3DBody::overlaps_shape(const PackedVector3Array &p_points, double p_radius, const Transform3D &p_body_xform,
+		uint64_t p_mask, uint64_t p_layer) const {
+	std::vector<b3Vec3> points;
+	b3Pos origin;
+	if (!body_live() || !body_proxy_points(p_points, points, origin)) {
+		return false;
+	}
+	b3ShapeProxy proxy;
+	proxy.points = points.data();
+	proxy.count = (int)points.size();
+	proxy.radius = (float)Math::abs(p_radius);
+	b3QueryFilter filter = b3DefaultQueryFilter();
+	filter.maskBits = p_mask;
+	filter.categoryBits = p_layer;
+	return b3Body_OverlapShape(body_id, origin, &proxy, filter, query_pose(body_id, p_body_xform));
 }
 
 int Box3DBody::get_shape_count() const {
@@ -3153,6 +3218,8 @@ void Box3DBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("cast_ray", "from", "to", "body_transform", "collision_mask", "collision_layer"), &Box3DBody::cast_ray, DEFVAL(Transform3D()), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("cast_box", "from", "to", "size", "body_transform", "collision_mask", "collision_layer"), &Box3DBody::cast_box, DEFVAL(Transform3D()), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("overlaps_box", "center", "size", "body_transform", "collision_mask", "collision_layer"), &Box3DBody::overlaps_box, DEFVAL(Transform3D()), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
+	ClassDB::bind_method(D_METHOD("cast_shape", "points", "radius", "translation", "body_transform", "max_fraction", "can_encroach", "collision_mask", "collision_layer"), &Box3DBody::cast_shape, DEFVAL(Transform3D()), DEFVAL(1.0), DEFVAL(false), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
+	ClassDB::bind_method(D_METHOD("overlaps_shape", "points", "radius", "body_transform", "collision_mask", "collision_layer"), &Box3DBody::overlaps_shape, DEFVAL(Transform3D()), DEFVAL(B3_DEFAULT_MASK_BITS), DEFVAL(B3_DEFAULT_CATEGORY_BITS));
 	ClassDB::bind_method(D_METHOD("set_linear_damping", "damping"), &Box3DBody::set_linear_damping);
 	ClassDB::bind_method(D_METHOD("get_linear_damping"), &Box3DBody::get_linear_damping);
 	ClassDB::bind_method(D_METHOD("set_angular_damping", "damping"), &Box3DBody::set_angular_damping);

@@ -104,6 +104,22 @@
 				[param collision_mask] is which layers the query sees and [param collision_layer] is which layers the query itself is on, the same two-way rule [method Box3DWorld.raycast] follows: a shape of this body answers only when both halves pass. Both default to every layer, so an omitted argument filters nothing.
 			</description>
 		</method>
+		<method name="cast_shape" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="points" type="PackedVector3Array" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="translation" type="Vector3" />
+			<param index="3" name="body_transform" type="Transform3D" default="Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)" />
+			<param index="4" name="max_fraction" type="float" default="1.0" />
+			<param index="5" name="can_encroach" type="bool" default="false" />
+			<param index="6" name="collision_mask" type="int" default="-1" />
+			<param index="7" name="collision_layer" type="int" default="-1" />
+			<description>
+				Sweeps any convex query shape along [param translation] against [b]this body alone[/b] and returns the first hit, in the same [Dictionary] form as [method cast_ray]. The shape is Box3D's generic proxy, spelled as in [Box3DCollision]: [param points] in world space plus a [param radius] that rounds them. One point is a sphere, two are a capsule's end centres, eight corners with radius 0 are a box (in any orientation), and any cloud is queried as its convex hull. At most 128 points are used.
+				[param max_fraction] stops the sweep that far along [param translation] (1 sweeps all of it). With [param can_encroach] on, a shape with a radius that starts touching the body may move slightly closer instead of reporting an immediate hit at fraction 0, which is what a sliding probe wants; off, a sweep that starts in contact or overlapping reports fraction 0, the "can I move there" answer [method cast_box] gives.
+				[param body_transform] poses the body for the query as in [method cast_ray]. [param collision_mask] and [param collision_layer] filter as in [method cast_ray].
+			</description>
+		</method>
 		<method name="get_aabb" qualifiers="const">
 			<return type="AABB" />
 			<description>
@@ -362,6 +378,17 @@
 				Exact, not broad phase: unlike [method Box3DWorld.overlap_aabb] this tests the shapes themselves, so it is the cheap way to ask "is that specific body in this volume" without a world query and without over-reporting.
 				[param body_transform] poses the body for the test as in [method cast_ray] -- leave it at the identity for where the body is now.
 				[param collision_mask] is which layers the query sees and [param collision_layer] is which layers the query itself is on, the same two-way rule [method Box3DWorld.raycast] follows: a shape of this body answers only when both halves pass. Both default to every layer, so an omitted argument filters nothing.
+			</description>
+		</method>
+		<method name="overlaps_shape" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="points" type="PackedVector3Array" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="body_transform" type="Transform3D" default="Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)" />
+			<param index="3" name="collision_mask" type="int" default="-1" />
+			<param index="4" name="collision_layer" type="int" default="-1" />
+			<description>
+				Whether any of [b]this body's[/b] shapes overlaps a convex query shape, given as in [method cast_shape]: world-space [param points] rounded by [param radius] (a sphere, a capsule, a rotated box or any convex cloud). Exact, like [method overlaps_box], which is this test for an axis-aligned box. [param body_transform], [param collision_mask] and [param collision_layer] work as in [method cast_ray].
 			</description>
 		</method>
 		<method name="set_angular_velocity">

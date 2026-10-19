@@ -76,6 +76,7 @@ func _ready() -> void:
 	await _test_character_soft_collision()
 	await _test_live_shape_resize()
 	await _test_per_body_queries()
+	await _test_body_shape_queries()
 	await _test_live_child_shape_resize()
 	await _test_joint_draw_scale()
 	await _test_query_categories()
@@ -3124,6 +3125,58 @@ func _test_live_shape_resize() -> void:
 	_check("a compound body keeps both child shapes across the rebuild",
 		compound.get_shape_count() == 2)
 
+	world.free()
+
+
+# Box3DBody.cast_shape / overlaps_shape: b3Body_CastShape and
+# b3Body_OverlapShape with any proxy, max_fraction and can_encroach.
+func _test_body_shape_queries() -> void:
+	var world := Box3DWorld.new()
+	add_child(world)
+	var block := Box3DBody.new()
+	block.body_type = Box3DBody.STATIC
+	block.box_size = Vector3(2, 2, 2) # faces at +-1
+	world.add_child(block)
+	await get_tree().physics_frame
+
+	var sphere := PackedVector3Array([Vector3(-5, 0, 0)])
+	var hit: Dictionary = block.cast_shape(sphere, 0.5, Vector3(10, 0, 0))
+	_check("cast_shape sweeps a sphere proxy into the body (fraction %.3f)" % hit.get("fraction", -1.0),
+		hit["hit"] and absf(hit["fraction"] - 0.35) < 0.01 and hit["normal"].is_equal_approx(Vector3.LEFT))
+	var short: Dictionary = block.cast_shape(sphere, 0.5, Vector3(10, 0, 0), Transform3D(), 0.3)
+	_check("max_fraction stops the sweep short of the body", not short["hit"])
+	var posed: Dictionary = block.cast_shape(sphere, 0.5, Vector3(10, 0, 0),
+		Transform3D(Basis(), Vector3(0, 5, 0)))
+	_check("body_transform poses the body for the cast (moved out of the path)", not posed["hit"])
+
+	# A sphere already inside Box3D's touching band (core distance 0.4955 m,
+	# under the 0.495 m target plus tolerance, src/distance.c:1047-1090) and
+	# swept into the face: without encroach that start is an immediate hit
+	# at fraction 0, with it the sphere may close another 5 mm first.
+	var touching := PackedVector3Array([Vector3(-1.4955, 0, 0)])
+	var stuck: Dictionary = block.cast_shape(touching, 0.5, Vector3(1, 0, 0))
+	var slid: Dictionary = block.cast_shape(touching, 0.5, Vector3(1, 0, 0), Transform3D(), 1.0, true)
+	_check("can_encroach lets a touching rounded proxy move closer (%.4f -> %.4f)" % [
+			stuck.get("fraction", -1.0), slid.get("fraction", -1.0)],
+		stuck["hit"] and stuck["fraction"] == 0.0 and slid["hit"] and slid["fraction"] > 0.003)
+
+	var capsule_in := PackedVector3Array([Vector3(0, 3, 0), Vector3(0, 1.4, 0)])
+	var capsule_out := PackedVector3Array([Vector3(0, 3, 0), Vector3(0, 1.6, 0)])
+	_check("overlaps_shape tests a capsule proxy exactly (0.9 m in, 1.1 m clear)",
+		block.overlaps_shape(capsule_in, 0.5) and not block.overlaps_shape(capsule_out, 0.5))
+	# A unit box turned 45 degrees about Y, centred 1.6 m out: its corner
+	# reaches x = 0.89, inside the block, while the axis-aligned box at the
+	# same centre stops at 1.1. Eight points with radius 0 are a rotated box.
+	var corners := PackedVector3Array()
+	var turn := Basis(Vector3.UP, PI / 4.0)
+	for i in range(8):
+		var corner := Vector3(0.5 if i & 1 else -0.5, 0.5 if i & 2 else -0.5, 0.5 if i & 4 else -0.5)
+		corners.append(Vector3(1.6, 0, 0) + turn * corner)
+	_check("overlaps_shape takes a rotated box as eight points; overlaps_box at the same centre misses",
+		block.overlaps_shape(corners, 0.0) and not block.overlaps_box(Vector3(1.6, 0, 0), Vector3.ONE))
+	_check("an empty point cloud is a clean miss",
+		not block.cast_shape(PackedVector3Array(), 0.5, Vector3.ONE)["hit"]
+			and not block.overlaps_shape(PackedVector3Array(), 0.5))
 	world.free()
 
 

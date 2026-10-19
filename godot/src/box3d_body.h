@@ -522,6 +522,16 @@ public:
 	// body at the given pose.
 	bool overlaps_box(const Vector3 &p_center, const Vector3 &p_size, const Transform3D &p_body_xform,
 			uint64_t p_mask = B3_DEFAULT_MASK_BITS, uint64_t p_layer = B3_DEFAULT_CATEGORY_BITS) const;
+	// The general forms behind cast_box / overlaps_box: any b3ShapeProxy, a
+	// world-space point cloud plus a radius (types.h:1393-1403), the same
+	// spelling Box3DCollision uses. One point is a sphere, two a capsule, a
+	// cloud its convex hull; at most B3_MAX_SHAPE_CAST_POINTS points.
+	// b3Body_CastShape / b3Body_OverlapShape (box3d.h:811-819).
+	Dictionary cast_shape(const PackedVector3Array &p_points, double p_radius, const Vector3 &p_translation,
+			const Transform3D &p_body_xform, double p_max_fraction = 1.0, bool p_can_encroach = false,
+			uint64_t p_mask = B3_DEFAULT_MASK_BITS, uint64_t p_layer = B3_DEFAULT_CATEGORY_BITS) const;
+	bool overlaps_shape(const PackedVector3Array &p_points, double p_radius, const Transform3D &p_body_xform,
+			uint64_t p_mask = B3_DEFAULT_MASK_BITS, uint64_t p_layer = B3_DEFAULT_CATEGORY_BITS) const;
 	int get_shape_count() const;
 	int get_joint_count() const;
 	// --- introspection back into the scene tree (P-016, box3d.h:758-779) ---
