@@ -458,6 +458,13 @@ const ENGINE_ACCENTS := {
 @onready var _clear_start_btn: Button = $UI/Sidebar/Margin/VBox/StartViewRow/ClearStartView
 @onready var _bar: HBoxContainer = $UI/Bar
 @onready var _bar_back: Panel = $UI/BarBack
+## Sidebar section furniture that can be left with nothing under it: the
+## SAMPLE section on a sample with no blurb and no dials, CONTACTS on a world
+## without those properties. _refresh_sidebar_sections hides them then.
+@onready var _sample_header: Label = $UI/Sidebar/Margin/VBox/SampleHeader
+@onready var _simulation_sep: Control = $UI/Sidebar/Margin/VBox/SimulationSep
+@onready var _contacts_sep: Control = $UI/Sidebar/Margin/VBox/ContactsSep
+@onready var _contacts_header: Label = $UI/Sidebar/Margin/VBox/ContactsHeader
 
 ## Start views saved at runtime with the sidebar's "Set Start View" button,
 ## keyed by sample scene path. Highest-priority spawn view, survives restarts.
@@ -1465,10 +1472,10 @@ func _build_sample_blurb() -> void:
 		_update_blurb_toggle_text())
 	vbox.add_child(_sample_blurb_toggle)
 	vbox.add_child(box)
-	# Above the sidebar's own "Solver" title, so it reads as being about the
-	# sample rather than about the controls under it.
-	vbox.move_child(_sample_blurb_toggle, 0)
-	vbox.move_child(box, 1)
+	# First in the SAMPLE section, above the simulation controls, so it reads
+	# as being about the sample rather than about the controls under it.
+	vbox.move_child(_sample_blurb_toggle, _sample_header.get_index() + 1)
+	vbox.move_child(box, _sample_header.get_index() + 2)
 
 
 ## Picker tooltip for a sample: the description, plus the use case on its own
@@ -1518,7 +1525,7 @@ const SAMPLE_SIZE_DELAY := 0.35
 ## whose dials interact declares the one that preserves state before the one
 ## that sets it.
 ##
-## The box lives with the blurb above the "Solver" title, because it is about
+## The box lives with the blurb in the SAMPLE section, because it is about
 ## the sample rather than about the solver rows under it.
 func _build_sample_size_box() -> void:
 	var vbox: Control = _side_scroll.get_node("Margin/VBox")
@@ -1540,7 +1547,8 @@ func _build_sample_size_box() -> void:
 	add_child(_sample_size_timer)
 
 	vbox.add_child(_sample_size_box)
-	vbox.move_child(_sample_size_box, 2)
+	# After the blurb, still inside the SAMPLE section.
+	vbox.move_child(_sample_size_box, _sample_blurb_box.get_index() + 1)
 
 
 ## Point the dials at whatever is loaded now, or hide them. Called on every
@@ -2495,6 +2503,23 @@ func _refresh_sidebar_from_world(world) -> void:
 	_update_readout()
 
 
+## A section heading with nothing under it is worse than no heading: hide the
+## SAMPLE heading (and the divider after it) when the sample has neither a
+## blurb nor dials, and CONTACTS when the world exposes none of its rows (a
+## native engine, or a build that predates them). The other sections always
+## have at least one row. Recording and engine comparison hide as whole
+## blocks already.
+func _refresh_sidebar_sections() -> void:
+	var sample_on: bool = (_sample_blurb_toggle != null and _sample_blurb_toggle.visible) \
+			or (_sample_size_box != null and _sample_size_box.visible)
+	_sample_header.visible = sample_on
+	_simulation_sep.visible = sample_on
+	var contacts_on := _contact_hertz_row.visible or _contact_damping_row.visible \
+			or _bounce_iters_row.visible or _bounce_prop_row.visible
+	_contacts_sep.visible = contacts_on
+	_contacts_header.visible = contacts_on
+
+
 ## Body counting walks the whole sample tree, which is real work at 16k+
 ## bodies — refresh the cached count at most once a second.
 var _body_count_cache := -1
@@ -2809,6 +2834,7 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 		_sample_blurb_toggle.set_pressed_no_signal(false)
 		_sample_blurb_toggle.visible = not _sample_blurb.text.is_empty()
 		_update_blurb_toggle_text()
+	_refresh_sidebar_sections()
 	# Both pickers follow the load rather than the click, so the mark is right
 	# after a Reset, an engine switch, a --sample= boot and a replay exit too.
 	_mark_current_sample()
