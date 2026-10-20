@@ -23,7 +23,8 @@ extends RefCounted
 # --- colour tokens -------------------------------------------------------------
 
 const SURFACE := Color(0.14, 0.16, 0.20, 0.86)        ## a panel without glass
-const SURFACE_SOLID := Color(0.15, 0.17, 0.21, 0.98)  ## popups, tooltips, touch panels
+const SURFACE_SOLID := Color(0.15, 0.17, 0.21, 0.98)  ## touch panels, the web notice
+const SURFACE_RAISED := Color(0.19, 0.21, 0.26, 0.98) ## popups and tooltips: one step up
 const BAR := Color(0.14, 0.16, 0.20, 0.76)            ## the top strip without glass
 const GLASS_TINT := Color(0.15, 0.17, 0.21)           ## glass: tint over the blurred scene
 const GLASS_PANEL := 0.70                             ## glass: tint share on panels
@@ -33,8 +34,8 @@ const WELL := Color(0.0, 0.0, 0.0, 0.26)              ## sunken fields and graph
 const FILL := Color(1, 1, 1, 0.07)                    ## a button at rest
 const FILL_HOVER := Color(1, 1, 1, 0.13)
 const FILL_PRESS := Color(1, 1, 1, 0.19)
-const LINE := Color(1, 1, 1, 0.10)                    ## hairlines, panel rims
-const LINE_STRONG := Color(1, 1, 1, 0.18)
+const LINE := Color(1, 1, 1, 0.10)                    ## section dividers
+const LINE_FAINT := Color(1, 1, 1, 0.06)              ## the rim of a text-entry well
 const TEXT := Color(0.93, 0.94, 0.96)
 const TEXT_MUTED := Color(0.74, 0.77, 0.82)
 const TEXT_FAINT := Color(0.58, 0.62, 0.68)
@@ -48,6 +49,19 @@ const CAUTION := Color(1.0, 0.78, 0.32)
 const GOOD := Color(0.40, 0.88, 0.62)
 const ALERT := Color(1.0, 0.52, 0.45)
 
+# --- shape rules -----------------------------------------------------------------
+# No outlines. Things are told apart by surface lightness: the panel tint, a
+# lighter raised fill for a button, lighter again on hover, an accent-tinted
+# fill when pressed or on. A border survives only where it means something:
+# the keyboard focus ring, the faint rim of a text-entry well, and the
+# dividers between sidebar sections. Popups and tooltips are lifted by a
+# lighter surface and a soft shadow instead.
+#
+# Radii are small and scale with size (RADIUS, RADIUS_PANEL, RADIUS_TRACK).
+# A rounded thing inside a rounded parent uses the parent's radius minus the
+# gap between them, and never less than RADIUS. Every box is drawn with
+# enough corner_detail for a smooth arc and a 1 px antialiasing edge.
+
 # --- type and spacing ----------------------------------------------------------
 # The project lays the UI out on a 1920x1080 canvas that is scaled to the
 # window, so these are canvas pixels, one notch above what a native-size UI
@@ -57,9 +71,9 @@ const FONT_SIZE := 16     ## body text and controls
 const FONT_SMALL := 14    ## secondary text, hints
 const FONT_TINY := 12     ## uppercase section headers
 const FONT_TITLE := 19    ## panel titles
-const RADIUS := 6         ## controls
-const RADIUS_PANEL := 10  ## panels and cards
-const RADIUS_MENU := 8    ## popups
+const RADIUS := 3         ## controls: buttons, fields, check marks, tooltips, menu rows
+const RADIUS_PANEL := 6   ## panels and cards; a strip touching the screen edges is 0
+const RADIUS_TRACK := 2   ## slider tracks and scroll grabbers
 const BAR_HEIGHT := 46    ## the top strip; panels start at BAR_HEIGHT + GAP
 const GAP := 8
 
@@ -109,17 +123,27 @@ static func glass_supported() -> bool:
 
 
 ## A rounded panel box. `margin` is the content inset on all four sides.
-static func card(bg := SURFACE, radius := RADIUS_PANEL, margin := 12.0,
-		border := LINE) -> StyleBoxFlat:
+static func card(bg := SURFACE, radius := RADIUS_PANEL, margin := 12.0) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.set_corner_radius_all(radius)
 	sb.set_content_margin_all(margin)
-	if border.a > 0.0:
-		sb.border_color = border
-		sb.set_border_width_all(1)
-	sb.anti_aliasing_size = 0.8
+	_crisp(sb)
 	return sb
+
+
+## Smooth arcs at these small radii, and an antialiased edge no wider than a
+## pixel (wider smears the corner).
+static func _crisp(sb: StyleBoxFlat) -> void:
+	sb.corner_detail = 10
+	sb.anti_aliasing = true
+	sb.anti_aliasing_size = 1.0
+
+
+## The radius for something inset `gap` px inside a parent of radius `outer`:
+## concentric where that leaves a curve, the control radius where it would not.
+static func inner_radius(outer: int, gap: float) -> int:
+	return maxi(RADIUS, outer - int(gap))
 
 
 ## Style `panel` as a glass panel when the platform allows it, else as a plain
@@ -130,10 +154,10 @@ static func glass(panel: Control, share := GLASS_PANEL, bg := SURFACE,
 		radius := RADIUS_PANEL, margin := 12.0) -> StyleBoxFlat:
 	var sb: StyleBoxFlat
 	if glass_supported():
-		sb = card(GLASS_TINT, radius, margin, LINE_STRONG)
+		sb = card(GLASS_TINT, radius, margin)
 		panel.material = _glass_material(share)
 	else:
-		sb = card(bg, radius, margin, LINE)
+		sb = card(bg, radius, margin)
 		panel.material = null
 	panel.add_theme_stylebox_override("panel", sb)
 	return sb
@@ -207,7 +231,7 @@ static func _box(bg: Color, border := Color(0, 0, 0, 0), radius := RADIUS,
 	if border.a > 0.0:
 		sb.border_color = border
 		sb.set_border_width_all(1)
-	sb.anti_aliasing_size = 0.8
+	_crisp(sb)
 	return sb
 
 
@@ -235,8 +259,8 @@ static func _hairline(color: Color, vertical: bool, grow := 0.0) -> StyleBoxLine
 static func _button_states(t: Theme, type: StringName, menu := false) -> void:
 	t.set_stylebox("normal", type, _box(FILL))
 	t.set_stylebox("hover", type, _box(FILL_HOVER))
-	var on := _box(ACCENT_SOFT, Color(ACCENT, 0.55))
-	var on_hover := _box(Color(ACCENT, 0.30), Color(ACCENT, 0.72))
+	var on := _box(Color(ACCENT, 0.24))
+	var on_hover := _box(Color(ACCENT, 0.32))
 	t.set_stylebox("pressed", type, _box(FILL_PRESS) if menu else on)
 	t.set_stylebox("hover_pressed", type, _box(FILL_PRESS) if menu else on_hover)
 	t.set_stylebox("disabled", type, _box(Color(1, 1, 1, 0.03)))
@@ -276,10 +300,17 @@ static func _build() -> Theme:
 	_variation(t, &"BarHint", &"Label", null, FONT_SMALL + 1, TEXT_MUTED)
 	# A status pill (the top bar's recording state).
 	_variation(t, &"PillLabel", &"Label", bold(), FONT_SMALL, Color(1.0, 0.72, 0.72))
-	t.set_stylebox("normal", &"PillLabel", _box(RECORD_SOFT, Color(RECORD, 0.55), 12, 10.0, 3.0))
-	# A small readout card standing on its own over the scene (body counter).
-	_variation(t, &"CounterLabel", &"Label", bold(), 22, TEXT)
-	t.set_stylebox("normal", &"CounterLabel", card(SURFACE, RADIUS_PANEL, 0.0, LINE_STRONG))
+	t.set_stylebox("normal", &"PillLabel", _box(Color(RECORD, 0.26), Color(0, 0, 0, 0), RADIUS, 10.0, 3.0))
+	# A readout floating over the 3D view (the body counter): no box at all,
+	# just text kept legible over sky or floor by a dark outline and a soft
+	# offset shadow.
+	_variation(t, &"CounterLabel", &"Label", bold(), 28, TEXT)
+	t.set_color("font_outline_color", &"CounterLabel", Color(0, 0, 0, 0.62))
+	t.set_constant("outline_size", &"CounterLabel", 6)
+	t.set_color("font_shadow_color", &"CounterLabel", Color(0, 0, 0, 0.42))
+	t.set_constant("shadow_offset_x", &"CounterLabel", 2)
+	t.set_constant("shadow_offset_y", &"CounterLabel", 3)
+	t.set_constant("shadow_outline_size", &"CounterLabel", 8)
 
 	# Buttons.
 	_button_states(t, &"Button")
@@ -302,12 +333,15 @@ static func _build() -> Theme:
 	# under them, so they carry a solid surface of their own.
 	t.add_type(&"TouchButton")
 	t.set_type_variation(&"TouchButton", &"Button")
-	t.set_stylebox("normal", &"TouchButton", _box(SURFACE, LINE_STRONG, RADIUS_PANEL, 14.0, 8.0))
-	t.set_stylebox("hover", &"TouchButton", _box(SURFACE, LINE_STRONG, RADIUS_PANEL, 14.0, 8.0))
+	# Big targets (up to 230 x 92), so the panel radius rather than the
+	# control one.
+	var clear := Color(0, 0, 0, 0)
+	t.set_stylebox("normal", &"TouchButton", _box(SURFACE, clear, RADIUS_PANEL, 14.0, 8.0))
+	t.set_stylebox("hover", &"TouchButton", _box(SURFACE, clear, RADIUS_PANEL, 14.0, 8.0))
 	t.set_stylebox("pressed", &"TouchButton",
-			_box(Color(0.20, 0.32, 0.44, 0.92), Color(ACCENT, 0.8), RADIUS_PANEL, 14.0, 8.0))
+			_box(Color(0.22, 0.36, 0.50, 0.94), clear, RADIUS_PANEL, 14.0, 8.0))
 	t.set_stylebox("hover_pressed", &"TouchButton",
-			_box(Color(0.20, 0.32, 0.44, 0.92), Color(ACCENT, 0.8), RADIUS_PANEL, 14.0, 8.0))
+			_box(Color(0.22, 0.36, 0.50, 0.94), clear, RADIUS_PANEL, 14.0, 8.0))
 	t.set_color("font_hover_color", &"TouchButton", TEXT)
 
 	# Check boxes: no box, a drawn mark beside the text.
@@ -320,8 +354,10 @@ static func _build() -> Theme:
 		t.set_color("font_disabled_color", type, Color(TEXT, 0.35))
 		t.set_constant("h_separation", type, 8)
 		t.set_stylebox("focus", type, _focus_ring())
-	var row_box := _empty(4.0, 3.0)
-	var row_hover := _box(Color(1, 1, 1, 0.05), Color(0, 0, 0, 0), RADIUS, 4.0, 3.0)
+	# Vertical padding chosen so a check row, a spin-box row and a button row
+	# all come out 32 px tall at the body size: one rhythm down the sidebar.
+	var row_box := _empty(4.0, 5.0)
+	var row_hover := _box(Color(1, 1, 1, 0.05), Color(0, 0, 0, 0), RADIUS, 4.0, 5.0)
 	for state in ["normal", "pressed", "disabled"]:
 		t.set_stylebox(state, &"CheckBox", row_box)
 	t.set_stylebox("hover", &"CheckBox", row_hover)
@@ -354,11 +390,11 @@ static func _build() -> Theme:
 		t.set_icon(icon + "_mirrored", &"CheckButton", switches[icon])
 
 	# Text fields and spin boxes.
-	var field := _box(WELL, LINE, RADIUS, 8.0, 4.0)
-	var field_focus := _box(WELL, Color(ACCENT, 0.7), RADIUS, 8.0, 4.0)
+	var field := _box(WELL, LINE_FAINT, RADIUS, 8.0, 5.0)
+	var field_focus := _box(WELL, Color(ACCENT, 0.7), RADIUS, 8.0, 5.0)
 	t.set_stylebox("normal", &"LineEdit", field)
 	t.set_stylebox("focus", &"LineEdit", field_focus)
-	t.set_stylebox("read_only", &"LineEdit", _box(Color(0, 0, 0, 0.12), LINE, RADIUS, 8.0, 4.0))
+	t.set_stylebox("read_only", &"LineEdit", _box(Color(0, 0, 0, 0.12), LINE_FAINT, RADIUS, 8.0, 5.0))
 	t.set_color("font_color", &"LineEdit", TEXT)
 	t.set_color("caret_color", &"LineEdit", ACCENT)
 	t.set_color("selection_color", &"LineEdit", Color(ACCENT, 0.35))
@@ -370,9 +406,9 @@ static func _build() -> Theme:
 	var knob_lit := _knob(true)
 	var knob_off := _knob(false, 0.4)
 	for type: StringName in [&"HSlider", &"VSlider"]:
-		var track := _box(Color(1, 1, 1, 0.16), Color(0, 0, 0, 0), 3, 0.0, 0.0)
-		var lit := _box(Color(ACCENT, 0.75), Color(0, 0, 0, 0), 3, 0.0, 0.0)
-		var lit_hi := _box(ACCENT, Color(0, 0, 0, 0), 3, 0.0, 0.0)
+		var track := _box(Color(1, 1, 1, 0.16), Color(0, 0, 0, 0), RADIUS_TRACK, 0.0, 0.0)
+		var lit := _box(Color(ACCENT, 0.75), Color(0, 0, 0, 0), RADIUS_TRACK, 0.0, 0.0)
+		var lit_hi := _box(ACCENT, Color(0, 0, 0, 0), RADIUS_TRACK, 0.0, 0.0)
 		if type == &"HSlider":
 			for sb: StyleBoxFlat in [track, lit, lit_hi]:
 				sb.content_margin_top = 2.0
@@ -394,9 +430,9 @@ static func _build() -> Theme:
 		var lane := _empty(3.0 if vertical else 0.0, 0.0 if vertical else 3.0)
 		t.set_stylebox("scroll", type, lane)
 		t.set_stylebox("scroll_focus", type, lane)
-		t.set_stylebox("grabber", type, _box(Color(1, 1, 1, 0.16), Color(0, 0, 0, 0), 3, 0.0, 0.0))
-		t.set_stylebox("grabber_highlight", type, _box(Color(1, 1, 1, 0.28), Color(0, 0, 0, 0), 3, 0.0, 0.0))
-		t.set_stylebox("grabber_pressed", type, _box(Color(ACCENT, 0.6), Color(0, 0, 0, 0), 3, 0.0, 0.0))
+		t.set_stylebox("grabber", type, _box(Color(1, 1, 1, 0.16), Color(0, 0, 0, 0), RADIUS_TRACK, 0.0, 0.0))
+		t.set_stylebox("grabber_highlight", type, _box(Color(1, 1, 1, 0.28), Color(0, 0, 0, 0), RADIUS_TRACK, 0.0, 0.0))
+		t.set_stylebox("grabber_pressed", type, _box(Color(ACCENT, 0.6), Color(0, 0, 0, 0), RADIUS_TRACK, 0.0, 0.0))
 		var none := _blank()
 		for icon in ["increment", "increment_highlight", "increment_pressed",
 				"decrement", "decrement_highlight", "decrement_pressed"]:
@@ -405,7 +441,7 @@ static func _build() -> Theme:
 	# Separators.
 	t.set_stylebox("separator", &"HSeparator", _hairline(LINE, false))
 	t.set_constant("separation", &"HSeparator", 9)
-	t.set_stylebox("separator", &"VSeparator", _hairline(LINE_STRONG, true, -8.0))
+	t.set_stylebox("separator", &"VSeparator", _hairline(LINE, true, -8.0))
 	t.set_constant("separation", &"VSeparator", 9)
 
 	# Panels: a plain card by default; glass is applied per panel in code.
@@ -413,11 +449,15 @@ static func _build() -> Theme:
 	t.set_stylebox("panel", &"Panel", card(SURFACE, RADIUS_PANEL, 0.0))
 
 	# Popup menus and tooltips.
-	var menu := card(SURFACE_SOLID, RADIUS_MENU, 6.0, LINE_STRONG)
-	menu.shadow_color = Color(0, 0, 0, 0.35)
-	menu.shadow_size = 10
+	var menu := card(SURFACE_RAISED, RADIUS_PANEL, 6.0)
+	menu.shadow_color = Color(0, 0, 0, 0.40)
+	menu.shadow_size = 12
+	menu.shadow_offset = Vector2(0, 3)
 	t.set_stylebox("panel", &"PopupMenu", menu)
-	t.set_stylebox("hover", &"PopupMenu", _box(ACCENT_SOFT, Color(0, 0, 0, 0), RADIUS, 0.0, 0.0))
+	# Rows sit 6 px inside a 6 px panel: concentric would be 0, so the
+	# control radius.
+	t.set_stylebox("hover", &"PopupMenu", _box(Color(ACCENT, 0.24), Color(0, 0, 0, 0),
+			inner_radius(RADIUS_PANEL, 6.0), 0.0, 0.0))
 	t.set_stylebox("separator", &"PopupMenu", _hairline(LINE, false))
 	t.set_stylebox("labeled_separator_left", &"PopupMenu", _hairline(LINE, false))
 	t.set_stylebox("labeled_separator_right", &"PopupMenu", _hairline(LINE, false))
@@ -438,20 +478,21 @@ static func _build() -> Theme:
 	t.set_constant("item_start_padding", &"PopupMenu", 10)
 	t.set_constant("item_end_padding", &"PopupMenu", 12)
 	t.set_constant("h_separation", &"PopupMenu", 8)
-	var tip := card(SURFACE_SOLID, RADIUS, 0.0, LINE_STRONG)
+	var tip := card(SURFACE_RAISED, RADIUS, 0.0)
 	tip.content_margin_left = 10.0
 	tip.content_margin_right = 10.0
 	tip.content_margin_top = 7.0
 	tip.content_margin_bottom = 7.0
-	tip.shadow_color = Color(0, 0, 0, 0.3)
+	tip.shadow_color = Color(0, 0, 0, 0.35)
 	tip.shadow_size = 8
+	tip.shadow_offset = Vector2(0, 2)
 	t.set_stylebox("panel", &"TooltipPanel", tip)
 	t.set_color("font_color", &"TooltipLabel", TEXT)
 	t.set_font_size("font_size", &"TooltipLabel", FONT_SMALL)
 
 	# Progress bar (the charge-shot meter).
-	t.set_stylebox("background", &"ProgressBar", _box(Color(0, 0, 0, 0.45), LINE, 5, 0.0, 0.0))
-	t.set_stylebox("fill", &"ProgressBar", _box(ACCENT, Color(0, 0, 0, 0), 5, 0.0, 0.0))
+	t.set_stylebox("background", &"ProgressBar", _box(Color(0, 0, 0, 0.45), Color(0, 0, 0, 0), RADIUS, 0.0, 0.0))
+	t.set_stylebox("fill", &"ProgressBar", _box(ACCENT, Color(0, 0, 0, 0), RADIUS, 0.0, 0.0))
 	t.set_color("font_color", &"ProgressBar", TEXT)
 
 	t.set_color("font_color", &"LinkButton", ACCENT_TEXT)
@@ -528,13 +569,13 @@ static func _fade(c: Color, alpha: float) -> Color:
 	return Color(c.r, c.g, c.b, c.a * alpha)
 
 
-## Check box: a rounded square, filled in the accent with a dark tick when on,
-## a dark well with a light rim when off.
+## Check box: a small rounded square, filled in the accent with a dark tick
+## when on, a raised light fill when off. No rim either way.
 static func _check(on: bool, alpha: float) -> ImageTexture:
 	const S := 18
 	var c := Vector2(S, S) * 0.5
 	return _raster(S, S, func(p: Vector2) -> Color:
-		var d := _sd_rbox(p, c, Vector2(7.5, 7.5), 4.0)
+		var d := _sd_rbox(p, c, Vector2(7.5, 7.5), float(RADIUS))
 		if d > 0.0:
 			return Color(0, 0, 0, 0)
 		if on:
@@ -544,8 +585,7 @@ static func _check(on: bool, alpha: float) -> ImageTexture:
 			if tick < 1.15:
 				col = INK
 			return _fade(col, alpha)
-		var ring := Color(1, 1, 1, 0.42) if d > -1.4 else Color(0, 0, 0, 0.35)
-		return _fade(ring, alpha))
+		return _fade(Color(1, 1, 1, 0.20), alpha))
 
 
 static func _radio(on: bool, alpha: float) -> ImageTexture:
@@ -557,7 +597,7 @@ static func _radio(on: bool, alpha: float) -> ImageTexture:
 			return Color(0, 0, 0, 0)
 		if on:
 			return _fade(INK if p.distance_to(c) < 3.0 else ACCENT, alpha)
-		return _fade(Color(1, 1, 1, 0.42) if d > -1.4 else Color(0, 0, 0, 0.35), alpha))
+		return _fade(Color(1, 1, 1, 0.20), alpha))
 
 
 ## Switch: a pill with a round knob, right and accent when on, left and grey
@@ -579,17 +619,13 @@ static func _switch(on: bool, alpha: float) -> ImageTexture:
 		return _fade(col, alpha))
 
 
-## Slider knob: a light dot with a dark ring; lit, the ring takes the accent.
+## Slider knob: a plain light dot; lit (hovered or dragged), the accent.
 static func _knob(lit: bool, alpha := 1.0) -> ImageTexture:
-	const S := 18
+	const S := 16
 	var c := Vector2(S, S) * 0.5
-	var ring := ACCENT if lit else Color(0.08, 0.10, 0.14, 0.9)
-	var face := Color.WHITE if lit else Color(0.90, 0.92, 0.95)
+	var face := ACCENT if lit else Color(0.90, 0.92, 0.95)
 	return _raster(S, S, func(p: Vector2) -> Color:
-		var r := p.distance_to(c)
-		if r > 8.0:
-			return Color(0, 0, 0, 0)
-		return _fade(face if r < 6.0 else ring, alpha))
+		return _fade(face, alpha) if p.distance_to(c) < 6.5 else Color(0, 0, 0, 0))
 
 
 ## A chevron, pointing down, or right for a submenu.

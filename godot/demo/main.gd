@@ -991,13 +991,10 @@ func _apply_shell_theme() -> void:
 	for child in ui.get_children():
 		_theme_top_level(child)
 	ui.child_entered_tree.connect(_theme_top_level)
-	# The strip behind the bar: full width and square, with only a hairline
-	# along its bottom edge, so it reads as the top of the window rather than as
-	# one more floating card.
-	var strip := ShellTheme.glass(_bar_back, ShellTheme.GLASS_BAR, ShellTheme.BAR, 0, 0.0)
-	strip.set_border_width_all(0)
-	strip.border_width_bottom = 1
-	strip.border_color = ShellTheme.LINE_STRONG
+	# The strip behind the bar: full width and square (it touches the screen
+	# edges), so it reads as the top of the window rather than as one more
+	# floating card.
+	ShellTheme.glass(_bar_back, ShellTheme.GLASS_BAR, ShellTheme.BAR, 0, 0.0)
 	# A few px of inset so the scroll bar runs inside the rounded rim instead
 	# of along it; the Margin node inside supplies the content padding.
 	ShellTheme.glass(_sidebar, ShellTheme.GLASS_PANEL, ShellTheme.SURFACE,
@@ -1209,10 +1206,9 @@ func _mark_touch_current() -> void:
 
 
 func _touch_current_row_style() -> StyleBoxFlat:
-	var sb := ShellTheme.card(Color(ShellTheme.ACCENT, 0.24), ShellTheme.RADIUS, 6.0,
-			Color(ShellTheme.ACCENT, 0.9))
-	sb.set_border_width_all(2)
-	return sb
+	# The "on" fill, a step stronger than a pressed button: findable in a
+	# list of identical rows without an outline.
+	return ShellTheme.card(Color(ShellTheme.ACCENT, 0.34), ShellTheme.RADIUS, 6.0)
 
 
 ## Opening the panel should land on the sample you are running, not on the top
@@ -1255,8 +1251,7 @@ func _pass_through_for_scroll(node: Node) -> void:
 ## translucent, which reads fine over a desktop scene but looks broken with
 ## the joystick and scene controls underneath.
 func _touch_panel_style() -> StyleBoxFlat:
-	return ShellTheme.card(Color(ShellTheme.SURFACE_SOLID, 1.0), ShellTheme.RADIUS_PANEL,
-			8.0, ShellTheme.LINE)
+	return ShellTheme.card(Color(ShellTheme.SURFACE_SOLID, 1.0), ShellTheme.RADIUS_PANEL, 8.0)
 
 
 func _physics_process(_delta: float) -> void:
@@ -3209,8 +3204,9 @@ func _add_web_notice() -> void:
 	_reset.text = "Reset"
 	var panel := PanelContainer.new()
 	panel.name = "WebNotice"
-	var style := ShellTheme.card(ShellTheme.SURFACE_SOLID, 0, 0.0, ShellTheme.CAUTION)
-	style.set_border_width_all(0)
+	# Square: it spans the window. The amber top stripe is the warning itself.
+	var style := ShellTheme.card(ShellTheme.SURFACE_SOLID, 0, 0.0)
+	style.border_color = ShellTheme.CAUTION
 	style.border_width_top = 2
 	style.content_margin_left = 14.0
 	style.content_margin_right = 8.0

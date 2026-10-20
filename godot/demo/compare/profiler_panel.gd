@@ -198,12 +198,14 @@ func _ready() -> void:
 	# control, glass where the platform has it and a near-opaque card where it
 	# does not (the rows are dense, so it stays darker than the other panels).
 	ShellTheme.backdrop(self, ShellTheme.GLASS_DENSE, Color(ShellTheme.SURFACE, 0.94))
-	_spine_box = ShellTheme.card(accent, 0, 0.0, Color(0, 0, 0, 0))
+	_spine_box = ShellTheme.card(accent, 0, 0.0)
 	_spine_box.corner_radius_top_left = ShellTheme.RADIUS_PANEL
 	_spine_box.corner_radius_bottom_left = ShellTheme.RADIUS_PANEL
-	_btn_box = ShellTheme.card(ShellTheme.FILL, ShellTheme.RADIUS, 0.0, ShellTheme.LINE_STRONG)
-	_btn_on_box = ShellTheme.card(ShellTheme.ACCENT_SOFT, ShellTheme.RADIUS, 0.0, ShellTheme.LINE_STRONG)
-	_tab_on_box = ShellTheme.card(Color(1, 1, 1, 0), ShellTheme.RADIUS, 0.0, Color(0, 0, 0, 0))
+	# Raised fills, no outlines: a lighter step for a button, the accent tint
+	# for one that is on.
+	_btn_box = ShellTheme.card(Color(1, 1, 1, 0.09), ShellTheme.RADIUS, 0.0)
+	_btn_on_box = ShellTheme.card(Color(ShellTheme.ACCENT, 0.26), ShellTheme.RADIUS, 0.0)
+	_tab_on_box = ShellTheme.card(Color(1, 1, 1, 0), ShellTheme.RADIUS, 0.0)
 	var layout := ConfigFile.new()
 	# has_section_key first: ConfigFile treats a null default as "no default was
 	# given" and pushes an engine error, so a file that exists without our
@@ -902,16 +904,14 @@ func _scroll_hint(w: float) -> void:
 
 
 func _button(rect: Rect2, label: String, on: bool, checkbox: bool) -> void:
-	_btn_on_box.border_color = Color(accent, 0.7)
+	_btn_on_box.bg_color = Color(accent, 0.26)
 	draw_style_box(_btn_on_box if on else _btn_box, rect)
 	var tx := rect.position.x + 14.0
 	if checkbox:
 		var box := Rect2(rect.position.x + 8.0, rect.position.y + 6.0,
 				BTN_H - 12.0, BTN_H - 12.0)
-		draw_rect(box, Color(0, 0, 0, 0.4))
-		draw_rect(box, Color(1, 1, 1, 0.42), false, 1.5)
-		if on:
-			draw_rect(box.grow(-3.0), accent)
+		# Same mark as the shell's check boxes: a raised fill off, the accent on.
+		draw_rect(box, accent if on else Color(1, 1, 1, 0.2))
 		tx = box.position.x + box.size.x + 10.0
 	_big(Vector2(tx, rect.position.y + rect.size.y * 0.72), label, SMALL_PX,
 			ShellTheme.TEXT)

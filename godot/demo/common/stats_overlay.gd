@@ -60,7 +60,10 @@ func _ready() -> void:
 	_step_ms.resize(WINDOW)
 	_font = get_theme_default_font()
 	_bold = ShellTheme.bold()
-	_well = ShellTheme.card(Color(0, 0, 0, 0.32), 4, 0.0, ShellTheme.LINE)
+	# Inset PAD (12) inside a 6 px panel: concentric gives nothing, so the
+	# control radius.
+	_well = ShellTheme.card(Color(0, 0, 0, 0.32),
+			ShellTheme.inner_radius(ShellTheme.RADIUS_PANEL, PAD), 0.0)
 	ShellTheme.backdrop(self)
 	var layout := ConfigFile.new()
 	# has_section_key first: ConfigFile reads a null default as "no default was
