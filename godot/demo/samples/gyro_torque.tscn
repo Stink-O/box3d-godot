@@ -1,14 +1,10 @@
 [gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://samples/gyro_torque.gd" id="1_gyro"]
+[ext_resource type="Material" path="res://common/ground_grid.tres" id="ground_grid"]
 
 [sub_resource type="BoxMesh" id="FloorMesh_1"]
-size = Vector3(40, 1, 40)
-
-[sub_resource type="StandardMaterial3D" id="FloorMat_1"]
-albedo_color = Color(0.2, 0.22, 0.26, 1)
-roughness = 0.55
-metallic = 0.1
+size = Vector3(300, 1, 300)
 
 [sub_resource type="CylinderMesh" id="RodMesh"]
 top_radius = 0.15
@@ -33,11 +29,11 @@ substep_count = 8
 [node name="Floor" type="Box3DBody" parent="Box3DWorld"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 body_type = 0
-box_size = Vector3(40, 1, 40)
+box_size = Vector3(300, 1, 300)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
 mesh = SubResource("FloorMesh_1")
-material_override = SubResource("FloorMat_1")
+material_override = ExtResource("ground_grid")
 
 [node name="Handle" type="Box3DBody" parent="Box3DWorld"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 2, 0)

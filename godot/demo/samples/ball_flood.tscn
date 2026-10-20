@@ -2,14 +2,10 @@
 
 [ext_resource type="Script" path="res://samples/ball_flood.gd" id="1_bf"]
 [ext_resource type="PackedScene" path="res://common/emitter.tscn" id="2_emitter"]
-
-[sub_resource type="StandardMaterial3D" id="FloorMat"]
-albedo_color = Color(0.2, 0.22, 0.26, 1)
-metallic = 0.1
-roughness = 0.55
+[ext_resource type="Material" path="res://common/ground_grid.tres" id="ground_grid"]
 
 [sub_resource type="BoxMesh" id="FloorMesh"]
-size = Vector3(26, 1, 26)
+size = Vector3(300, 1, 300)
 
 [sub_resource type="StandardMaterial3D" id="GlassMat"]
 transparency = 1
@@ -31,11 +27,11 @@ worker_count = 8
 
 [node name="Floor" type="Box3DBody" parent="Box3DWorld"]
 body_type = 0
-box_size = Vector3(26, 1, 26)
+box_size = Vector3(300, 1, 300)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
-material_override = SubResource("FloorMat")
+material_override = ExtResource("ground_grid")
 mesh = SubResource("FloorMesh")
 
 [node name="WallN" type="Box3DBody" parent="Box3DWorld"]

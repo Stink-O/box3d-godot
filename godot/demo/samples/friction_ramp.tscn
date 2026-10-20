@@ -1,12 +1,9 @@
 [gd_scene format=3 uid="uid://bjmyskebcudab"]
 
-[sub_resource type="StandardMaterial3D" id="FloorMat"]
-albedo_color = Color(0.2, 0.22, 0.26, 1)
-metallic = 0.1
-roughness = 0.55
+[ext_resource type="Material" path="res://common/ground_grid.tres" id="ground_grid"]
 
 [sub_resource type="BoxMesh" id="FloorMesh"]
-size = Vector3(70, 1, 40)
+size = Vector3(300, 1, 300)
 
 [sub_resource type="StandardMaterial3D" id="RampMat"]
 albedo_color = Color(0.28, 0.3, 0.34, 1)
@@ -44,11 +41,11 @@ roughness = 0.4
 
 [node name="Floor" type="Box3DBody" parent="Box3DWorld" unique_id=1690527343]
 body_type = 0
-box_size = Vector3(70, 1, 40)
+box_size = Vector3(300, 1, 300)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor" unique_id=624723986]
-material_override = SubResource("FloorMat")
+material_override = ExtResource("ground_grid")
 mesh = SubResource("FloorMesh")
 
 [node name="Ramp" type="Box3DBody" parent="Box3DWorld" unique_id=1657518968]

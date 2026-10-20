@@ -1,14 +1,10 @@
 [gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://samples/raycast.gd" id="1_ray"]
-
-[sub_resource type="StandardMaterial3D" id="FloorMat"]
-albedo_color = Color(0.2, 0.22, 0.26, 1)
-roughness = 0.55
-metallic = 0.1
+[ext_resource type="Material" path="res://common/ground_grid.tres" id="ground_grid"]
 
 [sub_resource type="BoxMesh" id="FloorPlate"]
-size = Vector3(30, 1, 30)
+size = Vector3(300, 1, 300)
 
 [sub_resource type="BoxMesh" id="TargetMesh"]
 size = Vector3(1, 2, 1)
@@ -63,7 +59,7 @@ shape_type = 7
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
 mesh = SubResource("FloorPlate")
-material_override = SubResource("FloorMat")
+material_override = ExtResource("ground_grid")
 
 [node name="Emitter" type="Box3DBody" parent="Box3DWorld"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)

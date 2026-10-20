@@ -2,14 +2,10 @@
 
 [ext_resource type="Script" path="res://samples/ragdoll.gd" id="1_rag"]
 [ext_resource type="PackedScene" path="res://common/ragdoll_figure.tscn" id="2_fig"]
+[ext_resource type="Material" path="res://common/ground_grid.tres" id="ground_grid"]
 
 [sub_resource type="BoxMesh" id="FloorMesh"]
-size = Vector3(40, 1, 40)
-
-[sub_resource type="StandardMaterial3D" id="FloorMat"]
-albedo_color = Color(0.2, 0.22, 0.26, 1)
-roughness = 0.55
-metallic = 0.1
+size = Vector3(300, 1, 300)
 
 [node name="Ragdoll" type="Node3D"]
 script = ExtResource("1_rag")
@@ -25,6 +21,6 @@ shape_type = 7
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
 mesh = SubResource("FloorMesh")
-material_override = SubResource("FloorMat")
+material_override = ExtResource("ground_grid")
 
 [node name="Figure" parent="Box3DWorld" instance=ExtResource("2_fig")]

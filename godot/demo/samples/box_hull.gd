@@ -88,7 +88,7 @@ const CASES := [
 const CASE_SPACING := 3.4
 const PAIR_OFFSET := 1.7
 const DROP_HEIGHT := 3.0
-const GROUND_SIZE := Vector3(40.0, 1.0, 40.0)
+const GROUND_SIZE := Vector3(300.0, 1.0, 300.0)
 
 ## Yellow is upstream's colour for the general hull, cyan for the box hull
 ## (samples/sample_geometry.cpp:113-114).
@@ -116,7 +116,7 @@ func _ready() -> void:
 	var ground_mesh := BoxMesh.new()
 	ground_mesh.size = GROUND_SIZE
 	ground_visual.mesh = ground_mesh
-	ground_visual.material_override = _material(Color(0.22, 0.24, 0.27))
+	ground_visual.material_override = preload("res://common/ground_grid.tres")
 	ground.add_child(ground_visual)
 	world.add_child(ground)
 

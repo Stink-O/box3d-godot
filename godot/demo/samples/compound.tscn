@@ -1,9 +1,6 @@
 [gd_scene load_steps=19 format=3]
 
-[sub_resource type="StandardMaterial3D" id="FloorMat"]
-albedo_color = Color(0.2, 0.22, 0.26, 1)
-roughness = 0.55
-metallic = 0.1
+[ext_resource type="Material" path="res://common/ground_grid.tres" id="ground_grid"]
 
 [sub_resource type="StandardMaterial3D" id="WoodMat"]
 albedo_color = Color(0.6, 0.42, 0.26, 1)
@@ -19,7 +16,7 @@ roughness = 0.35
 metallic = 0.5
 
 [sub_resource type="BoxMesh" id="Msh_0"]
-size = Vector3(30, 1, 30)
+size = Vector3(300, 1, 300)
 
 [sub_resource type="BoxMesh" id="Msh_1"]
 size = Vector3(0.25, 1, 0.25)
@@ -78,7 +75,7 @@ shape_type = 7
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
 mesh = SubResource("Msh_0")
-material_override = SubResource("FloorMat")
+material_override = ExtResource("ground_grid")
 
 [node name="Furniture" type="Node3D" parent="Box3DWorld"]
 

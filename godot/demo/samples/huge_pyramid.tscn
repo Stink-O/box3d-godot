@@ -1,11 +1,7 @@
 [gd_scene format=3 uid="uid://dxacp1vuv33uy"]
 
 [ext_resource type="Script" uid="uid://co8u5ap34q2jv" path="res://samples/huge_pyramid.gd" id="1_huge"]
-
-[sub_resource type="StandardMaterial3D" id="FloorMat_1"]
-albedo_color = Color(0.2, 0.22, 0.26, 1)
-metallic = 0.1
-roughness = 0.55
+[ext_resource type="Material" path="res://common/ground_grid.tres" id="ground_grid"]
 
 [sub_resource type="BoxMesh" id="FloorMesh_1"]
 size = Vector3(400, 1, 400)
@@ -28,5 +24,5 @@ box_size = Vector3(400, 1, 400)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor" unique_id=1767964323]
-material_override = SubResource("FloorMat_1")
+material_override = ExtResource("ground_grid")
 mesh = SubResource("FloorMesh_1")

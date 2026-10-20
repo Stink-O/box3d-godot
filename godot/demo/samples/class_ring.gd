@@ -33,7 +33,7 @@ const GEM_DENSITY := 2.0  # the band is 1
 const TILT := deg_to_rad(13.0)
 const SPIN := 100.0  # rad/s about the body's own y axis
 
-const GROUND_EXTENT := 100.0  # Sample::AddGroundBox(100)
+const GROUND_EXTENT := 150.0  # upstream AddGroundBox(100), widened to the demos' 300 m floor
 
 ## Upstream's 960 Hz: 16 steps of 1/960 s per 1/60 s tick, 8 substeps each.
 const STEP_MULTIPLIER := 16
@@ -58,12 +58,9 @@ func _ready() -> void:
 	ground.position = Vector3(0.0, -1.0, 0.0)
 	var ground_visual := MeshInstance3D.new()
 	var gm := BoxMesh.new()
-	gm.size = Vector3(60.0, 2.0, 60.0)  # the collider is 200 m; only draw the near part
+	gm.size = ground.box_size
 	ground_visual.mesh = gm
-	var ground_mat := StandardMaterial3D.new()
-	ground_mat.albedo_color = Color(0.24, 0.27, 0.3)
-	ground_mat.roughness = 0.9
-	ground_visual.material_override = ground_mat
+	ground_visual.material_override = preload("res://common/ground_grid.tres")
 	ground.add_child(ground_visual)
 	_world.add_child(ground)
 

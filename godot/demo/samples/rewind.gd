@@ -47,7 +47,7 @@ extends Node3D
 ## compares them, so a clean replay means the same bytes reproduced the same
 ## simulation. It should never fire here; the label mentions it only if it does.
 
-const GROUND_SIZE := Vector3(40.0, 1.0, 40.0)
+const GROUND_SIZE := Vector3(300.0, 1.0, 300.0)
 
 const BRICK_SIZE := Vector3(0.8, 0.4, 0.5)
 const WALL_COLUMNS := 4
@@ -112,7 +112,9 @@ func _ready() -> void:
 	ground.shape_type = Box3DBody.BOX
 	ground.box_size = GROUND_SIZE
 	ground.position = Vector3(0.0, -0.5 * GROUND_SIZE.y, 0.0)
-	ground.add_child(_box_visual(GROUND_SIZE, Color(0.24, 0.26, 0.29)))
+	var ground_visual := _box_visual(GROUND_SIZE, Color.WHITE)
+	ground_visual.material_override = preload("res://common/ground_grid.tres")
+	ground.add_child(ground_visual)
 	_world.add_child(ground)
 
 	_build_wall()

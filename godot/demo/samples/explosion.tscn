@@ -1,15 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://samples/explosion.gd" id="1_expl"]
 [ext_resource type="PackedScene" path="res://common/cube.tscn" id="2_cube"]
+[ext_resource type="Material" path="res://common/ground_grid.tres" id="ground_grid"]
 
 [sub_resource type="BoxMesh" id="FloorMesh"]
-size = Vector3(40, 1, 40)
-
-[sub_resource type="StandardMaterial3D" id="FloorMat"]
-albedo_color = Color(0.2, 0.22, 0.26, 1)
-roughness = 0.55
-metallic = 0.1
+size = Vector3(300, 1, 300)
 
 [sub_resource type="SphereMesh" id="BombMesh"]
 radius = 0.6
@@ -34,7 +30,7 @@ shape_type = 7
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
 mesh = SubResource("FloorMesh")
-material_override = SubResource("FloorMat")
+material_override = ExtResource("ground_grid")
 
 [node name="Bomb" type="MeshInstance3D" parent="Box3DWorld"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)

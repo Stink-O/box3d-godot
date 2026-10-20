@@ -77,7 +77,7 @@ const BOX_NOISE := 0.001
 const SPACING := 2.8
 const DROP_HEIGHT := 1.8
 const ROLLING_RESISTANCE := 0.3
-const GROUND_SIZE := Vector3(60.0, 1.0, 20.0)
+const GROUND_SIZE := Vector3(300.0, 1.0, 300.0)
 
 var camera_home := Vector3(0.0, 9.5, 17.0)
 var camera_look_at := Vector3(0.0, 0.5, 0.0)
@@ -106,7 +106,7 @@ func _ready() -> void:
 	var ground_mesh := BoxMesh.new()
 	ground_mesh.size = GROUND_SIZE
 	ground_visual.mesh = ground_mesh
-	ground_visual.material_override = _material(Color(0.22, 0.24, 0.27))
+	ground_visual.material_override = preload("res://common/ground_grid.tres")
 	ground.add_child(ground_visual)
 	_world.add_child(ground)
 

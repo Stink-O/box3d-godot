@@ -1,11 +1,7 @@
 [gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://samples/contacts.gd" id="1_con"]
-
-[sub_resource type="StandardMaterial3D" id="FloorMat"]
-albedo_color = Color(0.2, 0.22, 0.26, 1)
-roughness = 0.55
-metallic = 0.1
+[ext_resource type="Material" path="res://common/ground_grid.tres" id="ground_grid"]
 
 [sub_resource type="StandardMaterial3D" id="WallMat"]
 albedo_color = Color(0.32, 0.34, 0.4, 1)
@@ -30,7 +26,7 @@ albedo_color = Color(0.87, 0.35, 0.2, 1)
 roughness = 0.35
 
 [sub_resource type="BoxMesh" id="M_Floor"]
-size = Vector3(20, 1, 20)
+size = Vector3(300, 1, 300)
 
 [sub_resource type="BoxMesh" id="M_WallN"]
 size = Vector3(14.5, 2, 0.5)
@@ -57,7 +53,7 @@ shape_type = 7
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
 mesh = SubResource("M_Floor")
-material_override = SubResource("FloorMat")
+material_override = ExtResource("ground_grid")
 
 [node name="WallN" type="Box3DBody" parent="Box3DWorld"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -7)

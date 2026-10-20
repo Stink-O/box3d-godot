@@ -1,14 +1,10 @@
 [gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://samples/weeble.gd" id="1_weeble"]
+[ext_resource type="Material" path="res://common/ground_grid.tres" id="ground_grid"]
 
 [sub_resource type="BoxMesh" id="FloorMesh"]
-size = Vector3(60, 2, 60)
-
-[sub_resource type="StandardMaterial3D" id="FloorMat"]
-albedo_color = Color(0.2, 0.22, 0.26, 1)
-roughness = 0.55
-metallic = 0.1
+size = Vector3(300, 2, 300)
 
 [sub_resource type="CapsuleMesh" id="WeebleMesh"]
 radius = 1.0
@@ -27,11 +23,11 @@ gravity = Vector3(0, -9.8, 0)
 [node name="Floor" type="Box3DBody" parent="Box3DWorld"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
 body_type = 0
-box_size = Vector3(60, 2, 60)
+box_size = Vector3(300, 2, 300)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
 mesh = SubResource("FloorMesh")
-material_override = SubResource("FloorMat")
+material_override = ExtResource("ground_grid")
 
 [node name="Weeble" type="Box3DBody" parent="Box3DWorld"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)

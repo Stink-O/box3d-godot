@@ -15,7 +15,7 @@ extends Node3D
 ## Upstream keys this to 'L' and to an ImGui button; here it is the shell's
 ## Activate button, and firing again replaces the previous bullet.
 
-const GROUND_EXTENT := 50.0  # Sample::AddGroundBox(50)
+const GROUND_EXTENT := 150.0  # upstream AddGroundBox(50), widened to the demos' 300 m floor
 
 const WALL_CENTER := Vector3(-1.0, 4.0, 0.0)  # body at y=-1 + local (-1, 5, 0)
 const WALL_SIZE := Vector3(0.2, 10.0, 20.0)  # b3MakeTransformedBoxHull(0.1, 5, 10)
@@ -49,10 +49,7 @@ func _ready() -> void:
 	ground.shape_type = Box3DBody.BOX
 	ground.box_size = Vector3(2.0 * GROUND_EXTENT, 2.0, 2.0 * GROUND_EXTENT)
 	ground.position = Vector3(0.0, -1.0, 0.0)
-	var ground_mat := StandardMaterial3D.new()
-	ground_mat.albedo_color = Color(0.25, 0.28, 0.3)
-	ground_mat.roughness = 0.9
-	_add_box_visual(ground, ground.box_size, ground_mat)
+	_add_box_visual(ground, ground.box_size, preload("res://common/ground_grid.tres"))
 	world.add_child(ground)
 
 	# The backstop. Upstream hangs it off the same static body as a transformed

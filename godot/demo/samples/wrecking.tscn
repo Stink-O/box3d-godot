@@ -1,14 +1,10 @@
 [gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://samples/wrecking.gd" id="1_wreck"]
+[ext_resource type="Material" path="res://common/ground_grid.tres" id="ground_grid"]
 
 [sub_resource type="BoxMesh" id="FloorMesh"]
-size = Vector3(30, 1, 16)
-
-[sub_resource type="StandardMaterial3D" id="FloorMat"]
-albedo_color = Color(0.2, 0.22, 0.26, 1)
-roughness = 0.55
-metallic = 0.1
+size = Vector3(300, 1, 300)
 
 [sub_resource type="BoxMesh" id="PostMesh"]
 size = Vector3(0.4, 9.6, 0.4)
@@ -60,7 +56,7 @@ shape_type = 7
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box3DWorld/Floor"]
 mesh = SubResource("FloorMesh")
-material_override = SubResource("FloorMat")
+material_override = ExtResource("ground_grid")
 
 [node name="Post" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.8, -2)
