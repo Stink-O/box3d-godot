@@ -1,0 +1,17 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://samples/rope_bridge.gd" id="1_bridge"]
+
+[node name="RopeBridge" type="Node3D"]
+script = ExtResource("1_bridge")
+
+[node name="Box3DWorld" type="Box3DWorld" parent="."]
+substep_count = 8
+
+[node name="Status" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.8, 0)
+billboard = 1
+text = "0 planks, deck sag 0.00 m"
+font_size = 32
+outline_size = 10
+modulate = Color(1, 0.95, 0.4, 1)

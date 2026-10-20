@@ -112,6 +112,7 @@ func _ready() -> void:
 	await _test_sample_fidelity()
 	await _test_safety_factor_sample()
 	await _test_spinning_capsule_sample()
+	await _test_rope_bridge_sample()
 	await _test_body_cast_sample()
 	await _test_mover_toi_sample()
 	await _test_capsule_plane_sample()
@@ -7509,3 +7510,37 @@ func _test_blast_calibration() -> void:
 		is_equal_approx(fx._calibration_scale(0.032, 9.0) * 0.032, 6.0))
 	_check("the cap binds before the floor is reached",
 		fx._calibration_scale(0.0023, 9.0) == 1000.0)
+
+
+## Rope Bridge: the deck hangs on taut-only distance joints cut Prestretch
+## short of the gaps they span, so it settles near the curve it is laid in;
+## uncut ropes let it drop deeper. A crate dropped on the span is caught.
+func _rope_bridge_after(prestretch: float, frames: int, crate: bool) -> Array:
+	var inst: Node = (load("res://samples/rope_bridge.tscn") as PackedScene).instantiate()
+	inst.set_sample_size("prestretch", prestretch)
+	add_child(inst)
+	for i in range(frames):
+		await get_tree().physics_frame
+	var crate_y := INF
+	if crate:
+		inst.activate()
+		for i in range(240):
+			await get_tree().physics_frame
+		crate_y = (inst.get_node("Box3DWorld/Crate") as Node3D).global_position.y
+	var out := [inst.plank_count(), inst.deck_sag(), crate_y]
+	inst.queue_free()
+	await get_tree().physics_frame
+	return out
+
+
+func _test_rope_bridge_sample() -> void:
+	var cut: Array = await _rope_bridge_after(0.008, 240, true)
+	var uncut: Array = await _rope_bridge_after(0.0, 240, false)
+	_check("Rope Bridge: the deck is laid as %d planks" % cut[0], cut[0] > 25 and cut[0] < 45)
+	_check("Rope Bridge: prestretched ropes hold the deck near its 0.5 m curve (sag %.2f m)" % cut[1],
+		cut[1] > 0.3 and cut[1] < 0.9)
+	_check("Rope Bridge: uncut ropes let it hang deeper (sag %.2f m vs %.2f m)" % [uncut[1], cut[1]],
+		uncut[1] > cut[1] + 0.05)
+	_check("Rope Bridge: a crate dropped on the span is caught by the deck (y %.2f)" % cut[2],
+		cut[2] > -2.5 and cut[2] < 0.5)
+

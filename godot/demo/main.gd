@@ -62,6 +62,7 @@ const SAMPLES := {
 	"Dynamics": {
 		"Dominoes": "res://samples/dominoes.tscn",
 		"Bridge": "res://samples/bridge.tscn",
+		"Rope Bridge": "res://samples/rope_bridge.tscn",
 		"Ragdoll": "res://samples/ragdoll.tscn",
 		"Ragdoll Pile": "res://samples/ragdoll_pile.tscn",
 		"Motorized": "res://samples/motor.tscn",
@@ -185,6 +186,7 @@ const DESCRIPTIONS := {
 	"Ball Flood": "Three emitters hose balls into a tank as fast as they can fire and nothing is ever recycled, so the body count only climbs. The body count readout is the point.",
 	"Dominoes": "A line of slabs toppled by a nudge to the first one. Reset to run it again.",
 	"Bridge": "A plank bridge on hinge joints that sags under whatever crosses it.",
+	"Rope Bridge": "A plank deck slung across a 14 m ravine on taut-only ropes: distance joints that can go slack but never stretch, cut a few millimetres short so the deck holds its curve. Netting is welded along both edges and two hand ropes of capsule links hang from the posts. Activate drops a crate onto the span.",
 	"Ragdoll": "A jointed figure of capsules linked by ball joints with cone and twist limits, so it collapses like a body rather than a bag of parts.",
 	"Ragdoll Pile": "Twenty of upstream's capsule ragdolls dropped together onto a mesh floor. Spines, necks, shoulders and hips are limited ball joints, elbows and knees limited hinges, all with a little joint friction, so they land in a tangled heap that settles and sleeps.",
 	"Motorized": "Hinge motors driving a turntable and a windmill. The turntable's riders slide off as it spins up; the motor holds its speed against their weight.",
@@ -277,6 +279,7 @@ const USE_CASES := {
 	"Ball Flood": "Finding the body count where your target hardware gives up",
 	"Dominoes": "Chain-reaction puzzles and toppling set pieces",
 	"Bridge": "Rope bridges and planks that sag under whatever crosses them",
+	"Rope Bridge": "Rope bridges, cargo nets and hanging walkways built from slack-capable ropes",
 	"Ragdoll": "Ragdolls that collapse like a body when a character dies",
 	"Ragdoll Pile": "Battlefields and crowd scenes where many ragdolls land on top of each other",
 	"Motorized": "Turntables, windmills and powered machinery that holds its speed",
