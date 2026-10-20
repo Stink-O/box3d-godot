@@ -457,6 +457,7 @@ const ENGINE_ACCENTS := {
 @onready var _set_start_btn: Button = $UI/Sidebar/Margin/VBox/StartViewRow/SetStartView
 @onready var _clear_start_btn: Button = $UI/Sidebar/Margin/VBox/StartViewRow/ClearStartView
 @onready var _bar: HBoxContainer = $UI/Bar
+@onready var _bar_back: Panel = $UI/BarBack
 
 ## Start views saved at runtime with the sidebar's "Set Start View" button,
 ## keyed by sample scene path. Highest-priority spawn view, survives restarts.
@@ -568,6 +569,7 @@ func _ready() -> void:
 	# kill -9 from leaving the demo silently switched to another engine.
 	_sweep_override()
 	_parse_engine_arg()
+	_apply_shell_theme()  # before _setup_touch: it moves the sidebar off the UI layer
 	_make_sidebar_scrollable()  # before _setup_touch: touch layers onto _side_scroll
 	_setup_touch()
 	_build_menu()
@@ -690,6 +692,10 @@ func _ready() -> void:
 	_restore_overlay_state()
 	_take_sticky_handoff()  # sidebar edits carried across an engine switch
 	_add_web_notice()
+	# Last, so it sees every row the builders above added.
+	_strip_focus($UI)
+	if _touch_layer != null:
+		_strip_focus(_touch_layer)
 
 	# `-- --sample=Ragdoll` (case-insensitive) opens straight to that sample.
 	# `-- --profiler` opens with the solver profiler already up, so a recording
@@ -826,6 +832,7 @@ func _restart_with_engine(id: String) -> void:
 	_restarting = true
 	_engine_option.disabled = true
 	_info.text = "Switching to %s   ·   restarting the demo..." % ENGINE_TITLES[id]
+	_info.add_theme_color_override("font_color", ShellTheme.ACCENT_TEXT)
 	_info_flash_id += 1  # nothing should overwrite that message now
 	# Order matters: a platform that cannot relaunch must not be left holding an
 	# override.cfg that would switch the engine behind the user's back.
@@ -975,6 +982,52 @@ func _update_engine_note() -> void:
 	_engine_note.visible = true
 
 
+## One Theme for the whole shell (common/ui_theme.gd). The UI CanvasLayer does
+## not hand a theme down to its children, so every top-level control gets it
+## directly, and anything the shell parents there later (the replay timeline,
+## the web notice) picks it up on arrival.
+func _apply_shell_theme() -> void:
+	var ui: CanvasLayer = $UI
+	for child in ui.get_children():
+		_theme_top_level(child)
+	ui.child_entered_tree.connect(_theme_top_level)
+	# The strip behind the bar: full width and square, with only a hairline
+	# along its bottom edge, so it reads as the top of the window rather than as
+	# one more floating card.
+	var strip := ShellTheme.glass(_bar_back, ShellTheme.GLASS_BAR, ShellTheme.BAR, 0, 0.0)
+	strip.set_border_width_all(0)
+	strip.border_width_bottom = 1
+	strip.border_color = ShellTheme.LINE_STRONG
+	# A few px of inset so the scroll bar runs inside the rounded rim instead
+	# of along it; the Margin node inside supplies the content padding.
+	ShellTheme.glass(_sidebar, ShellTheme.GLASS_PANEL, ShellTheme.SURFACE,
+			ShellTheme.RADIUS_PANEL, 4.0)
+
+
+func _theme_top_level(node: Node) -> void:
+	if node is Control and (node as Control).theme == null:
+		(node as Control).theme = ShellTheme.theme()
+		# A control added after _ready (the replay timeline) builds its rows in
+		# its own _ready, which runs after this signal: sweep once it has.
+		if is_node_ready():
+			_strip_focus.call_deferred(node)
+
+
+## No shell control keeps keyboard focus: a click would otherwise leave a
+## button holding it, and the next W A S D or F would go to the button instead
+## of the camera or the sample. Text fields are the exception (a SpinBox's
+## LineEdit has to take focus to be typed in; _input hands it back on the next
+## click elsewhere). Walks internal children too, which is where a
+## ScrollContainer keeps its scroll bars.
+func _strip_focus(node: Node) -> void:
+	for child in node.get_children(true):
+		if child is SpinBox or child is LineEdit or child is TextEdit:
+			continue
+		if child is BaseButton or child is Range or child is ScrollContainer:
+			(child as Control).focus_mode = Control.FOCUS_NONE
+		_strip_focus(child)
+
+
 ## Phones/tablets: scale the whole UI up to a readable physical size, and add
 ## the touch overlay (virtual joystick / SHOOT / JUMP -- touch_controls.gd).
 ## Desktop has no touchscreen, so none of this runs there and the demo is
@@ -1078,6 +1131,7 @@ func _setup_touch_sample_picker() -> void:
 	_sample_panel.offset_right = 384.0
 	_sample_panel.offset_bottom = -12.0
 	_sample_panel.add_theme_stylebox_override("panel", _touch_panel_style())
+	_sample_panel.theme = ShellTheme.theme()
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.scroll_deadzone = 24
@@ -1094,7 +1148,7 @@ func _setup_touch_sample_picker() -> void:
 		head.focus_mode = Control.FOCUS_NONE
 		head.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		head.custom_minimum_size = Vector2(0.0, 44.0)
-		head.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
+		head.theme_type_variation = &"FlatButton"
 		vbox.add_child(head)
 		var section := VBoxContainer.new()
 		section.visible = false
@@ -1147,7 +1201,7 @@ func _mark_touch_current() -> void:
 		var row: Button = _touch_rows[sample_name]
 		if sample_name == _current_name:
 			row.add_theme_stylebox_override("normal", _touch_current_row_style())
-			row.add_theme_color_override("font_color", Color(1, 1, 1))
+			row.add_theme_color_override("font_color", Color.WHITE)
 		else:
 			row.remove_theme_stylebox_override("normal")
 			row.remove_theme_color_override("font_color")
@@ -1155,12 +1209,9 @@ func _mark_touch_current() -> void:
 
 
 func _touch_current_row_style() -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.16, 0.34, 0.46, 0.85)
-	sb.border_color = Color(0.45, 0.82, 1.0, 0.95)
+	var sb := ShellTheme.card(Color(ShellTheme.ACCENT, 0.24), ShellTheme.RADIUS, 6.0,
+			Color(ShellTheme.ACCENT, 0.9))
 	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(4)
-	sb.set_content_margin_all(6)
 	return sb
 
 
@@ -1200,18 +1251,12 @@ func _pass_through_for_scroll(node: Node) -> void:
 		_pass_through_for_scroll(child)
 
 
-## Solid panel background for the mobile overlays. The theme default is
+## Solid panel background for the mobile overlays. The desktop panels are
 ## translucent, which reads fine over a desktop scene but looks broken with
 ## the joystick and scene controls underneath.
 func _touch_panel_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.12, 0.14, 0.18, 1.0)
-	style.set_corner_radius_all(10)
-	style.content_margin_left = 8.0
-	style.content_margin_top = 8.0
-	style.content_margin_right = 8.0
-	style.content_margin_bottom = 8.0
-	return style
+	return ShellTheme.card(Color(ShellTheme.SURFACE_SOLID, 1.0), ShellTheme.RADIUS_PANEL,
+			8.0, ShellTheme.LINE)
 
 
 func _physics_process(_delta: float) -> void:
@@ -1396,8 +1441,8 @@ func _build_sample_blurb() -> void:
 	_sample_blurb_toggle.flat = true
 	_sample_blurb_toggle.focus_mode = Control.FOCUS_NONE
 	_sample_blurb_toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_sample_blurb_toggle.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
-	_sample_blurb_toggle.add_theme_font_size_override("font_size", 13)
+	_sample_blurb_toggle.theme_type_variation = &"FlatButton"
+	_sample_blurb_toggle.add_theme_font_size_override("font_size", ShellTheme.FONT_SMALL)
 	# The two labels ride together in a margin container: one show/hide for the
 	# whole block, and a few px of air before the controls under it.
 	var box := MarginContainer.new()
@@ -1412,14 +1457,12 @@ func _build_sample_blurb() -> void:
 	_sample_blurb = Label.new()
 	_sample_blurb.name = "SampleBlurb"
 	_sample_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_sample_blurb.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
-	_sample_blurb.add_theme_font_size_override("font_size", 13)
+	_sample_blurb.theme_type_variation = &"MutedLabel"
 	text_vbox.add_child(_sample_blurb)
 	_sample_use_case = Label.new()
 	_sample_use_case.name = "SampleUseCase"
 	_sample_use_case.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_sample_use_case.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
-	_sample_use_case.add_theme_font_size_override("font_size", 12)
+	_sample_use_case.theme_type_variation = &"HintLabel"
 	_sample_use_case.visible = false
 	text_vbox.add_child(_sample_use_case)
 	_sample_blurb_toggle.toggled.connect(func(pressed: bool) -> void:
@@ -1492,8 +1535,7 @@ func _build_sample_size_box() -> void:
 	_sample_size_hint = Label.new()
 	_sample_size_hint.name = "SampleSizeHint"
 	_sample_size_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_sample_size_hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
-	_sample_size_hint.add_theme_font_size_override("font_size", 11)
+	_sample_size_hint.theme_type_variation = &"HintLabel"
 
 	_sample_size_timer = Timer.new()
 	_sample_size_timer.name = "SampleSizeTimer"
@@ -1652,6 +1694,8 @@ func _build_record_section() -> void:
 	box.add_child(HSeparator.new())
 	var title := Label.new()
 	title.text = "Recording"
+	title.uppercase = true
+	title.theme_type_variation = &"HeaderLabel"
 	box.add_child(title)
 
 	var arm := HBoxContainer.new()
@@ -1686,11 +1730,11 @@ func _build_record_section() -> void:
 	var status_row := HBoxContainer.new()
 	status_row.name = "RecordStatusRow"
 	status_row.add_theme_constant_override("separation", 6)
-	_record_spinner = ShellSpinner.make(16.0, Color(0.35, 0.85, 0.6))
+	_record_spinner = ShellSpinner.make(16.0, ShellTheme.GOOD)
 	status_row.add_child(_record_spinner)
 	_record_status = Label.new()
 	_record_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_record_status.add_theme_font_size_override("font_size", 12)
+	_record_status.add_theme_font_size_override("font_size", ShellTheme.FONT_SMALL)
 	_record_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	status_row.add_child(_record_status)
 	_record_status_row = status_row
@@ -1729,12 +1773,13 @@ func _build_record_section() -> void:
 	_rec_pill = Label.new()
 	_rec_pill.name = "RecPill"
 	_rec_pill.visible = false
-	_rec_pill.add_theme_color_override("font_color", Color(1.0, 0.42, 0.42))
+	_rec_pill.theme_type_variation = &"PillLabel"
+	_rec_pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_bar.add_child(_rec_pill)
 	# F-048: the top bar carries the SAVING state too, for the same reason it
 	# carries the REC one -- the sidebar starts closed, and "why is the Stop
 	# button gone?" must be answerable without opening it.
-	_rec_spinner = ShellSpinner.make(16.0, Color(1.0, 0.42, 0.42))
+	_rec_spinner = ShellSpinner.make(16.0, ShellTheme.RECORD)
 	_rec_spinner.name = "RecSpinner"
 	_bar.add_child(_rec_spinner)
 
@@ -1837,7 +1882,7 @@ func _update_record_ui() -> void:
 	# Probed here rather than per frame: it is a stat() on a remembered path.
 	_record_last_btn.disabled = ShellRecorder.last_path().is_empty()
 	if replaying:
-		_record_status.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
+		_record_status.add_theme_color_override("font_color", ShellTheme.TEXT_MUTED)
 		_record_status.text = "Replaying. Close the timeline to come back to the sample."
 		_record_status_row.visible = true
 		_record_spinner.visible = false
@@ -1846,7 +1891,7 @@ func _update_record_ui() -> void:
 		# Deliberately the SAME green the live indicator uses: this is the tail
 		# of the recording, not a new kind of event, and the spinner is what
 		# says it is still going.
-		_record_status.add_theme_color_override("font_color", Color(0.35, 0.85, 0.6))
+		_record_status.add_theme_color_override("font_color", ShellTheme.GOOD)
 		_record_status.text = "Saving the recording..."
 		_record_status_row.visible = true
 		_record_spinner.visible = true
@@ -1854,15 +1899,15 @@ func _update_record_ui() -> void:
 		return
 	_record_spinner.visible = false
 	if live:
-		_record_status.add_theme_color_override("font_color", Color(0.35, 0.85, 0.6))
+		_record_status.add_theme_color_override("font_color", ShellTheme.GOOD)
 		_record_status.text = _recorder.status_text()
 		_record_status_row.visible = true
 	elif not _recorder.last_error.is_empty():
-		_record_status.add_theme_color_override("font_color", Color(1.0, 0.5, 0.45))
+		_record_status.add_theme_color_override("font_color", ShellTheme.ALERT)
 		_record_status.text = "Not saved: %s" % _recorder.last_error
 		_record_status_row.visible = true
 	elif not _recorder.last_saved.is_empty():
-		_record_status.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
+		_record_status.add_theme_color_override("font_color", ShellTheme.TEXT_MUTED)
 		_record_status.text = "Saved %s" % _recorder.last_saved.get_file()
 		_record_status_row.visible = true
 	else:
@@ -2205,12 +2250,14 @@ func _flash_info(msg: String) -> void:
 	_info_flash_id += 1
 	var id := _info_flash_id
 	_info.text = msg
+	_info.add_theme_color_override("font_color", ShellTheme.ACCENT_TEXT)
 	await get_tree().create_timer(3.0).timeout
 	if id == _info_flash_id:
 		_show_controls_hint()
 
 
 func _show_controls_hint() -> void:
+	_info.remove_theme_color_override("font_color")
 	if _touch != null:
 		_info.text = "%s      Stick: move   ·   Drag: look   ·   Touch a body: grab   ·   Two fingers: zoom / pan" % _current_name
 	else:
@@ -3003,6 +3050,7 @@ func _set_revert_baseline(ctrl: Control, value: Variant) -> void:
 func _add_revert(ctrl: Control, follows_scene := false) -> void:
 	var btn := Button.new()
 	btn.text = "\u27F2"
+	btn.theme_type_variation = &"FlatButton"
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.visible = false
 	btn.tooltip_text = "Back to this sample's value, and follow each scene again" \
@@ -3161,9 +3209,7 @@ func _add_web_notice() -> void:
 	_reset.text = "Reset"
 	var panel := PanelContainer.new()
 	panel.name = "WebNotice"
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.09, 0.12, 0.92)
-	style.border_color = Color(1.0, 0.78, 0.42, 0.9)
+	var style := ShellTheme.card(ShellTheme.SURFACE_SOLID, 0, 0.0, ShellTheme.CAUTION)
 	style.set_border_width_all(0)
 	style.border_width_top = 2
 	style.content_margin_left = 14.0
@@ -3203,7 +3249,7 @@ func _add_web_notice() -> void:
 
 	var close := Button.new()
 	close.text = "X"
-	close.flat = true
+	close.theme_type_variation = &"FlatButton"
 	close.focus_mode = Control.FOCUS_NONE
 	close.pressed.connect(panel.queue_free)
 	row.add_child(close)
