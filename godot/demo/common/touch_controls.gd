@@ -106,6 +106,7 @@ func _ready() -> void:
 	_keys_box.offset_bottom = -40.0
 	_keys_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_keys_box.add_theme_constant_override("separation", 24)
+	_keys_box.theme = ShellTheme.theme()
 	add_child(_keys_box)
 
 
@@ -122,7 +123,13 @@ func _make_button(label: String, offset: Vector2, size: Vector2) -> Button:
 	b.offset_right = offset.x + size.x
 	b.offset_bottom = offset.y + size.y
 	b.add_theme_font_size_override("font_size", 26)
-	b.self_modulate = Color(1, 1, 1, 0.85)
+	# The shell's theme, in its floating-button form: these sit straight on
+	# the scene with no panel behind them, so they carry their own surface.
+	# Sizes are untouched; only the look changes.
+	b.theme = ShellTheme.theme()
+	b.theme_type_variation = &"TouchButton"
+	b.add_theme_font_override("font", ShellTheme.bold())
+	b.self_modulate = Color(1, 1, 1, 0.92)
 	add_child(b)
 	return b
 
@@ -144,7 +151,8 @@ func set_sample(path: String) -> void:
 		pill.focus_mode = Control.FOCUS_NONE
 		pill.custom_minimum_size = Vector2(210.0, 72.0)
 		pill.add_theme_font_size_override("font_size", 24)
-		pill.self_modulate = Color(1, 1, 1, 0.85)
+		pill.theme_type_variation = &"TouchButton"
+		pill.self_modulate = Color(1, 1, 1, 0.92)
 		var keycode: Key = entry[1]
 		# A tap = one press+release, like striking the key.
 		pill.pressed.connect(func():
@@ -293,7 +301,8 @@ func _exit_tree() -> void:
 
 func _draw_joystick() -> void:
 	var c := _joy_centre()
-	_joy.draw_circle(c, JOY_RADIUS, Color(1, 1, 1, 0.10))
-	_joy.draw_arc(c, JOY_RADIUS, 0.0, TAU, 48, Color(1, 1, 1, 0.35), 3.0)
+	_joy.draw_circle(c, JOY_RADIUS, Color(ShellTheme.SURFACE, 0.45))
+	_joy.draw_arc(c, JOY_RADIUS, 0.0, TAU, 48, Color(1, 1, 1, 0.36), 3.0)
 	var knob := c + _joy_vector * JOY_RADIUS * 0.75
-	_joy.draw_circle(knob, JOY_KNOB, Color(1, 1, 1, 0.45 if _joy_active else 0.25))
+	_joy.draw_circle(knob, JOY_KNOB,
+			Color(ShellTheme.ACCENT, 0.75) if _joy_active else Color(1, 1, 1, 0.3))

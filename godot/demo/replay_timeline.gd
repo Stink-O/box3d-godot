@@ -309,14 +309,13 @@ func _ready() -> void:
 	offset_right = -12.0
 	offset_top = -104.0
 	offset_bottom = -12.0
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.09, 0.12, 0.94)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 12.0
-	style.content_margin_right = 12.0
-	style.content_margin_top = 8.0
+	# The shell's panel (ShellTheme): glass on desktop Forward+, a translucent
+	# card elsewhere, on the same footprint the bar has always had.
+	var style := ShellTheme.glass(self)
+	style.content_margin_left = 14.0
+	style.content_margin_right = 14.0
+	style.content_margin_top = 10.0
 	style.content_margin_bottom = 8.0
-	add_theme_stylebox_override("panel", style)
 	_build()
 	set_process(true)
 
@@ -435,8 +434,8 @@ func _build() -> void:
 	row.add_child(index_row)
 
 	_readout = Label.new()
-	_readout.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
-	_readout.add_theme_font_size_override("font_size", 12)
+	_readout.add_theme_color_override("font_color", ShellTheme.TEXT_FAINT)
+	_readout.add_theme_font_size_override("font_size", ShellTheme.FONT_SMALL - 1)
 	_readout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_readout.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	row.add_child(_readout)
