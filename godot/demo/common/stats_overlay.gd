@@ -3,12 +3,13 @@ extends Control
 ## Performance overlay: live FPS + frame-time graph and engine stats, toggled
 ## from the Settings sidebar. Self-measured wall-clock frame deltas drive the
 ## graph (Godot's TIME_* monitors only refresh once a second, so those lines
-## are labelled as 1 s averages). Draws itself; no children, no theme deps.
+## are labelled as 1 s averages). Draws its own content over a shell panel
+## (ShellTheme.backdrop: glass on desktop Forward+, a translucent card elsewhere).
 ## Drag anywhere on the panel to move it (the position is remembered).
 
 const WINDOW := 240  ## frames kept in the graph / percentile window
 const GRAPH_H := 64.0
-const PAD := 10.0
+const PAD := 12.0
 const LINE_H := 20.0
 const LAYOUT_PATH := "user://ui.cfg"  ## remembers the dragged position
 
@@ -37,6 +38,8 @@ var _text_timer := 0.0
 var _lines: PackedStringArray = []
 var _fps_text := ""
 var _font: Font
+var _bold: Font
+var _well: StyleBoxFlat  ## the graph's sunken box, built once (drawn every frame)
 var _dragging := false
 var _hover := false
 
@@ -56,6 +59,9 @@ func _ready() -> void:
 	_times.resize(WINDOW)
 	_step_ms.resize(WINDOW)
 	_font = get_theme_default_font()
+	_bold = ShellTheme.bold()
+	_well = ShellTheme.card(Color(0, 0, 0, 0.32), 4, 0.0, ShellTheme.LINE)
+	ShellTheme.backdrop(self)
 	var layout := ConfigFile.new()
 	# has_section_key first: ConfigFile reads a null default as "no default was
 	# given" and pushes an engine error, so a ui.cfg that exists WITHOUT this
@@ -267,31 +273,32 @@ func _draw_move_icon(center: Vector2, r: float, color: Color) -> void:
 
 ## Text with a 1 px drop shadow so it stays readable over bright scenes even
 ## through the translucent panel.
-func _shadowed(pos: Vector2, text: String, px: int, color: Color) -> void:
-	draw_string(_font, pos + Vector2.ONE, text,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, px, Color(0, 0, 0, 0.7))
-	draw_string(_font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, px, color)
+func _shadowed(pos: Vector2, text: String, px: int, color: Color, font: Font = null) -> void:
+	var f := _font if font == null else font
+	draw_string(f, pos + Vector2.ONE, text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, px, Color(0, 0, 0, 0.5))
+	draw_string(f, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, px, color)
 
 
 func _draw() -> void:
 	var w := size.x
 	var h := PAD * 2.0 + (_lines.size() + 1) * LINE_H + 30.0 + GRAPH_H
-	draw_rect(Rect2(0, 0, w, h), Color(0.05, 0.06, 0.08, 0.85))
+	# The panel itself is the Backdrop child (ShellTheme.backdrop), drawn behind.
 
 	var y := PAD + 24.0
-	_shadowed(Vector2(PAD, y), _fps_text, 24, Color(1, 1, 1, 0.95))
+	_shadowed(Vector2(PAD, y), _fps_text, 24, ShellTheme.TEXT, _bold)
 	# Move-grip icon in the corner: a quiet reminder the panel is draggable.
 	# (Drawn, not a font glyph — the default font has no move-grip glyph.)
-	_draw_move_icon(Vector2(w - PAD - 10.0, PAD + 14.0), 9.0, Color(1, 1, 1, 0.4))
+	_draw_move_icon(Vector2(w - PAD - 10.0, PAD + 14.0), 9.0, Color(ShellTheme.TEXT_FAINT, 0.8))
 	y += 10.0
 	for line in _lines:
 		y += LINE_H
-		_shadowed(Vector2(PAD, y), line, 14, Color(0.88, 0.91, 0.95, 0.95))
+		_shadowed(Vector2(PAD, y), line, 14, ShellTheme.TEXT)
 
 	# --- Frame-time graph: one bar per frame, newest at the right edge. ---
 	var gy := h - PAD - GRAPH_H
 	var gw := w - PAD * 2.0
-	draw_rect(Rect2(PAD, gy, gw, GRAPH_H), Color(0, 0, 0, 0.35))
+	draw_style_box(_well, Rect2(PAD, gy, gw, GRAPH_H))
 
 	# Vertical scale: at least two 60 Hz budgets tall, growing to fit spikes.
 	var peak := 0.0
@@ -314,13 +321,13 @@ func _draw() -> void:
 		for i in _count:
 			var t := _times[(_head - _count + i + WINDOW) % WINDOW]
 			var frac := clampf(t / graph_max, 0.0, 1.0)
-			var color := Color(0.35, 0.85, 0.45, 0.9)  # within refresh budget
+			var color := Color(ShellTheme.GOOD, 0.9)  # within refresh budget
 			if t > 33.33:
-				color = Color(0.95, 0.30, 0.25, 0.95)
+				color = Color(ShellTheme.RECORD, 0.95)
 			elif t > 16.67:
-				color = Color(0.95, 0.62, 0.20, 0.95)
+				color = Color(ShellTheme.ALERT, 0.95)
 			elif t > budget_ms + 0.5:
-				color = Color(0.90, 0.88, 0.35, 0.9)
+				color = Color(ShellTheme.CAUTION, 0.9)
 			var x := PAD + gw - (_count - i) * bar_w
 			draw_rect(Rect2(x, gy + GRAPH_H * (1.0 - frac), bar_w, GRAPH_H * frac), color)
 

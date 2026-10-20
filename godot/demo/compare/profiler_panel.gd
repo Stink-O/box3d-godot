@@ -127,6 +127,11 @@ var _counter_tick := 0
 var _show_plots := false
 var _tab := TAB_PROFILE
 var _font: Font
+## The shell's panel boxes (ShellTheme), built once: _draw runs every frame.
+var _spine_box: StyleBoxFlat
+var _btn_box: StyleBoxFlat
+var _btn_on_box: StyleBoxFlat
+var _tab_on_box: StyleBoxFlat
 var _dragging := false
 var _resizing := false
 var _grip_hover := false
@@ -189,6 +194,16 @@ func _ready() -> void:
 	# A pointer that leaves the panel mid-hover would otherwise leave the grip lit.
 	mouse_exited.connect(_clear_grip_hover)
 	_font = get_theme_default_font()
+	# The panel body is the shell's: a Backdrop child painted behind this
+	# control, glass where the platform has it and a near-opaque card where it
+	# does not (the rows are dense, so it stays darker than the other panels).
+	ShellTheme.backdrop(self, ShellTheme.GLASS_DENSE, Color(ShellTheme.SURFACE, 0.94))
+	_spine_box = ShellTheme.card(accent, 0, 0.0, Color(0, 0, 0, 0))
+	_spine_box.corner_radius_top_left = ShellTheme.RADIUS_PANEL
+	_spine_box.corner_radius_bottom_left = ShellTheme.RADIUS_PANEL
+	_btn_box = ShellTheme.card(ShellTheme.FILL, ShellTheme.RADIUS, 0.0, ShellTheme.LINE_STRONG)
+	_btn_on_box = ShellTheme.card(ShellTheme.ACCENT_SOFT, ShellTheme.RADIUS, 0.0, ShellTheme.LINE_STRONG)
+	_tab_on_box = ShellTheme.card(Color(1, 1, 1, 0), ShellTheme.RADIUS, 0.0, Color(0, 0, 0, 0))
 	var layout := ConfigFile.new()
 	# has_section_key first: ConfigFile treats a null default as "no default was
 	# given" and pushes an engine error, so a file that exists without our
@@ -887,20 +902,19 @@ func _scroll_hint(w: float) -> void:
 
 
 func _button(rect: Rect2, label: String, on: bool, checkbox: bool) -> void:
-	var edge := accent if on else Color(1, 1, 1, 0.35)
-	draw_rect(rect, Color(0.11, 0.13, 0.17, 0.95))
-	draw_rect(rect, edge, false, 2.0)
+	_btn_on_box.border_color = Color(accent, 0.7)
+	draw_style_box(_btn_on_box if on else _btn_box, rect)
 	var tx := rect.position.x + 14.0
 	if checkbox:
 		var box := Rect2(rect.position.x + 8.0, rect.position.y + 6.0,
 				BTN_H - 12.0, BTN_H - 12.0)
-		draw_rect(box, Color(0, 0, 0, 0.5))
-		draw_rect(box, Color(1, 1, 1, 0.5), false, 2.0)
+		draw_rect(box, Color(0, 0, 0, 0.4))
+		draw_rect(box, Color(1, 1, 1, 0.42), false, 1.5)
 		if on:
-			draw_rect(box.grow(-4.0), accent)
+			draw_rect(box.grow(-3.0), accent)
 		tx = box.position.x + box.size.x + 10.0
 	_big(Vector2(tx, rect.position.y + rect.size.y * 0.72), label, SMALL_PX,
-			Color(0.92, 0.95, 1.0, 0.95))
+			ShellTheme.TEXT)
 
 
 # --- Draw -------------------------------------------------------------------
@@ -916,9 +930,9 @@ func _draw() -> void:
 
 	var w := _panel_size.x
 	var h := _panel_size.y
-	draw_rect(Rect2(0, 0, w, h), Color(0.03, 0.04, 0.06, 0.94))
-	draw_rect(Rect2(0, 0, w, h), Color(1, 1, 1, 0.10), false, 2.0)
-	draw_rect(Rect2(0, 0, 8.0, h), accent)  # engine-colored spine
+	# The panel body is the Backdrop child (see _ready); this paints over it.
+	_spine_box.bg_color = accent
+	draw_style_box(_spine_box, Rect2(0, 0, 8.0, h))  # engine-colored spine
 	# Before the early-outs below: an empty panel still has to be resizable.
 	_grip(_grip_rect)
 
@@ -965,15 +979,15 @@ func _draw_tabs() -> void:
 			# Tinted fill plus a 4 px accent underline. On a scaled-down capture a
 			# lighter grey alone is not a difference anyone can see, and an outline
 			# would just read as another button.
-			draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.26))
-			draw_rect(Rect2(rect.position.x, rect.end.y - 4.0, rect.size.x, 4.0), accent)
+			_tab_on_box.bg_color = Color(accent.r, accent.g, accent.b, 0.26)
+			draw_style_box(_tab_on_box, rect)
+			draw_rect(Rect2(rect.position.x + 4.0, rect.end.y - 3.0, rect.size.x - 8.0, 3.0), accent)
 		else:
-			draw_rect(rect, Color(0.06, 0.07, 0.10, 0.9))
-			draw_rect(rect, Color(1, 1, 1, 0.12), false, 2.0)
+			draw_style_box(_btn_box, rect)
 		var label := str(TABS[i])
 		var tx := rect.position.x + (rect.size.x - _text_w(label, TAB_PX)) * 0.5
 		_big(Vector2(tx, rect.position.y + rect.size.y * 0.68), label, TAB_PX,
-				Color(1, 1, 1, 0.98) if on else Color(0.72, 0.78, 0.86, 0.9))
+				Color.WHITE if on else ShellTheme.TEXT_MUTED)
 
 
 ## Step subdivided by its disjoint top-level children, plus whatever the feed
