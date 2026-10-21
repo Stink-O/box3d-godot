@@ -465,6 +465,34 @@ const ENGINE_ACCENTS := {
 @onready var _simulation_sep: Control = $UI/Sidebar/Margin/VBox/SimulationSep
 @onready var _contacts_sep: Control = $UI/Sidebar/Margin/VBox/ContactsSep
 @onready var _contacts_header: Label = $UI/Sidebar/Margin/VBox/ContactsHeader
+@onready var _display_sep: Control = $UI/Sidebar/Margin/VBox/DisplaySep
+
+## The settings sidebar's tabs, in bar order: id -> button title. Every row
+## stays a child of UI/Sidebar/Margin/VBox; a tab is just which of them show.
+const SIDEBAR_TABS := {
+	"sample": "Sample",
+	"physics": "Physics",
+	"view": "View",
+	"tools": "Tools",
+}
+## Where a tab with no remembered choice opens.
+const SIDEBAR_TAB_DEFAULT := "physics"
+var _side_tab := SIDEBAR_TAB_DEFAULT     ## the tab on screen
+var _side_tab_chosen := SIDEBAR_TAB_DEFAULT  ## the viewer's last click (persisted)
+var _side_tab_forced := ""               ## `--settings=<tab>`, consumed by the first load
+var _side_tab_buttons := {}              ## tab id -> its Button
+## VBox child -> tab id, worked out once from the section markers (see
+## _build_sidebar_tabs).
+var _side_tab_of := {}
+## VBox child -> whether it should show on its tab. Platform and feature rules
+## (async refused on wasm, rows a native engine lacks, a sample with no dials)
+## own this; a tab switch only ever ANDs with it, so it cannot bring back a
+## row those rules hid.
+var _side_wanted := {}
+var _sample_empty: Label = null  ## "nothing to tune" line for a sample tab with no rows
+## Dividers hidden only because they would open a tab; not the rules' doing,
+## so their wanted state is left alone when a tab's state is taken.
+var _side_lead_hidden := {}
 
 ## Start views saved at runtime with the sidebar's "Set Start View" button,
 ## keyed by sample scene path. Highest-priority spawn view, survives restarts.
@@ -695,6 +723,7 @@ func _ready() -> void:
 	_vsync_option.item_selected.connect(_on_vsync_selected)
 
 	_setup_reverts()
+	_build_sidebar_tabs()  # after the reverts: they wrap check boxes in rows
 
 	_restore_overlay_state()
 	_take_sticky_handoff()  # sidebar edits carried across an engine switch
@@ -707,13 +736,23 @@ func _ready() -> void:
 	# `-- --sample=Ragdoll` (case-insensitive) opens straight to that sample.
 	# `-- --profiler` opens with the solver profiler already up, so a recording
 	# setup does not have to click through the sidebar every launch.
+	# `-- --settings` opens the settings sidebar; `--settings=physics` (or
+	# sample / view / tools) opens it on that tab.
 	var wanted := ""
 	var replay_arg := ""
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sample="):
 			wanted = arg.get_slice("=", 1).to_lower()
-		elif arg == "--settings":
+		elif arg == "--settings" or arg.begins_with("--settings="):
+			# `--settings=physics` (sample / physics / view / tools) opens the
+			# sidebar on that tab; plain `--settings` opens it on the usual one.
 			_sidebar.visible = true
+			var tab := arg.get_slice("=", 1).to_lower() if "=" in arg else ""
+			if SIDEBAR_TABS.has(tab):
+				_side_tab_forced = tab
+			elif not tab.is_empty():
+				push_warning("--settings=%s is not a tab (%s); opening the usual one"
+						% [tab, ", ".join(PackedStringArray(SIDEBAR_TABS.keys()))])
 		elif arg == "--profiler":
 			_profiler_check.set_pressed_no_signal(true)
 			_profiler.visible = true
@@ -2514,10 +2553,175 @@ func _refresh_sidebar_sections() -> void:
 			or (_sample_size_box != null and _sample_size_box.visible)
 	_sample_header.visible = sample_on
 	_simulation_sep.visible = sample_on
+	if _sample_empty != null:
+		_sample_empty.visible = not sample_on
 	var contacts_on := _contact_hertz_row.visible or _contact_damping_row.visible \
 			or _bounce_iters_row.visible or _bounce_prop_row.visible
 	_contacts_sep.visible = contacts_on
 	_contacts_header.visible = contacts_on
+
+
+# --- Sidebar tabs -------------------------------------------------------------
+#
+# Sample | Physics | View | Tools over the sections above. The rows are NOT
+# moved into per-tab containers: they stay where main.tscn puts them (every
+# `$` path still resolves), each is assigned to a tab by the section it sits
+# in, and a tab switch is a visibility pass over UI/Sidebar/Margin/VBox.
+
+## Build the bar and work out which tab owns each row. Section markers, in
+## VBox order: SampleHeader opens Sample, SimulationSep opens Physics (with
+## CONTACTS under it), DisplaySep opens View (with CAMERA), the Recording
+## section opens Tools (with COMPARE ENGINES and the readout).
+func _build_sidebar_tabs() -> void:
+	var vbox: Control = _side_scroll.get_node("Margin/VBox")
+	_sample_empty = Label.new()
+	_sample_empty.name = "SampleEmpty"
+	_sample_empty.text = "This sample has no settings of its own."
+	_sample_empty.theme_type_variation = &"HintLabel"
+	_sample_empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_sample_empty.visible = false
+	vbox.add_child(_sample_empty)
+	vbox.move_child(_sample_empty, _sample_size_box.get_index() + 1)
+	# The Recording block carries its own leading divider for the single-column
+	# layout; it now opens a tab, where a divider on top reads as a stray line.
+	if _record_box != null and _record_box.get_child_count() > 0 \
+			and _record_box.get_child(0) is HSeparator:
+		(_record_box.get_child(0) as Control).visible = false
+
+	var markers := {
+		_sample_header: "sample",
+		_simulation_sep: "physics",
+		_display_sep: "view",
+		_record_box: "tools",
+	}
+	var tab := "sample"
+	for child in vbox.get_children():
+		if markers.has(child):
+			tab = markers[child]
+		_side_tab_of[child] = tab
+		_side_wanted[child] = (child as Control).visible
+
+	# The bar sits above the scroll area, so it stays put while a long tab
+	# scrolls on a short screen.
+	var column := VBoxContainer.new()
+	column.name = "SideColumn"
+	column.add_theme_constant_override("separation", 0)
+	_sidebar.remove_child(_side_scroll)
+	_sidebar.add_child(column)
+	var bar_margin := MarginContainer.new()
+	bar_margin.name = "SideTabMargin"
+	bar_margin.add_theme_constant_override("margin_left", 12)
+	bar_margin.add_theme_constant_override("margin_right", 12)
+	bar_margin.add_theme_constant_override("margin_top", 10)
+	bar_margin.add_theme_constant_override("margin_bottom", 2)
+	column.add_child(bar_margin)
+	var bar := HBoxContainer.new()
+	bar.name = "SideTabs"
+	bar.add_theme_constant_override("separation", 2)
+	bar_margin.add_child(bar)
+	column.add_child(_side_scroll)
+	_side_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var group := ButtonGroup.new()
+	# Touch screens need a finger-sized target; the canvas scale only grows it.
+	var tab_h := 44.0 if _touch != null else 36.0
+	for id: String in SIDEBAR_TABS:
+		var b := Button.new()
+		b.name = "Tab_%s" % id
+		b.text = SIDEBAR_TABS[id]
+		b.toggle_mode = true
+		b.button_group = group
+		b.theme_type_variation = &"SideTab"
+		b.focus_mode = Control.FOCUS_NONE
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size = Vector2(0.0, tab_h)
+		b.pressed.connect(_on_sidebar_tab_pressed.bind(id))
+		bar.add_child(b)
+		_side_tab_buttons[id] = b
+	if _touch != null:
+		_pass_through_for_scroll(bar_margin)
+
+	var layout := ConfigFile.new()
+	if layout.load(SHELL_LAYOUT_PATH) == OK \
+			and layout.has_section_key("shell", "settings_tab"):
+		var saved := String(layout.get_value("shell", "settings_tab"))
+		if SIDEBAR_TABS.has(saved):
+			_side_tab_chosen = saved
+	_side_tab = _side_tab_chosen
+	_apply_sidebar_tab()
+
+
+## A click on the bar. Rows on the tab being left may have been changed by the
+## viewer (the sample blurb's disclosure), so their state is taken first.
+func _on_sidebar_tab_pressed(id: String) -> void:
+	_take_tab_state(_side_tab)
+	_side_tab = id
+	_side_tab_chosen = id
+	_apply_sidebar_tab()
+	var layout := ConfigFile.new()
+	layout.load(SHELL_LAYOUT_PATH)  # keep every other section intact
+	layout.set_value("shell", "settings_tab", id)
+	layout.save(SHELL_LAYOUT_PATH)
+
+
+func _take_tab_state(tab: String) -> void:
+	for child in _side_tab_of:
+		if _side_tab_of[child] == tab and is_instance_valid(child) \
+				and not _side_lead_hidden.has(child):
+			_side_wanted[child] = (child as Control).visible
+
+
+## Start of _load: every row shows its own wanted state again, so the rules
+## that run during the load read and write real visibility.
+func _release_sidebar_tab() -> void:
+	if _side_tab_of.is_empty():
+		return
+	_take_tab_state(_side_tab)
+	for child in _side_tab_of:
+		if is_instance_valid(child):
+			(child as Control).visible = _side_wanted.get(child, true)
+	_side_lead_hidden.clear()
+
+
+## End of _load: record what the rules decided, pick the tab, lay it over.
+## A freshly picked sample with dials of its own opens on Sample; anything
+## else keeps the tab the viewer last chose. `--settings=<tab>` wins once.
+func _capture_sidebar_tab(fresh_sample: bool) -> void:
+	if _side_tab_of.is_empty():
+		return
+	for child in _side_tab_of:
+		if is_instance_valid(child):
+			_side_wanted[child] = (child as Control).visible
+	if not _side_tab_forced.is_empty():
+		_side_tab = _side_tab_forced
+		_side_tab_forced = ""
+	elif fresh_sample:
+		_side_tab = "sample" if bool(_side_wanted.get(_sample_size_box, false)) \
+				else _side_tab_chosen
+	_apply_sidebar_tab()
+
+
+## Show the rows of the current tab that want to show, hide the rest. A
+## divider is never the first thing on a tab: the section that opens it has
+## its own header, and a line above that reads as a stray.
+func _apply_sidebar_tab() -> void:
+	var vbox: Control = _side_scroll.get_node("Margin/VBox")
+	var leading := true
+	_side_lead_hidden.clear()
+	for child in vbox.get_children():
+		if not _side_tab_of.has(child):
+			continue
+		var show: bool = _side_tab_of[child] == _side_tab \
+				and bool(_side_wanted.get(child, true))
+		if show and leading:
+			if child is HSeparator:
+				show = false
+				_side_lead_hidden[child] = true
+			else:
+				leading = false
+		(child as Control).visible = show
+	for id: String in _side_tab_buttons:
+		(_side_tab_buttons[id] as Button).set_pressed_no_signal(id == _side_tab)
+	_side_scroll.scroll_vertical = 0
 
 
 ## Body counting walks the whole sample tree, which is real work at 16k+
@@ -2671,6 +2875,9 @@ func _on_menu_id(id: int) -> void:
 
 func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	var fresh_sample := path != _current_path
+	# Every sidebar row back to its own visibility while the rules below run,
+	# so what they write is the truth; the tab is laid back over it at the end.
+	_release_sidebar_tab()
 	# A recording binds to ONE world, and this function is where every world in
 	# the shell dies -- sample switch, Reset, engine switch, worker reload. Stop
 	# and write first, matching upstream, which finishes the recording before it
@@ -2706,6 +2913,7 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 	else:
 		var scene: PackedScene = load(path)
 		if scene == null:
+			_capture_sidebar_tab(false)
 			return
 		_current = scene.instantiate()
 		_current_path = path
@@ -2835,6 +3043,7 @@ func _load(path: String, sample_name: String, keep_camera := false) -> void:
 		_sample_blurb_toggle.visible = not _sample_blurb.text.is_empty()
 		_update_blurb_toggle_text()
 	_refresh_sidebar_sections()
+	_capture_sidebar_tab(fresh_sample)
 	# Both pickers follow the load rather than the click, so the mark is right
 	# after a Reset, an engine switch, a --sample= boot and a replay exit too.
 	_mark_current_sample()

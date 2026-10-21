@@ -329,6 +329,30 @@ static func _build() -> Theme:
 	t.set_color("font_color", &"FlatButton", TEXT_MUTED)
 	t.set_color("font_pressed_color", &"FlatButton", TEXT)
 	t.set_color("font_hover_pressed_color", &"FlatButton", Color.WHITE)
+	# The settings sidebar's tab bar: muted text on nothing at rest, a hover
+	# fill, and for the selected tab a stronger surface with a 2 px accent
+	# underline. Square along the underline, the control radius on top.
+	t.add_type(&"SideTab")
+	t.set_type_variation(&"SideTab", &"Button")
+	var tab_rest := _empty(8.0, 6.0)
+	var tab_hover := _box(FILL, Color(0, 0, 0, 0), RADIUS, 8.0, 6.0)
+	var tab_on := _box(Color(1, 1, 1, 0.11), Color(0, 0, 0, 0), RADIUS, 8.0, 6.0)
+	for sb: StyleBoxFlat in [tab_hover, tab_on]:
+		sb.corner_radius_bottom_left = 0
+		sb.corner_radius_bottom_right = 0
+	tab_on.border_color = ACCENT
+	tab_on.border_width_bottom = 2
+	var tab_on_hover: StyleBoxFlat = tab_on.duplicate()
+	tab_on_hover.bg_color = Color(1, 1, 1, 0.14)
+	t.set_stylebox("normal", &"SideTab", tab_rest)
+	t.set_stylebox("hover", &"SideTab", tab_hover)
+	t.set_stylebox("pressed", &"SideTab", tab_on)
+	t.set_stylebox("hover_pressed", &"SideTab", tab_on_hover)
+	t.set_color("font_color", &"SideTab", TEXT_MUTED)
+	t.set_color("font_hover_color", &"SideTab", TEXT)
+	t.set_color("font_pressed_color", &"SideTab", Color.WHITE)
+	t.set_color("font_hover_pressed_color", &"SideTab", Color.WHITE)
+
 	# Big floating buttons over the scene on touch screens: they have no panel
 	# under them, so they carry a solid surface of their own.
 	t.add_type(&"TouchButton")
