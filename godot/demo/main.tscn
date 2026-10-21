@@ -45,7 +45,7 @@ anchors_preset = 10
 anchor_right = 1.0
 offset_left = 10.0
 offset_top = 6.0
-offset_right = -430.0
+offset_right = -378.0
 offset_bottom = 40.0
 theme_override_constants/separation = 10
 

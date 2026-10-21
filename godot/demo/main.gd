@@ -564,7 +564,15 @@ var _record_status: Label = null  ## upstream's "recording (from step N)" line
 var _record_status_row: Control = null  ## the status line plus its busy spinner
 var _record_spinner: ShellSpinner = null  ## shown while a save is in flight
 var _rec_spinner: ShellSpinner = null  ## the same, beside the top bar's pill
-var _rec_pill: Label = null  ## the same state in the top bar, so a closed sidebar cannot hide it
+var _rec_pill: Label = null  ## the top bar's size readout while recording, and SAVING after
+## The top bar's recorder (Rec, Replay and its list), the everyday half of the
+## Tools tab's Recording section. Same state machine: _update_record_ui drives
+## both, and every click lands in the sidebar's own handlers.
+var _rec_group: Control = null
+var _rec_bar_btn: Button = null
+var _replay_bar_btn: Button = null
+var _replay_bar_menu: MenuButton = null
+var _recording_available := true  ## false on native engines, which cannot record
 ## Replay (F-R3). The bar owns the player, the renderer and the transport; the
 ## shell owns only "which sample is paused behind it" and how to get back.
 var _record_replay_row: Control = null
@@ -796,8 +804,21 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if event.keycode == KEY_TAB:
 		_sidebar_toggle.button_pressed = not _sidebar_toggle.button_pressed
+	elif event.keycode == KEY_F2 or event.keycode == KEY_F3:
+		# The bar's Rec and Replay. Nothing else in the demo binds F2 or F3; a
+		# field being typed into keeps its keys.
+		var focused := get_viewport().gui_get_focus_owner()
+		if focused is LineEdit or focused is TextEdit:
+			return
+		if event.keycode == KEY_F2:
+			_on_bar_record()
+		else:
+			_on_bar_replay()
+		get_viewport().set_input_as_handled()
 
 
 ## The shell keeps FOCUS_NONE on every button (see _ready), but the sidebar's
@@ -1793,7 +1814,7 @@ func _build_record_section() -> void:
 	_record_open_btn.text = "Open recording"
 	_record_open_btn.focus_mode = Control.FOCUS_NONE
 	_record_open_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_record_open_btn.about_to_popup.connect(_refresh_replay_menu)
+	_record_open_btn.about_to_popup.connect(_refresh_replay_menu.bind(_record_open_btn.get_popup()))
 	_record_open_btn.get_popup().id_pressed.connect(_on_replay_menu_id)
 	replay_row.add_child(_record_open_btn)
 	_record_last_btn = Button.new()
@@ -1810,13 +1831,17 @@ func _build_record_section() -> void:
 	# sample, not about which solver is running it.
 	vbox.move_child(box, _engine_sep.get_index())
 
-	# The sidebar starts closed and a recording can run for minutes, so the same
-	# state also rides in the top bar where it cannot be hidden by accident.
+	# The sidebar starts closed and a recording can run for minutes, so the
+	# state also rides in the top bar where it cannot be hidden by accident. The
+	# bar's Rec button now says "recording" and for how long; this pill carries
+	# what the button does not: the size climbing, and SAVING once it stops.
 	_rec_pill = Label.new()
 	_rec_pill.name = "RecPill"
 	_rec_pill.visible = false
-	_rec_pill.theme_type_variation = &"PillLabel"
+	_rec_pill.theme_type_variation = &"BarHint"
 	_rec_pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_rec_pill.mouse_filter = Control.MOUSE_FILTER_PASS
+	_rec_pill.tooltip_text = "Size of the recording so far"
 	_bar.add_child(_rec_pill)
 	# F-048: the top bar carries the SAVING state too, for the same reason it
 	# carries the REC one -- the sidebar starts closed, and "why is the Stop
@@ -1824,9 +1849,132 @@ func _build_record_section() -> void:
 	_rec_spinner = ShellSpinner.make(16.0, ShellTheme.RECORD)
 	_rec_spinner.name = "RecSpinner"
 	_bar.add_child(_rec_spinner)
+	_build_bar_recorder()
 
 	_recorder.save_finished.connect(_on_record_saved)
 	_update_record_ui()
+
+
+## The recorder group at the right end of the top bar, after a divider and
+## just left of Settings: Rec (the sidebar's "Record now", then its "Stop and
+## save") and Replay (its "Replay last") with the "Open recording" list on an
+## attached arrow. Touch shows the glyphs only, at finger size.
+func _build_bar_recorder() -> void:
+	var group := HBoxContainer.new()
+	group.name = "RecorderGroup"
+	group.add_theme_constant_override("separation", 6)
+	_rec_group = group
+	group.add_child(VSeparator.new())
+	var touch := DisplayServer.is_touchscreen_available()
+	# Touch: glyph-only, and wide enough to hit. The height is the bar's own
+	# 34 px band, which the touch canvas scale (_apply_touch_scale) turns into
+	# a finger-sized target like every other bar button; a taller minimum here
+	# would push the row out of the strip.
+	var min_size := Vector2(48.0, 0.0) if touch else Vector2.ZERO
+
+	_rec_bar_btn = Button.new()
+	_rec_bar_btn.name = "RecButton"
+	_rec_bar_btn.icon = ShellTheme.transport_icon("record")
+	_rec_bar_btn.focus_mode = Control.FOCUS_NONE
+	_rec_bar_btn.custom_minimum_size = min_size
+	_rec_bar_btn.pressed.connect(_on_bar_record)
+	group.add_child(_rec_bar_btn)
+
+	var split := HBoxContainer.new()
+	split.name = "ReplaySplit"
+	split.add_theme_constant_override("separation", 1)
+	_replay_bar_btn = Button.new()
+	_replay_bar_btn.name = "ReplayButton"
+	_replay_bar_btn.icon = ShellTheme.transport_icon("play")
+	_replay_bar_btn.theme_type_variation = &"SplitMain"
+	_replay_bar_btn.focus_mode = Control.FOCUS_NONE
+	_replay_bar_btn.custom_minimum_size = min_size
+	_replay_bar_btn.pressed.connect(_on_bar_replay)
+	split.add_child(_replay_bar_btn)
+	_replay_bar_menu = MenuButton.new()
+	_replay_bar_menu.name = "ReplayMenu"
+	_replay_bar_menu.icon = ShellTheme.theme().get_icon("arrow", &"OptionButton")
+	_replay_bar_menu.theme_type_variation = &"SplitArrow"
+	_replay_bar_menu.focus_mode = Control.FOCUS_NONE
+	_replay_bar_menu.tooltip_text = "Open a saved recording"
+	_replay_bar_menu.custom_minimum_size = Vector2(36.0, 0.0) if touch else Vector2.ZERO
+	_replay_bar_menu.about_to_popup.connect(_refresh_replay_menu.bind(_replay_bar_menu.get_popup()))
+	_replay_bar_menu.get_popup().id_pressed.connect(_on_replay_menu_id)
+	split.add_child(_replay_bar_menu)
+	group.add_child(split)
+	_bar.add_child(group)
+	if touch:
+		_rec_bar_btn.text = ""
+		_replay_bar_btn.text = ""
+
+
+## F2 and the bar's Rec: arm from here (the sidebar's "Record now"), or stop
+## and save the session that is running. Never while a save or a replay holds
+## the recorder; the buttons are disabled then, and the key obeys the same.
+func _on_bar_record() -> void:
+	if not _rec_bar_available():
+		return
+	if _recorder.is_recording():
+		_on_record_stop()
+	else:
+		_on_record_now()
+
+
+## F3 and the bar's Replay: the sidebar's "Replay last".
+func _on_bar_replay() -> void:
+	if _replay_bar_btn == null or _replay_bar_btn.disabled:
+		return
+	_enter_replay(ShellRecorder.last_path())
+
+
+func _rec_bar_available() -> bool:
+	if _rec_bar_btn == null or not _recording_available:
+		return false
+	return not _recorder.is_saving() and not (_replay != null and is_instance_valid(_replay))
+
+
+## Recorded time, from the step counter: the recording is of the simulation,
+## so its length is the steps it holds, at the project's tick rate.
+func _recorded_clock() -> String:
+	var ticks := maxi(_step_count - _recorder.start_step, 0)
+	var seconds := int(ticks / float(Engine.physics_ticks_per_second))
+	return "%d:%02d" % [seconds / 60, seconds % 60]
+
+
+## The bar's half of _update_record_ui: same inputs, so the two can never
+## disagree about what the recorder is doing.
+func _update_bar_recorder(live: bool, saving: bool, replaying: bool, has_last: bool) -> void:
+	if _rec_group == null:
+		return
+	_rec_group.visible = _recording_available
+	var touch := _touch != null
+	_rec_bar_btn.disabled = saving or replaying
+	if live:
+		_rec_bar_btn.theme_type_variation = &"RunningButton"
+		_rec_bar_btn.icon = ShellTheme.transport_icon("stop")
+		_rec_bar_btn.text = _recorded_clock()
+		_rec_bar_btn.tooltip_text = "Stop and save the recording (F2)"
+	else:
+		_rec_bar_btn.theme_type_variation = &""
+		_rec_bar_btn.icon = ShellTheme.transport_icon("record")
+		_rec_bar_btn.text = "" if touch else "Rec"
+		_rec_bar_btn.tooltip_text = "Saving the last recording..." if saving \
+				else "Close the replay first" if replaying \
+				else "Record from now (F2). Settings > Tools also restarts the sample first."
+	_replay_bar_btn.text = "" if touch else "Replay"
+	var blocked := live or saving or replaying
+	_replay_bar_btn.disabled = blocked or not has_last
+	_replay_bar_menu.disabled = blocked
+	if live:
+		_replay_bar_btn.tooltip_text = "Stop the recording first"
+	elif saving:
+		_replay_bar_btn.tooltip_text = "Saving the last recording..."
+	elif replaying:
+		_replay_bar_btn.tooltip_text = "Already replaying: Close the timeline first"
+	elif not has_last:
+		_replay_bar_btn.tooltip_text = "Nothing recorded yet: press Rec or F2 first"
+	else:
+		_replay_bar_btn.tooltip_text = "Play back the most recent recording (F3)"
 
 
 func _record_world():
@@ -1922,7 +2070,9 @@ func _update_record_ui() -> void:
 	_rec_pill.visible = live or saving
 	_rec_spinner.visible = saving
 	# Probed here rather than per frame: it is a stat() on a remembered path.
-	_record_last_btn.disabled = ShellRecorder.last_path().is_empty()
+	var has_last := not ShellRecorder.last_path().is_empty()
+	_record_last_btn.disabled = not has_last
+	_update_bar_recorder(live, saving, replaying, has_last)
 	if replaying:
 		_record_status.add_theme_color_override("font_color", ShellTheme.TEXT_MUTED)
 		_record_status.text = "Replaying. Close the timeline to come back to the sample."
@@ -1964,15 +2114,16 @@ func _update_record_indicator() -> void:
 		return
 	var text := _recorder.status_text()
 	_record_status.text = text
-	_rec_pill.text = "REC  %s" % text
+	_rec_pill.text = ShellRecorder.human_size(_recorder.get_size())
+	if _rec_bar_btn != null:
+		_rec_bar_btn.text = _recorded_clock()
 
 
 # --- Replay (F-R3): the timeline takes over the viewport ---------------------
 
 ## Fill the Open menu from `user://recordings`, newest first. Rebuilt on every
 ## popup because a recording can be made between two openings of it.
-func _refresh_replay_menu() -> void:
-	var popup: PopupMenu = _record_open_btn.get_popup()
+func _refresh_replay_menu(popup: PopupMenu) -> void:
 	popup.clear()
 	_replay_paths = ShellRecorder.list_saved()
 	if _replay_paths.is_empty():
@@ -2303,7 +2454,9 @@ func _show_controls_hint() -> void:
 	if _touch != null:
 		_info.text = "%s      Stick: move   ·   Drag: look   ·   Touch a body: grab   ·   Two fingers: zoom / pan" % _current_name
 	else:
-		_info.text = "%s      Right-click: fly (WASD / Q E, Shift boost)   ·   Left-drag: grab (scroll: reel)   ·   Hold F: charge shot" % _current_name
+		# Last on the line, so a narrow bar trims the recorder keys first.
+		var keys := "   ·   F2: record   ·   F3: replay" if _recording_available else ""
+		_info.text = "%s      Right-click: fly (WASD / Q E, Shift boost)   ·   Left-drag: grab (scroll: reel)   ·   Hold F: charge shot%s" % [_current_name, keys]
 
 
 func _on_contact_hertz_changed(value: float) -> void:
@@ -2489,6 +2642,9 @@ func _set_box3d_rows_visible(on: bool) -> void:
 	# the whole section goes rather than explaining an absence.
 	if _record_box != null:
 		_record_box.visible = on
+	_recording_available = on
+	if _rec_group != null:
+		_rec_group.visible = on
 
 
 # Pull the just-loaded sample's world settings into the sidebar controls

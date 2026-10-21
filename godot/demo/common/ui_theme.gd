@@ -272,7 +272,9 @@ static func _button_states(t: Theme, type: StringName, menu := false) -> void:
 	t.set_color("font_hover_pressed_color", type, Color.WHITE if menu else ACCENT_TEXT)
 	t.set_color("font_disabled_color", type, Color(TEXT, 0.35))
 	t.set_color("icon_normal_color", type, TEXT)
+	t.set_color("icon_hover_color", type, Color.WHITE)
 	t.set_color("icon_pressed_color", type, ACCENT_TEXT)
+	t.set_color("icon_disabled_color", type, Color(1, 1, 1, 0.35))
 	t.set_constant("h_separation", type, 6)
 
 
@@ -329,6 +331,35 @@ static func _build() -> Theme:
 	t.set_color("font_color", &"FlatButton", TEXT_MUTED)
 	t.set_color("font_pressed_color", &"FlatButton", TEXT)
 	t.set_color("font_hover_pressed_color", &"FlatButton", Color.WHITE)
+	# A split button: the main half and its menu arrow drawn as one unit, the
+	# outer corners rounded and the shared edge square.
+	for half: StringName in [&"SplitMain", &"SplitArrow"]:
+		var base := &"Button" if half == &"SplitMain" else &"MenuButton"
+		t.add_type(half)
+		t.set_type_variation(half, base)
+		for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+			var sb: StyleBoxFlat = (t.get_stylebox(state, base) as StyleBoxFlat).duplicate()
+			if half == &"SplitMain":
+				sb.corner_radius_top_right = 0
+				sb.corner_radius_bottom_right = 0
+			else:
+				sb.corner_radius_top_left = 0
+				sb.corner_radius_bottom_left = 0
+				sb.content_margin_left = 6.0
+				sb.content_margin_right = 6.0
+			t.set_stylebox(state, half, sb)
+	# A button that is running something (the bar's Rec while recording): the
+	# record red as a soft fill, pale red text.
+	t.add_type(&"RunningButton")
+	t.set_type_variation(&"RunningButton", &"Button")
+	t.set_stylebox("normal", &"RunningButton", _box(Color(RECORD, 0.24)))
+	t.set_stylebox("hover", &"RunningButton", _box(Color(RECORD, 0.34)))
+	t.set_stylebox("pressed", &"RunningButton", _box(Color(RECORD, 0.40)))
+	t.set_stylebox("hover_pressed", &"RunningButton", _box(Color(RECORD, 0.40)))
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color",
+			"icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
+		t.set_color(c, &"RunningButton", Color(1.0, 0.80, 0.80))
+
 	# The settings sidebar's tab bar: muted text on nothing at rest, a hover
 	# fill, and for the selected tab a stronger surface with a 2 px accent
 	# underline. Square along the underline, the control radius on top.
@@ -465,7 +496,9 @@ static func _build() -> Theme:
 	# Separators.
 	t.set_stylebox("separator", &"HSeparator", _hairline(LINE, false))
 	t.set_constant("separation", &"HSeparator", 9)
-	t.set_stylebox("separator", &"VSeparator", _hairline(LINE, true, -8.0))
+	# Vertical dividers sit on the top bar between groups, over a lighter
+	# strip than the sidebar's, so a step brighter than LINE to stay visible.
+	t.set_stylebox("separator", &"VSeparator", _hairline(Color(1, 1, 1, 0.16), true, -6.0))
 	t.set_constant("separation", &"VSeparator", 9)
 
 	# Panels: a plain card by default; glass is applied per panel in code.
@@ -665,6 +698,36 @@ static func _chevron(s: int, right: bool, col: Color) -> ImageTexture:
 	return _raster(s, s, func(p: Vector2) -> Color:
 		var d := minf(_sd_seg(p, a, m), _sd_seg(p, m, b))
 		return col if d < 1.0 else Color(0, 0, 0, 0))
+
+
+## Transport glyphs for the top bar's recorder, drawn so they cannot fall back
+## to a missing font glyph (the browser build has no system fonts).
+static var _transport := {}
+
+
+static func transport_icon(kind: String) -> Texture2D:
+	if not _transport.has(kind):
+		const S := 14
+		var c := Vector2(S, S) * 0.5
+		var tex: ImageTexture
+		match kind:
+			"record":
+				tex = _raster(S, S, func(p: Vector2) -> Color:
+					return RECORD if p.distance_to(c) < 5.0 else Color(0, 0, 0, 0))
+			"stop":
+				tex = _raster(S, S, func(p: Vector2) -> Color:
+					return Color.WHITE if _sd_rbox(p, c, Vector2(4.5, 4.5), 1.0) < 0.0 \
+							else Color(0, 0, 0, 0))
+			_:  # "play": a right-pointing triangle
+				var a := Vector2(4.0, 2.5)
+				var b := Vector2(4.0, 11.5)
+				var tip := Vector2(11.5, 7.0)
+				tex = _raster(S, S, func(p: Vector2) -> Color:
+					var inside := (b - a).cross(p - a) <= 0.0 and (tip - b).cross(p - b) <= 0.0 \
+							and (a - tip).cross(p - tip) <= 0.0
+					return Color.WHITE if inside else Color(0, 0, 0, 0))
+		_transport[kind] = tex
+	return _transport[kind]
 
 
 ## The popup's radio and check mark.
