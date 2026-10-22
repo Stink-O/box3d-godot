@@ -3314,7 +3314,7 @@ func _add_native_dressing(path: String, stage: Node3D) -> void:
 		stage.toggle_label = root.get_toggle_label()
 	# The authored script's shell opt-ins ride across as metadata -- the
 	# script itself cannot (_load reads the meta alongside the property).
-	if bool(root.get("wants_body_counter")):
+	if "wants_body_counter" in root and root.wants_body_counter:
 		stage.set_meta("wants_body_counter", true)
 	_add_camera_marker(root, stage)
 	root.free()
