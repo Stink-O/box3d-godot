@@ -25,7 +25,7 @@ upstream engine sources are unchanged; everything Godot-specific lives in
 > production dependency.
 
 **Contents:** [Features](#features) ·
-[New in 0.5.0](#new-in-050) ·
+[New in 0.6.0](#new-in-060) ·
 [Browser demo](#try-it-in-a-browser-first) ·
 [Getting started](#getting-started) ·
 [Your own project](#add-box3d-to-your-own-project) ·
@@ -53,13 +53,47 @@ upstream engine sources are unchanged; everything Godot-specific lives in
   Android and web; unzip it next to your `project.godot` and restart Godot.
   A second zip is the whole demo project, ready to open in Godot. Building it
   yourself is one `scons` command, no prebuilt engine binary required.
-- **A 72-sample browser demo**: stacks, a ragdoll, a drivable car, joints,
+- **An 86-sample browser demo**: stacks, a ragdoll, a drivable car, joints,
   queries, determinism showcases and toys, organised by category, with a
   physics-engine selector that reruns any sample on Godot Physics or Jolt for
   side-by-side comparison.
 - **Runs on Android** (arm64 + x86_64), verified on real hardware under
   Vulkan, with touch controls and a mobile-scaled UI. Toolchain walkthrough:
   [`godot/ANDROID_BUILD.md`](godot/ANDROID_BUILD.md).
+
+## New in 0.6.0
+
+- **Old recordings no longer load.** Upstream added a world setting to the
+  snapshot and recording formats, so `.b3rec` files made with 0.5.0 or
+  earlier are refused. Record them again. This is why the version jumps to
+  0.6.0.
+- **Upstream synced** through Erin's solver and joint rework, contact
+  manifold fixes, and gyroscopic torque that is now skipped on near-spherical
+  bodies. The new `Box3DWorld.isotropic_inertia_tolerance` (default 0.2)
+  sets how close to a sphere a body must be for that.
+- **New bindings:**
+  - `Box3DBody`: `safety_factor`, `start_asleep`, `get_min_extent()` /
+    `get_max_extent()`, `cast_shape()` / `overlaps_shape()` with any proxy
+    plus `max_fraction` and `can_encroach`, `collide_mover()` and
+    `time_of_impact_mover()`.
+  - `Box3DWorld`: `collide_mover()` and `get_move_events()`.
+  - `Box3DCollision`: `solve_planes()` and `clip_vector()`, the character
+    plane solver on its own.
+  - `Box3DJoint.is_awake()` and `Box3DCollisionShape.get_contacts()`.
+- **`step(0)` now runs collision and events without solving**, as upstream
+  defines a zero time step. Negative, NaN and infinite steps are refused
+  instead of corrupting body positions.
+- **14 new samples:** Safety Factor, Spinning Capsule, Body Cast, Capsule
+  Plane, Mover Overlap, Breakable Joints, Card House, Arch, Ragdoll Pile,
+  Lock Mixing, Fixed Rotation, Rolling Resistance, Body Move Events and Rope
+  Bridge. Character Controller gains upstream's falling plate and tree.
+- **A refreshed demo:** a grid floor that runs to the horizon, a new UI
+  theme, Settings split into Sample, Physics, View and Tools tabs, and Rec /
+  Replay on the top bar (F2 and F3).
+- Fixes: the length scale project setting now shows without Advanced
+  Settings ([#6](https://github.com/Stink-O/box3d-godot/issues/6), thanks
+  Chailotl), and switching Compare Engines to Jolt or Godot Physics no longer
+  logs a script error on most samples.
 
 ## New in 0.5.0
 
